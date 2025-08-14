@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join SideQuest Newsletter</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 2px solid #444;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 12px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: #1a1a1a;
+            font-size: 18px;
+            letter-spacing: -1px;
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            color: #cccccc;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+        
+        .form-container {
+            margin: 30px 0;
+        }
+        
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        input[type="email"] {
+            width: 100%;
+            padding: 18px 25px;
+            border: 2px solid #444;
+            border-radius: 12px;
+            font-size: 16px;
+            background: #1a1a1a;
+            color: #ffffff;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        input[type="email"]:focus {
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2);
+            background: #2a2a2a;
+        }
+        
+        input[type="email"]::placeholder {
+            color: #888;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 18px 25px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border: none;
+            border-radius: 12px;
+            color: #1a1a1a;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4);
+        }
+        
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .message {
+            margin-top: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .message.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .message.success {
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+            color: #1a1a1a;
+            border: 2px solid #00ff88;
+        }
+        
+        .message.error {
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            color: #ffffff;
+            border: 2px solid #ff6b35;
+        }
+        
+        .features {
+            margin-top: 40px;
+            text-align: left;
+        }
+        
+        .features h3 {
+            color: #FFD700;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 8px 0;
+            color: #cccccc;
+            position: relative;
+            padding-left: 25px;
+            font-size: 14px;
+        }
+        
+        .feature-list li::before {
+            content: '⚡';
+            position: absolute;
+            left: 0;
+            color: #FFD700;
+            font-weight: bold;
+        }
+        
+        .footer-links {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #444;
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .footer-links a {
+            color: #FFD700;
+            text-decoration: none;
+            margin: 0 10px;
+            transition: color 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+            color: #FFA500;
+        }
+        
+        /* Loading animation */
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #1a1a1a;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 30px 25px;
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+        }
+        
+        /* Gaming-style glow effects */
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.5); }
+        }
+        
+        .container:hover {
+            animation: glow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">SQ</div>
+        
+        <h1>Join the Quest</h1>
+        <p class="subtitle">Get exclusive gaming updates, events, and special offers delivered straight to your inbox!</p>
+        
+        <form class="form-container" id="signupForm">
+            <div class="input-group">
+                <input type="email" id="email" placeholder="Enter your email address" required>
+            </div>
+            <button type="submit" class="submit-btn" id="submitBtn">
+                Level Up Your Inbox
+            </button>
+        </form>
+        
+        <div id="message" class="message"></div>
+        
+        <div class="features">
+            <h3>What You'll Get:</h3>
+            <ul class="feature-list">
+                <li>Early access to gaming events & tournaments</li>
+                <li>Exclusive member discounts & offers</li>
+                <li>Community night invitations</li>
+                <li>New location openings & updates</li>
+                <li>Gaming tips & industry news</li>
+            </ul>
+        </div>
+        
+        <div class="footer-links">
+            <a href="/admin">Staff Login</a> • 
+            <a href="https://sidequesthub.com">SideQuest Hub</a> • 
+            <a href="#" onclick="showPrivacyInfo()">Privacy</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const messageDiv = document.getElementById('message');
+            const submitButton = document.getElementById('submitBtn');
+            
+            // Show loading state
+            submitButton.innerHTML = '<span class="loading-spinner"></span>Joining Quest...';
+            submitButton.disabled = true;
+            
+            // Hide any previous messages
+            messageDiv.classList.remove('show');
+            
+            try {
+                const response = await fetch('/subscribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, source: 'web' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    messageDiv.className = 'message success';
+                    messageDiv.innerHTML = '🎮 Welcome to the SideQuest community! Check your email for confirmation.';
+                    document.getElementById('email').value = '';
+                    
+                    // Add some celebration effect
+                    submitButton.innerHTML = '✅ Quest Joined!';
+                    setTimeout(() => {
+                        submitButton.innerHTML = 'Level Up Your Inbox';
+                        submitButton.disabled = false;
+                    }, 3000);
+                } else {
+                    messageDiv.className = 'message error';
+                    messageDiv.innerHTML = `❌ ${data.error}`;
+                    submitButton.innerHTML = 'Level Up Your Inbox';
+                    submitButton.disabled = false;
+                }
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.innerHTML = '❌ Connection error. Please try again later.';
+                console.error('Error:', error);
+                submitButton.innerHTML = 'Level Up Your Inbox';
+                submitButton.disabled = false;
+            }
+            
+            // Show message with animation
+            setTimeout(() => {
+                messageDiv.classList.add('show');
+            }, 100);
+        });
+        
+        function showPrivacyInfo() {
+            alert('Your email is only used for SideQuest newsletters and updates. We never share your information with third parties. You can unsubscribe at any time.');
+        }
+        
+        // Add some interactive elements
+        document.getElementById('email').addEventListener('focus', function() {
+            this.parentElement.style.transform = 'scale(1.02)';
+        });
+        
+        document.getElementById('email').addEventListener('blur', function() {
+            this.parentElement.style.transform = 'scale(1)';
+        });
+    </script>
+</body>
+</html>

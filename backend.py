@@ -817,7 +817,7 @@ def signup_page():
             </ul>
         </div>
         <div class="footer-links">
-            <a href="/admin">Staff Login</a> • 
+            <a href="https://sidequesthub.com">SideQuest Hub</a> • 
             <a href="#" onclick="showPrivacyInfo()">Privacy</a>
         </div>
     </div>
@@ -946,4 +946,5 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 

@@ -1251,7 +1251,9 @@
     async function loadEvents() {
       try {
         const typeFilter = document.getElementById('eventTypeFilter')?.value || 'all';
-        const response = await fetch(`${API_BASE}/api/events?type=${typeFilter}&status=published&upcoming=true`);
+        
+        // Show all events (both draft and published) in admin dashboard
+        const response = await fetch(`${API_BASE}/api/events?type=${typeFilter}&upcoming=true`);
         
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
@@ -1260,10 +1262,13 @@
         if (data.success) {
           currentEvents = data.events;
           renderEventsList(data.events);
+        } else {
+          console.error('API returned error:', data.error);
+          document.getElementById('eventsList').innerHTML = '<p class="text-danger">Failed to load events: ' + (data.error || 'Unknown error') + '</p>';
         }
       } catch (error) {
         console.error('Error loading events:', error);
-        document.getElementById('eventsList').innerHTML = '<p class="text-danger">Failed to load events</p>';
+        document.getElementById('eventsList').innerHTML = '<p class="text-danger">Failed to load events: ' + error.message + '</p>';
       }
     }
 

@@ -1226,6 +1226,134 @@ def create_event():
         log_error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/events/<int:event_id>', methods=['DELETE'])
+def delete_event(event_id):
+    """Delete an event"""
+    try:
+        force = request.args.get('force', 'false').lower() == 'true'
+        
+        # Check if event has registrations
+        registration_check = execute_query_one(
+            "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
+            (event_id,)
+        )
+        
+        has_registrations = registration_check and registration_check['count'] > 0
+        
+        if has_registrations and not force:
+            return jsonify({
+                "success": False,
+                "error": "Cannot delete event with registrations. Use force=true to delete anyway.",
+                "has_registrations": True
+            }), 400
+        
+        # If force delete or no registrations, proceed
+        if has_registrations and force:
+            # Delete registrations first
+            delete_registrations_query = "DELETE FROM event_registrations WHERE event_id = %s"
+            execute_query_one(delete_registrations_query, (event_id,))
+            log_activity(f"Force deleted registrations for event {event_id}", "warning")
+        
+        # Delete the event
+        delete_query = "DELETE FROM events WHERE id = %s RETURNING title"
+        result = execute_query_one(delete_query, (event_id,))
+        
+        if result:
+            log_activity(f"Deleted event: {result['title']} (ID: {event_id})", "success")
+            return jsonify({
+                "success": True,
+                "message": f"Event '{result['title']}' deleted successfully"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Event not found"
+            }), 404
+            
+    except Exception as e:
+        log_error(f"Error deleting event {event_id}: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
+def get_event_attendees(event_id):
+    """Get attendees for an event"""
+    try:
+        query = """
+            SELECT 
+                r.id,
+                r.subscriber_email,
+                r.player_name,
+                r.confirmation_code,
+                r.registered_at,
+                r.attended,
+                r.checked_in_at
+            FROM event_registrations r
+            WHERE r.event_id = %s
+            ORDER BY r.registered_at ASC
+        """
+        
+        result = execute_query(query, (event_id,))
+        
+        attendees = []
+        if result:
+            for row in result:
+                attendee = dict(row)
+                # Convert datetime objects
+                if attendee['registered_at']:
+                    attendee['registered_at'] = attendee['registered_at'].isoformat()
+                if attendee['checked_in_at']:
+                    attendee['checked_in_at'] = attendee['checked_in_at'].isoformat()
+                attendees.append(attendee)
+        
+        return jsonify({
+            "success": True,
+            "attendees": attendees,
+            "count": len(attendees)
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting attendees for event {event_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
+def checkin_attendee(event_id):
+    """Check in an attendee"""
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+        
+        # Update the registration
+        query = """
+            UPDATE event_registrations 
+            SET attended = TRUE, checked_in_at = NOW()
+            WHERE event_id = %s AND subscriber_email = %s
+            RETURNING confirmation_code
+        """
+        
+        result = execute_query_one(query, (event_id, email))
+        
+        if result:
+            log_activity(f"Checked in {email} for event {event_id}", "success")
+            return jsonify({
+                "success": True,
+                "message": f"Checked in {email}",
+                "confirmation_code": result['confirmation_code']
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Registration not found"
+            }), 404
+            
+    except Exception as e:
+        log_error(f"Error checking in attendee: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # =============================
 # Event Email Automation
 # =============================

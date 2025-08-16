@@ -823,6 +823,365 @@ def signup_page():
 </html>'''
     return signup_html
 
+@app.route('/admin')
+def admin_dashboard():
+    try:
+        return """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>SideQuest Admin Dashboard</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a1a; color: #fff; padding: 20px; }
+                .header { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 20px; border-radius: 12px; margin-bottom: 30px; color: #1a1a1a; }
+                .header h1 { font-size: 2rem; font-weight: 800; }
+                .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+                .card { background: #2a2a2a; padding: 24px; border-radius: 12px; border: 2px solid #444; }
+                .card h2 { color: #FFD700; margin-bottom: 16px; }
+                .btn { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #1a1a1a; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; margin: 8px 4px; text-decoration: none; display: inline-block; }
+                .btn:hover { transform: translateY(-2px); }
+                .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin: 20px 0; }
+                .stat { background: #3a3a3a; padding: 16px; border-radius: 8px; text-align: center; }
+                .stat-number { font-size: 2rem; font-weight: 800; color: #FFD700; }
+                textarea { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #444; background: #1a1a1a; color: #fff; resize: vertical; min-height: 120px; }
+                input[type="text"], input[type="email"] { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #444; background: #1a1a1a; color: #fff; margin: 8px 0; }
+                .message { padding: 12px; border-radius: 8px; margin: 12px 0; }
+                .success { background: #0f5132; color: #d1e7dd; border: 1px solid #198754; }
+                .error { background: #842029; color: #f8d7da; border: 1px solid #dc3545; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>🎮 SideQuest Admin Dashboard</h1>
+                <p>Manage your gaming cafe newsletter and events</p>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <h2>📊 Quick Stats</h2>
+                    <div class="stats" id="statsContainer">
+                        <div class="stat">
+                            <div class="stat-number" id="totalSubs">-</div>
+                            <div>Total Subscribers</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number" id="todaySubs">-</div>
+                            <div>Today</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number" id="weekSubs">-</div>
+                            <div>This Week</div>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="loadStats()">Refresh Stats</button>
+                </div>
+
+                <div class="card">
+                    <h2>📧 Add Subscriber</h2>
+                    <form onsubmit="addSubscriber(event)">
+                        <input type="email" id="newEmail" placeholder="Enter email address" required>
+                        <button type="submit" class="btn">Add Subscriber</button>
+                    </form>
+                    <div id="addMessage"></div>
+                </div>
+
+                <div class="card">
+                    <h2>📮 Send Campaign</h2>
+                    <form onsubmit="sendCampaign(event)">
+                        <input type="text" id="subject" placeholder="Email Subject" required>
+                        <textarea id="emailBody" placeholder="Email content (HTML supported)"></textarea>
+                        <button type="submit" class="btn">Send to All Subscribers</button>
+                    </form>
+                    <div id="campaignMessage"></div>
+                </div>
+
+                <div class="card">
+                    <h2>👥 Manage Subscribers</h2>
+                    <button class="btn" onclick="loadSubscribers()">View All Subscribers</button>
+                    <button class="btn" onclick="exportSubscribers()">Export List</button>
+                    <div id="subscribersList"></div>
+                </div>
+
+                <div class="card">
+                    <h2>🎮 Quick Links</h2>
+                    <a href="/signup" class="btn" target="_blank">Signup Page</a>
+                    <a href="/health" class="btn" target="_blank">Health Check</a>
+                    <button class="btn" onclick="clearAllData()">⚠️ Clear All Data</button>
+                </div>
+            </div>
+
+            <script>
+                async function loadStats() {
+                    try {
+                        const response = await fetch('/subscribers');
+                        const data = await response.json();
+                        if (data.success && data.stats) {
+                            document.getElementById('totalSubs').textContent = data.stats.total || 0;
+                            document.getElementById('todaySubs').textContent = data.stats.today || 0;
+                            document.getElementById('weekSubs').textContent = data.stats.week || 0;
+                        }
+                    } catch (error) {
+                        console.error('Error loading stats:', error);
+                    }
+                }
+
+                async function addSubscriber(event) {
+                    event.preventDefault();
+                    const email = document.getElementById('newEmail').value;
+                    const messageDiv = document.getElementById('addMessage');
+                    
+                    try {
+                        const response = await fetch('/subscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email, source: 'admin' })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            messageDiv.className = 'message success';
+                            messageDiv.textContent = 'Subscriber added successfully!';
+                            document.getElementById('newEmail').value = '';
+                            loadStats();
+                        } else {
+                            messageDiv.className = 'message error';
+                            messageDiv.textContent = data.error || 'Failed to add subscriber';
+                        }
+                    } catch (error) {
+                        messageDiv.className = 'message error';
+                        messageDiv.textContent = 'Connection error';
+                    }
+                }
+
+                async function sendCampaign(event) {
+                    event.preventDefault();
+                    const subject = document.getElementById('subject').value;
+                    const body = document.getElementById('emailBody').value;
+                    const messageDiv = document.getElementById('campaignMessage');
+                    
+                    if (!confirm('Send campaign to all subscribers?')) return;
+                    
+                    try {
+                        // First get subscribers
+                        const subsResponse = await fetch('/subscribers');
+                        const subsData = await subsResponse.json();
+                        
+                        if (!subsData.success) {
+                            throw new Error('Failed to get subscribers');
+                        }
+                        
+                        const response = await fetch('/send-campaign', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                subject,
+                                body,
+                                recipients: subsData.subscribers
+                            })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            messageDiv.className = 'message success';
+                            messageDiv.textContent = `Campaign sent to ${data.sent} subscribers!`;
+                            document.getElementById('subject').value = '';
+                            document.getElementById('emailBody').value = '';
+                        } else {
+                            messageDiv.className = 'message error';
+                            messageDiv.textContent = data.error || 'Failed to send campaign';
+                        }
+                    } catch (error) {
+                        messageDiv.className = 'message error';
+                        messageDiv.textContent = 'Error: ' + error.message;
+                    }
+                }
+
+                async function loadSubscribers() {
+                    const container = document.getElementById('subscribersList');
+                    container.innerHTML = 'Loading...';
+                    
+                    try {
+                        const response = await fetch('/subscribers');
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            if (data.subscribers.length === 0) {
+                                container.innerHTML = '<p>No subscribers yet.</p>';
+                            } else {
+                                container.innerHTML = `
+                                    <h3>Subscribers (${data.subscribers.length})</h3>
+                                    <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                                        ${data.subscribers.map(email => `
+                                            <div style="display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #444;">
+                                                <span>${email}</span>
+                                                <button onclick="removeSubscriber('${email}')" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Remove</button>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `;
+                            }
+                        }
+                    } catch (error) {
+                        container.innerHTML = '<p>Error loading subscribers</p>';
+                    }
+                }
+
+                async function removeSubscriber(email) {
+                    if (!confirm(`Remove ${email}?`)) return;
+                    
+                    try {
+                        const response = await fetch('/unsubscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            loadSubscribers();
+                            loadStats();
+                        } else {
+                            alert('Error: ' + (data.error || 'Failed to remove subscriber'));
+                        }
+                    } catch (error) {
+                        alert('Connection error');
+                    }
+                }
+
+                function exportSubscribers() {
+                    fetch('/subscribers')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                const csv = 'Email\\n' + data.subscribers.join('\\n');
+                                const blob = new Blob([csv], { type: 'text/csv' });
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'sidequest-subscribers.csv';
+                                a.click();
+                                window.URL.revokeObjectURL(url);
+                            }
+                        });
+                }
+
+                async function clearAllData() {
+                    if (!confirm('⚠️ This will delete ALL subscribers! Are you sure?')) return;
+                    if (!confirm('This action cannot be undone. Type DELETE to confirm.')) return;
+                    
+                    try {
+                        const response = await fetch('/clear-data', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ confirmation: 'DELETE' })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            alert('All data cleared');
+                            loadStats();
+                            document.getElementById('subscribersList').innerHTML = '';
+                        }
+                    } catch (error) {
+                        alert('Error clearing data');
+                    }
+                }
+
+                // Load initial stats
+                loadStats();
+            </script>
+        </body>
+        </html>
+        """
+    except Exception as e:
+        return f"<h1>Admin Dashboard Error</h1><p>{str(e)}</p>", 500
+
+# =============================
+# Additional Missing Routes
+# =============================
+
+@app.route('/send-campaign', methods=['POST'])
+def send_campaign():
+    try:
+        if not api_instance:
+            return jsonify({"success": False, "error": "Email API not initialized"}), 500
+        
+        data = request.json or {}
+        subject = data.get('subject', '(no subject)')
+        body = data.get('body', '')
+        from_name = data.get('fromName', SENDER_NAME)
+        recipients = data.get('recipients', [])
+        
+        if not recipients:
+            return jsonify({"success": False, "error": "No recipients provided"}), 400
+        if not body:
+            return jsonify({"success": False, "error": "Email body is required"}), 400
+        
+        to_list = [{"email": email} for email in recipients]
+        email = sib_api_v3_sdk.SendSmtpEmail(
+            sender={"name": from_name, "email": SENDER_EMAIL},
+            to=to_list,
+            subject=subject,
+            html_content=body,
+        )
+        
+        api_response = api_instance.send_transac_email(email)
+        log_activity(f"Campaign sent to {len(recipients)} subscribers", "success")
+        
+        return jsonify({"success": True, "sent": len(recipients), "response": str(api_response)})
+        
+    except Exception as e:
+        error_msg = f"Campaign send error: {str(e)}"
+        log_error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/clear-data', methods=['POST'])
+def clear_all_data():
+    try:
+        data = request.json or {}
+        confirmation = data.get('confirmation', '')
+        
+        if confirmation != 'DELETE':
+            return jsonify({"success": False, "error": "Invalid confirmation"}), 400
+        
+        # Clear database
+        if psycopg2:
+            execute_query("DELETE FROM subscribers", fetch=False)
+        
+        # Clear in-memory
+        count = len(subscribers_data)
+        subscribers_data.clear()
+        
+        log_activity(f"ALL DATA CLEARED - {count} subscribers removed", "danger")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Cleared {count} subscribers",
+            "note": "Brevo data not affected - manual cleanup required",
+        })
+        
+    except Exception as e:
+        error_msg = f"Error clearing data: {str(e)}"
+        log_error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/stats', methods=['GET'])
+def get_stats():
+    try:
+        stats = get_signup_stats()
+        return jsonify({
+            "success": True,
+            "stats": stats,
+            "brevo_sync_status": "✅" if AUTO_SYNC_TO_BREVO else "❌",
+        })
+    except Exception as e:
+        error_msg = f"Error getting stats: {str(e)}"
+        log_error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
+
 # =============================
 # Error Handlers
 # =============================

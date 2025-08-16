@@ -14,6 +14,7 @@ import traceback
 from datetime import datetime, timedelta
 from collections import defaultdict
 
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
@@ -27,44 +28,46 @@ CORS(app)
 # ---- Brevo (Sendinblue) SDK ----
 try:
     import sib_api_v3_sdk
-    from sib_api_v3_sdk.rest import ApiException
-except Exception:
-    sib_api_v3_sdk = None
-    ApiException = Exception
+    from sib_api_v3_sdk.rest import ApiException  # type: ignore
+except Exception:  # pragma: no cover
+    sib_api_v3_sdk = None  # type: ignore
+    ApiException = Exception  # type: ignore
 
-# ---- PostgreSQL imports ----
-try:
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-except ImportError:
-    print("❌ psycopg2 not installed. Install with: pip install psycopg2-binary")
-    psycopg2 = None
-    RealDictCursor = None
-
-# ---- Brevo settings ----
+# ---- Brevo settings (KEEPING USER KEY FOR NOW as requested) ----
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
 BREVO_LIST_ID = int(os.environ.get("BREVO_LIST_ID", 2))
 AUTO_SYNC_TO_BREVO = os.environ.get("AUTO_SYNC_TO_BREVO", "true").lower() in {"1", "true", "yes", "y"}
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "jaiamiscua@gmail.com")
 SENDER_NAME = os.environ.get("SENDER_NAME", "SideQuest")
 
-# ---- In-memory stores (fallback when DB unavailable) ----
+# ---- In-memory stores ----
 subscribers_data: dict[str, dict] = {}
 activity_log: list[dict] = []
 
 # =============================
-# Database Connection & Setup
+# Helpers
+# =============================
+
+# Add this to your backend.py file
+# Event Management System for Gaming Cafe
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from datetime import datetime, timedelta
+import random
+import string
+
+# =============================
+# Database Connection
 # =============================
 
 def get_db_connection():
     """Get PostgreSQL connection using Railway's DATABASE_URL"""
-    if not psycopg2:
-        return None
-        
     try:
+        # Railway provides DATABASE_URL automatically
         database_url = os.environ.get('DATABASE_URL')
         if database_url:
-            # Fix Railway's postgres:// URL for psycopg2
+            # Railway uses 'postgresql://', but psycopg2 needs 'postgres://'
             if database_url.startswith('postgres://'):
                 database_url = database_url.replace('postgres://', 'postgresql://', 1)
             conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
@@ -133,338 +136,8 @@ def execute_query_one(query, params=None):
         if conn:
             conn.close()
 
-def init_database():
-    """Initialize database tables if they don't exist"""
-    if not psycopg2:
-        log_activity("PostgreSQL not available - using in-memory storage", "warning")
-        return False
-        
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return False
-            
-        cursor = conn.cursor()
-        
-        # Create subscribers table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS subscribers (
-                email VARCHAR(255) PRIMARY KEY,
-                date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                source VARCHAR(50) DEFAULT 'unknown',
-                status VARCHAR(20) DEFAULT 'active'
-            )
-        """)
-        
-        # Create events table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS events (
-                id SERIAL PRIMARY KEY,
-                title VARCHAR(255) NOT NULL,
-                event_type VARCHAR(50) NOT NULL,
-                game_title VARCHAR(255),
-                date_time TIMESTAMP NOT NULL,
-                end_time TIMESTAMP,
-                capacity INTEGER DEFAULT 0,
-                current_registrations INTEGER DEFAULT 0,
-                description TEXT,
-                entry_fee DECIMAL(10,2) DEFAULT 0,
-                prize_pool VARCHAR(100),
-                status VARCHAR(20) DEFAULT 'draft',
-                image_url TEXT,
-                requirements TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Create event registrations table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS event_registrations (
-                id SERIAL PRIMARY KEY,
-                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
-                subscriber_email VARCHAR(255) NOT NULL,
-                player_name VARCHAR(255),
-                team_name VARCHAR(255),
-                notes TEXT,
-                confirmation_code VARCHAR(20),
-                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                attended BOOLEAN DEFAULT FALSE,
-                checked_in_at TIMESTAMP,
-                UNIQUE(event_id, subscriber_email)
-            )
-        """)
-        
-        # Create event emails table for scheduling
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS event_emails (
-                id SERIAL PRIMARY KEY,
-                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
-                email_type VARCHAR(50) NOT NULL,
-                scheduled_for TIMESTAMP NOT NULL,
-                sent_at TIMESTAMP,
-                status VARCHAR(20) DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(event_id, email_type)
-            )
-        """)
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        log_activity("Database tables initialized successfully", "success")
-        return True
-        
-    except Exception as e:
-        log_error(f"Database initialization error: {e}")
-        return False
-
 # =============================
-# Helper Functions
-# =============================
-
-def log_activity(message: str, activity_type: str = "info") -> None:
-    try:
-        activity = {
-            "message": message,
-            "type": activity_type,
-            "timestamp": datetime.now().isoformat(),
-        }
-        activity_log.insert(0, activity)
-        if len(activity_log) > 100:
-            del activity_log[100:]
-        print(f"[{activity_type.upper()}] {message}")
-    except Exception as e:
-        print(f"Error logging activity: {e}")
-
-def log_error(error: Exception | str, error_type: str = "error") -> None:
-    err = str(error)
-    log_activity(f"Error: {err}", error_type)
-    print(f"Error [{error_type}]: {err}")
-    if isinstance(error, Exception):
-        print(f"Traceback: {traceback.format_exc()}")
-
-def is_valid_email(email: str) -> bool:
-    try:
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        return re.match(pattern, email) is not None
-    except Exception:
-        return False
-
-# =============================
-# Brevo client initialization
-# =============================
-configuration = None
-api_instance = None
-contacts_api = None
-
-if sib_api_v3_sdk is not None and BREVO_API_KEY:
-    try:
-        configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key['api-key'] = BREVO_API_KEY
-        api_client = sib_api_v3_sdk.ApiClient(configuration)
-        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(api_client)
-        contacts_api = sib_api_v3_sdk.ContactsApi(api_client)
-    except Exception as e:
-        print(f"❌ Error initializing Brevo API instances: {e}")
-        api_instance = None
-        contacts_api = None
-else:
-    if not BREVO_API_KEY:
-        print("⚠️  BREVO_API_KEY not set — Brevo features disabled.")
-
-def test_brevo_connection() -> tuple[bool, str, str | None]:
-    """Test Brevo API connection"""
-    if sib_api_v3_sdk is None or configuration is None:
-        return False, "Brevo SDK not available", None
-    try:
-        account_api = sib_api_v3_sdk.AccountApi(sib_api_v3_sdk.ApiClient(configuration))
-        account_info = account_api.get_account()
-        print("✅ Brevo API connected successfully!")
-        print(f"📧 Account email: {getattr(account_info, 'email', None)}")
-        return True, "connected", getattr(account_info, 'email', None)
-    except ApiException as e:
-        log_error(e, "api_error")
-        return False, f"Brevo API Error: {str(e)}", None
-    except Exception as e:
-        log_error(e, "api_error")
-        return False, f"Unexpected error: {str(e)}", None
-
-# =============================
-# Brevo Integration Functions
-# =============================
-
-def add_to_brevo_list(email: str) -> dict:
-    if not AUTO_SYNC_TO_BREVO:
-        return {"success": True, "message": "Brevo sync disabled"}
-    if not contacts_api:
-        return {"success": False, "error": "Brevo API not initialized"}
-    try:
-        create_contact = sib_api_v3_sdk.CreateContact(
-            email=email,
-            list_ids=[BREVO_LIST_ID],
-            email_blacklisted=False,
-            sms_blacklisted=False,
-            update_enabled=True,
-        )
-        contacts_api.create_contact(create_contact)
-        log_activity(f"Added {email} to Brevo list {BREVO_LIST_ID}", "success")
-        return {"success": True, "message": f"Added to Brevo list {BREVO_LIST_ID}"}
-    except ApiException as e:
-        error_msg = str(e)
-        if "duplicate_parameter" in error_msg or "already exists" in error_msg.lower():
-            try:
-                contacts_api.add_contact_to_list(
-                    BREVO_LIST_ID,
-                    sib_api_v3_sdk.AddContactToList(emails=[email])
-                )
-                log_activity(f"Added existing contact {email} to Brevo list", "success")
-                return {"success": True, "message": "Added existing contact to list"}
-            except Exception as e2:
-                log_activity(f"Error adding existing contact {email}: {str(e2)}", "danger")
-                return {"success": True, "message": "Contact already in Brevo"}
-        else:
-            log_activity(f"Brevo API Error for {email}: {error_msg}", "danger")
-            return {"success": False, "error": error_msg}
-    except Exception as e:
-        log_activity(f"Unexpected error adding {email} to Brevo: {str(e)}", "danger")
-        return {"success": False, "error": str(e)}
-
-def remove_from_brevo_list(email: str) -> dict:
-    if not AUTO_SYNC_TO_BREVO:
-        return {"success": True, "message": "Brevo sync disabled"}
-    if not contacts_api:
-        return {"success": False, "error": "Brevo API not initialized"}
-    try:
-        contacts_api.remove_contact_from_list(
-            BREVO_LIST_ID,
-            sib_api_v3_sdk.RemoveContactFromList(emails=[email])
-        )
-        log_activity(f"Removed {email} from Brevo list {BREVO_LIST_ID}", "success")
-        return {"success": True, "message": f"Removed from Brevo list {BREVO_LIST_ID}"}
-    except ApiException as e:
-        log_activity(f"Brevo API Error removing {email}: {str(e)}", "danger")
-        return {"success": False, "error": str(e)}
-    except Exception as e:
-        log_activity(f"Unexpected error removing {email}: {str(e)}", "danger")
-        return {"success": False, "error": str(e)}
-
-# =============================
-# Database-aware subscriber functions
-# =============================
-
-def get_all_subscribers_from_db():
-    """Get all subscribers from database"""
-    query = "SELECT email, date_added, source, status FROM subscribers ORDER BY date_added DESC"
-    return execute_query(query) or []
-
-def add_subscriber_to_db(email: str, source: str = 'manual'):
-    """Add subscriber to database"""
-    query = """
-        INSERT INTO subscribers (email, source, status) 
-        VALUES (%s, %s, 'active') 
-        ON CONFLICT (email) DO NOTHING
-        RETURNING email
-    """
-    return execute_query_one(query, (email, source))
-
-def remove_subscriber_from_db(email: str):
-    """Remove subscriber from database"""
-    query = "DELETE FROM subscribers WHERE email = %s RETURNING email"
-    return execute_query_one(query, (email,))
-
-def get_signup_stats() -> dict:
-    """Get signup statistics"""
-    try:
-        # Try database first
-        if psycopg2:
-            stats_query = """
-                SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN date_added::date = CURRENT_DATE THEN 1 END) as today,
-                    COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as week
-                FROM subscribers
-            """
-            stats = execute_query_one(stats_query)
-            
-            source_query = "SELECT source, COUNT(*) as count FROM subscribers GROUP BY source"
-            sources = execute_query(source_query) or []
-            source_counts = {item['source']: item['count'] for item in sources}
-            
-            if stats:
-                return {
-                    "total": stats['total'],
-                    "today": stats['today'], 
-                    "week": stats['week'],
-                    "sources": source_counts
-                }
-        
-        # Fallback to in-memory
-        now = datetime.now()
-        today = now.date()
-        week_ago = now - timedelta(days=7)
-        total_subscribers = len(subscribers_data)
-        today_signups = 0
-        week_signups = 0
-        
-        for data in subscribers_data.values():
-            try:
-                signup_date = datetime.fromisoformat(data['date_added'])
-                if signup_date.date() == today:
-                    today_signups += 1
-                if signup_date >= week_ago:
-                    week_signups += 1
-            except (ValueError, KeyError):
-                continue
-                
-        source_counts = defaultdict(int)
-        for data in subscribers_data.values():
-            source_counts[data.get('source', 'unknown')] += 1
-            
-        return {
-            "total": total_subscribers,
-            "today": today_signups,
-            "week": week_signups,
-            "sources": dict(source_counts),
-        }
-    except Exception as e:
-        log_error(f"Error calculating stats: {e}")
-        return {"total": 0, "today": 0, "week": 0, "sources": {}}
-
-# =============================
-# Routes - Basic
-# =============================
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    try:
-        brevo_connected, brevo_status, brevo_email = test_brevo_connection()
-        db_connected = get_db_connection() is not None
-        
-        return jsonify({
-            "status": "healthy",
-            "database_connected": db_connected,
-            "subscribers_count": len(get_all_subscribers_from_db()) if db_connected else len(subscribers_data),
-            "brevo_sync": AUTO_SYNC_TO_BREVO,
-            "brevo_status": "connected" if brevo_connected else brevo_status,
-            "brevo_email": brevo_email,
-            "brevo_list_id": BREVO_LIST_ID,
-            "activities": len(activity_log),
-            "api_instances_initialized": (api_instance is not None and contacts_api is not None),
-        })
-    except Exception as e:
-        error_msg = f"Health check error: {str(e)}"
-        log_error(error_msg)
-        return jsonify({
-            "status": "error",
-            "error": error_msg,
-            "brevo_status": "error",
-            "database_connected": False,
-            "subscribers_count": 0,
-        }), 500
-
-# =============================
-# Routes - Event Management
+# Event Management Routes
 # =============================
 
 @app.route('/api/events', methods=['GET'])
@@ -509,11 +182,11 @@ def get_events():
             
         # Convert datetime objects to ISO format
         for event in events:
-            if event.get('date_time'):
+            if event['date_time']:
                 event['date_time'] = event['date_time'].isoformat()
-            if event.get('end_time'):
+            if event['end_time']:
                 event['end_time'] = event['end_time'].isoformat()
-            if event.get('created_at'):
+            if event['created_at']:
                 event['created_at'] = event['created_at'].isoformat()
                 
         log_activity(f"Retrieved {len(events)} events", "info")
@@ -526,6 +199,56 @@ def get_events():
         
     except Exception as e:
         log_error(f"Error getting events: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events/<int:event_id>', methods=['GET'])
+def get_event(event_id):
+    """Get single event with registration details"""
+    try:
+        query = """
+            SELECT 
+                e.*,
+                COUNT(r.id) as registration_count,
+                CASE 
+                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
+                    ELSE NULL
+                END as spots_available,
+                ARRAY_AGG(
+                    CASE WHEN r.id IS NOT NULL THEN
+                        json_build_object(
+                            'email', r.subscriber_email,
+                            'player_name', r.player_name,
+                            'registered_at', r.registered_at,
+                            'attended', r.attended
+                        )
+                    ELSE NULL END
+                ) FILTER (WHERE r.id IS NOT NULL) as registrations
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.id = %s
+            GROUP BY e.id
+        """
+        
+        event = execute_query_one(query, (event_id,))
+        
+        if not event:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+            
+        # Convert datetime objects
+        if event['date_time']:
+            event['date_time'] = event['date_time'].isoformat()
+        if event['end_time']:
+            event['end_time'] = event['end_time'].isoformat()
+        if event['created_at']:
+            event['created_at'] = event['created_at'].isoformat()
+            
+        return jsonify({
+            "success": True,
+            "event": event
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting event {event_id}: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events', methods=['POST'])
@@ -584,6 +307,10 @@ def create_event():
             event_id = result['id']
             log_activity(f"Created event: {data['title']} (ID: {event_id})", "success")
             
+            # Schedule automated emails if status is published
+            if data.get('status') == 'published':
+                schedule_event_emails(event_id, date_time)
+            
             return jsonify({
                 "success": True,
                 "event_id": event_id,
@@ -596,136 +323,783 @@ def create_event():
         log_error(f"Error creating event: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-# =============================
-# Routes - Subscriber Management
-# =============================
-
-@app.route('/subscribers', methods=['GET'])
-def get_subscribers():
+@app.route('/api/events/<int:event_id>', methods=['PUT'])
+def update_event(event_id):
+    """Update an existing event"""
     try:
-        # Try database first
-        db_subscribers = get_all_subscribers_from_db()
+        data = request.json or {}
         
-        if db_subscribers:
-            subscriber_list = []
-            for sub in db_subscribers:
-                subscriber_list.append({
-                    "email": sub['email'],
-                    "date_added": sub['date_added'].isoformat() if sub['date_added'] else datetime.now().isoformat(),
-                    "source": sub['source'] or 'unknown',
-                    "status": sub['status'] or 'active',
-                })
+        # Build dynamic update query
+        update_fields = []
+        params = []
+        
+        allowed_fields = [
+            'title', 'event_type', 'game_title', 'date_time', 'end_time',
+            'capacity', 'description', 'entry_fee', 'prize_pool', 'status',
+            'image_url', 'requirements'
+        ]
+        
+        for field in allowed_fields:
+            if field in data:
+                update_fields.append(f"{field} = %s")
+                if field in ['date_time', 'end_time'] and data[field]:
+                    try:
+                        params.append(datetime.fromisoformat(data[field].replace('Z', '+00:00')))
+                    except:
+                        params.append(None)
+                else:
+                    params.append(data[field])
+        
+        if not update_fields:
+            return jsonify({"success": False, "error": "No fields to update"}), 400
+            
+        params.append(event_id)
+        query = f"""
+            UPDATE events 
+            SET {', '.join(update_fields)}
+            WHERE id = %s
+        """
+        
+        result = execute_query(query, params, fetch=False)
+        
+        if result:
+            log_activity(f"Updated event ID: {event_id}", "info")
+            return jsonify({
+                "success": True,
+                "message": "Event updated successfully"
+            })
         else:
-            # Fallback to in-memory
-            subscriber_list = []
-            for email, data in subscribers_data.items():
-                subscriber_list.append({
-                    "email": email,
-                    "date_added": data.get('date_added', datetime.now().isoformat()),
-                    "source": data.get('source', 'unknown'),
-                    "status": data.get('status', 'active'),
-                })
-            subscriber_list.sort(key=lambda x: x['date_added'], reverse=True)
-        
-        stats = get_signup_stats()
-        return jsonify({
-            "success": True,
-            "subscribers": [item['email'] for item in subscriber_list],
-            "subscriber_details": subscriber_list,
-            "count": len(subscriber_list),
-            "stats": stats,
-        })
+            return jsonify({"success": False, "error": "Event not found"}), 404
+            
     except Exception as e:
-        error_msg = f"Error getting subscribers: {str(e)}"
-        log_error(error_msg)
-        return jsonify({"success": False, "error": error_msg}), 500
+        log_error(f"Error updating event {event_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/subscribe', methods=['POST'])
-def add_subscriber():
+@app.route('/api/events/<int:event_id>', methods=['DELETE'])
+def delete_event(event_id):
+    """Delete an event"""
+    try:
+        # Check if event exists and has registrations
+        check_query = """
+            SELECT COUNT(r.id) as registration_count
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.id = %s
+            GROUP BY e.id
+        """
+        
+        result = execute_query_one(check_query, (event_id,))
+        
+        if not result:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+            
+        if result['registration_count'] > 0:
+            if not request.args.get('force', '').lower() == 'true':
+                return jsonify({
+                    "success": False,
+                    "error": f"Event has {result['registration_count']} registrations. Use force=true to delete anyway."
+                }), 400
+        
+        query = "DELETE FROM events WHERE id = %s"
+        result = execute_query(query, (event_id,), fetch=False)
+        
+        if result:
+            log_activity(f"Deleted event ID: {event_id}", "danger")
+            return jsonify({
+                "success": True,
+                "message": "Event deleted successfully"
+            })
+        else:
+            return jsonify({"success": False, "error": "Failed to delete event"}), 500
+            
+    except Exception as e:
+        log_error(f"Error deleting event {event_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events/<int:event_id>/register', methods=['POST'])
+def register_for_event(event_id):
+    """Register a subscriber for an event"""
     try:
         data = request.json or {}
-        email = str(data.get('email', '')).strip().lower()
-        source = data.get('source', 'manual')
+        email = data.get('email', '').strip().lower()
         
         if not email:
             return jsonify({"success": False, "error": "Email is required"}), 400
-        if not is_valid_email(email):
-            return jsonify({"success": False, "error": "Invalid email format"}), 400
-        
-        # Try database first
-        db_result = add_subscriber_to_db(email, source)
-        if db_result is None:
-            # Check if already exists in database
-            existing = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
-            if existing:
-                return jsonify({"success": False, "error": "Email already subscribed"}), 400
             
-            # Fallback to in-memory
-            if email in subscribers_data:
-                return jsonify({"success": False, "error": "Email already subscribed"}), 400
+        # Check if subscriber exists
+        if email not in subscribers_data:
+            return jsonify({"success": False, "error": "Email not found in subscribers"}), 404
             
-            subscribers_data[email] = {
-                'date_added': datetime.now().isoformat(),
-                'source': source,
-                'status': 'active',
-            }
+        # Check event exists and has capacity
+        event_query = """
+            SELECT e.*, COUNT(r.id) as current_registrations
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.id = %s
+            GROUP BY e.id
+        """
         
-        brevo_result = add_to_brevo_list(email)
-        log_activity(f"New subscriber added: {email} (source: {source})", "success")
+        event = execute_query_one(event_query, (event_id,))
         
-        return jsonify({
-            "success": True,
-            "message": "Subscriber added successfully",
-            "email": email,
-            "brevo_sync": brevo_result.get("success", False),
-            "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
-        })
+        if not event:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+            
+        if event['capacity'] and event['capacity'] > 0:
+            if event['current_registrations'] >= event['capacity']:
+                return jsonify({"success": False, "error": "Event is full"}), 400
         
+        # Generate confirmation code
+        confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        # Register for event
+        query = """
+            INSERT INTO event_registrations (
+                event_id, subscriber_email, player_name, team_name, notes, confirmation_code
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (event_id, subscriber_email) 
+            DO UPDATE SET notes = EXCLUDED.notes
+            RETURNING id
+        """
+        
+        params = (
+            event_id,
+            email,
+            data.get('player_name', email.split('@')[0]),
+            data.get('team_name'),
+            data.get('notes'),
+            confirmation_code
+        )
+        
+        result = execute_query_one(query, params)
+        
+        if result:
+            # Update registration count
+            update_query = """
+                UPDATE events 
+                SET current_registrations = (
+                    SELECT COUNT(*) FROM event_registrations WHERE event_id = %s
+                )
+                WHERE id = %s
+            """
+            execute_query(update_query, (event_id, event_id), fetch=False)
+            
+            log_activity(f"{email} registered for event ID: {event_id}", "success")
+            
+            # Send confirmation email
+            send_registration_confirmation(email, event, confirmation_code)
+            
+            return jsonify({
+                "success": True,
+                "message": "Registration successful",
+                "confirmation_code": confirmation_code
+            })
+        else:
+            return jsonify({"success": False, "error": "Registration failed"}), 500
+            
     except Exception as e:
-        error_msg = f"Error adding subscriber: {str(e)}"
-        log_error(error_msg)
-        return jsonify({"success": False, "error": error_msg}), 500
+        log_error(f"Error registering for event {event_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/unsubscribe', methods=['POST'])
-def remove_subscriber():
+@app.route('/api/events/<int:event_id>/unregister', methods=['POST'])
+def unregister_from_event(event_id):
+    """Unregister a subscriber from an event"""
     try:
         data = request.json or {}
-        email = str(data.get('email', '')).strip().lower()
+        email = data.get('email', '').strip().lower()
         
         if not email:
             return jsonify({"success": False, "error": "Email is required"}), 400
+            
+        query = "DELETE FROM event_registrations WHERE event_id = %s AND subscriber_email = %s"
+        result = execute_query(query, (event_id, email), fetch=False)
         
-        # Try database first
-        db_result = remove_subscriber_from_db(email)
-        if db_result is None:
-            # Fallback to in-memory
-            if email not in subscribers_data:
-                return jsonify({"success": False, "error": "Email not found"}), 404
-            del subscribers_data[email]
+        if result:
+            # Update registration count
+            update_query = """
+                UPDATE events 
+                SET current_registrations = (
+                    SELECT COUNT(*) FROM event_registrations WHERE event_id = %s
+                )
+                WHERE id = %s
+            """
+            execute_query(update_query, (event_id, event_id), fetch=False)
+            
+            log_activity(f"{email} unregistered from event ID: {event_id}", "info")
+            
+            return jsonify({
+                "success": True,
+                "message": "Unregistered successfully"
+            })
+        else:
+            return jsonify({"success": False, "error": "Registration not found"}), 404
+            
+    except Exception as e:
+        log_error(f"Error unregistering from event {event_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
+def get_event_attendees(event_id):
+    """Get list of attendees for an event"""
+    try:
+        query = """
+            SELECT 
+                r.*,
+                CASE 
+                    WHEN r.subscriber_email IN (SELECT email FROM subscribers) 
+                    THEN true 
+                    ELSE false 
+                END as is_subscriber
+            FROM event_registrations r
+            WHERE r.event_id = %s
+            ORDER BY r.registered_at DESC
+        """
         
-        brevo_result = remove_from_brevo_list(email)
-        log_activity(f"Subscriber removed: {email}", "danger")
+        attendees = execute_query(query, (event_id,))
         
+        if attendees is None:
+            return jsonify({"success": False, "error": "Database error"}), 500
+            
+        # Convert datetime objects
+        for attendee in attendees:
+            if attendee['registered_at']:
+                attendee['registered_at'] = attendee['registered_at'].isoformat()
+            if attendee['checked_in_at']:
+                attendee['checked_in_at'] = attendee['checked_in_at'].isoformat()
+                
         return jsonify({
             "success": True,
-            "message": "Subscriber removed",
-            "email": email,
-            "brevo_sync": brevo_result.get("success", False),
-            "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
+            "attendees": attendees,
+            "count": len(attendees)
         })
         
     except Exception as e:
-        error_msg = f"Error removing subscriber: {str(e)}"
-        log_error(error_msg)
-        return jsonify({"success": False, "error": error_msg}), 500
+        log_error(f"Error getting attendees for event {event_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
+def checkin_attendee(event_id):
+    """Check in an attendee for an event"""
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+            
+        query = """
+            UPDATE event_registrations 
+            SET attended = true, checked_in_at = CURRENT_TIMESTAMP
+            WHERE event_id = %s AND subscriber_email = %s
+            RETURNING id
+        """
+        
+        result = execute_query_one(query, (event_id, email))
+        
+        if result:
+            log_activity(f"Checked in {email} for event ID: {event_id}", "success")
+            return jsonify({
+                "success": True,
+                "message": "Check-in successful"
+            })
+        else:
+            return jsonify({"success": False, "error": "Registration not found"}), 404
+            
+    except Exception as e:
+        log_error(f"Error checking in attendee: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events/calendar', methods=['GET'])
+def get_calendar_events():
+    """Get events in calendar format"""
+    try:
+        start_date = request.args.get('start', datetime.now().isoformat())
+        end_date = request.args.get('end', (datetime.now() + timedelta(days=30)).isoformat())
+        
+        query = """
+            SELECT 
+                id,
+                title,
+                event_type,
+                date_time as start,
+                COALESCE(end_time, date_time + INTERVAL '2 hours') as end,
+                CASE 
+                    WHEN capacity > 0 THEN 
+                        CONCAT(current_registrations, '/', capacity, ' registered')
+                    ELSE 
+                        CONCAT(current_registrations, ' registered')
+                END as description,
+                CASE event_type
+                    WHEN 'tournament' THEN '#FF6B35'
+                    WHEN 'game_night' THEN '#4ECDC4'
+                    WHEN 'special' THEN '#FFD700'
+                    WHEN 'birthday' THEN '#FF69B4'
+                    ELSE '#95A5A6'
+                END as color,
+                status
+            FROM events
+            WHERE date_time BETWEEN %s AND %s
+                AND status != 'cancelled'
+            ORDER BY date_time
+        """
+        
+        events = execute_query(query, (start_date, end_date))
+        
+        if events is None:
+            return jsonify({"success": False, "error": "Database error"}), 500
+            
+        # Format for FullCalendar
+        calendar_events = []
+        for event in events:
+            calendar_events.append({
+                'id': event['id'],
+                'title': event['title'],
+                'start': event['start'].isoformat() if event['start'] else None,
+                'end': event['end'].isoformat() if event['end'] else None,
+                'description': event['description'],
+                'color': event['color'],
+                'extendedProps': {
+                    'event_type': event['event_type'],
+                    'status': event['status']
+                }
+            })
+            
+        return jsonify({
+            "success": True,
+            "events": calendar_events
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting calendar events: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # =============================
-# Additional Routes (keeping existing ones)
+# Event Email Automation
 # =============================
+
+def schedule_event_emails(event_id, event_date):
+    """Schedule automated emails for an event"""
+    try:
+        # Schedule announcement (immediate)
+        schedule_email(event_id, 'announcement', datetime.now())
+        
+        # Schedule reminders
+        if event_date > datetime.now() + timedelta(days=7):
+            schedule_email(event_id, 'reminder_week', event_date - timedelta(days=7))
+            
+        if event_date > datetime.now() + timedelta(days=1):
+            schedule_email(event_id, 'reminder_day', event_date - timedelta(days=1))
+            
+        if event_date > datetime.now() + timedelta(hours=2):
+            schedule_email(event_id, 'reminder_hour', event_date - timedelta(hours=2))
+            
+        log_activity(f"Scheduled emails for event ID: {event_id}", "info")
+        
+    except Exception as e:
+        log_error(f"Error scheduling emails for event {event_id}: {e}")
+
+def schedule_email(event_id, email_type, scheduled_for):
+    """Schedule a single email"""
+    query = """
+        INSERT INTO event_emails (event_id, email_type, scheduled_for)
+        VALUES (%s, %s, %s)
+        ON CONFLICT DO NOTHING
+    """
+    execute_query(query, (event_id, email_type, scheduled_for), fetch=False)
+
+def send_registration_confirmation(email, event, confirmation_code):
+    """Send registration confirmation email"""
+    try:
+        if not api_instance:
+            return
+            
+        subject = f"Registration Confirmed: {event['title']}"
+        html_content = f"""
+        <h2>You're registered for {event['title']}!</h2>
+        <p><strong>Date:</strong> {event['date_time']}</p>
+        <p><strong>Confirmation Code:</strong> {confirmation_code}</p>
+        <p>Show this code at check-in.</p>
+        <p>See you at SideQuest Gaming Cafe!</p>
+        """
+        
+        send_email = sib_api_v3_sdk.SendSmtpEmail(
+            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
+            to=[{"email": email}],
+            subject=subject,
+            html_content=html_content
+        )
+        
+        api_instance.send_transac_email(send_email)
+        log_activity(f"Sent confirmation email to {email}", "success")
+        
+    except Exception as e:
+        log_error(f"Error sending confirmation email: {e}")
+
+# =============================
+# Event Statistics
+# =============================
+
+@app.route('/api/events/stats', methods=['GET'])
+def get_event_stats():
+    """Get event statistics for dashboard"""
+    try:
+        stats_query = """
+            SELECT 
+                COUNT(DISTINCT e.id) as total_events,
+                COUNT(DISTINCT CASE WHEN e.date_time > CURRENT_TIMESTAMP THEN e.id END) as upcoming_events,
+                COUNT(DISTINCT CASE WHEN e.date_time <= CURRENT_TIMESTAMP AND e.status = 'completed' THEN e.id END) as completed_events,
+                COUNT(DISTINCT r.id) as total_registrations,
+                COUNT(DISTINCT CASE WHEN r.attended = true THEN r.id END) as total_attended,
+                AVG(CASE WHEN e.capacity > 0 THEN (e.current_registrations::float / e.capacity * 100) END) as avg_capacity_filled
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.status != 'cancelled'
+        """
+        
+        stats = execute_query_one(stats_query)
+        
+        # Get popular events
+        popular_query = """
+            SELECT 
+                e.title,
+                e.event_type,
+                COUNT(r.id) as registration_count
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            GROUP BY e.id, e.title, e.event_type
+            ORDER BY registration_count DESC
+            LIMIT 5
+        """
+        
+        popular_events = execute_query(popular_query)
+        
+        # Get revenue stats if needed
+        revenue_query = """
+            SELECT 
+                SUM(e.entry_fee * e.current_registrations) as total_revenue,
+                AVG(e.entry_fee * e.current_registrations) as avg_revenue_per_event
+            FROM events e
+            WHERE e.status = 'completed'
+        """
+        
+        revenue_stats = execute_query_one(revenue_query)
+        
+        return jsonify({
+            "success": True,
+            "stats": {
+                "total_events": stats['total_events'] or 0,
+                "upcoming_events": stats['upcoming_events'] or 0,
+                "completed_events": stats['completed_events'] or 0,
+                "total_registrations": stats['total_registrations'] or 0,
+                "total_attended": stats['total_attended'] or 0,
+                "avg_capacity_filled": round(stats['avg_capacity_filled'] or 0, 1),
+                "total_revenue": float(revenue_stats['total_revenue'] or 0),
+                "avg_revenue_per_event": float(revenue_stats['avg_revenue_per_event'] or 0)
+            },
+            "popular_events": popular_events or []
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting event stats: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
+
+def log_activity(message: str, activity_type: str = "info") -> None:
+    try:
+        activity = {
+            "message": message,
+            "type": activity_type,
+            "timestamp": datetime.now().isoformat(),
+        }
+        activity_log.insert(0, activity)
+        if len(activity_log) > 100:
+            del activity_log[100:]
+        print(f"[{activity_type.upper()}] {message}")
+    except Exception as e:  # pragma: no cover
+        print(f"Error logging activity: {e}")
+
+
+def log_error(error: Exception | str, error_type: str = "error") -> None:
+    err = str(error)
+    log_activity(f"Error: {err}", error_type)
+    print(f"Error [{error_type}]: {err}")
+    print(f"Traceback: {traceback.format_exc()}")
+
+
+def is_valid_email(email: str) -> bool:
+    try:
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return re.match(pattern, email) is not None
+    except Exception:
+        return False
+
+# =============================
+# Brevo client init (before routes)
+# =============================
+configuration = None
+api_instance = None
+contacts_api = None
+
+if sib_api_v3_sdk is not None and BREVO_API_KEY:
+    try:
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key['api-key'] = BREVO_API_KEY
+        api_client = sib_api_v3_sdk.ApiClient(configuration)
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(api_client)
+        contacts_api = sib_api_v3_sdk.ContactsApi(api_client)
+    except Exception as e:  # pragma: no cover
+        print(f"❌ Error initializing Brevo API instances: {e}")
+        api_instance = None
+        contacts_api = None
+else:
+    if not BREVO_API_KEY:
+        print("⚠️  BREVO_API_KEY not set — Brevo features disabled.")
+
+
+def test_brevo_connection() -> tuple[bool, str, str | None]:
+    """Test Brevo API connection with enhanced error handling"""
+    if sib_api_v3_sdk is None or configuration is None:
+        return False, "Brevo SDK not available", None
+    try:
+        account_api = sib_api_v3_sdk.AccountApi(sib_api_v3_sdk.ApiClient(configuration))
+        account_info = account_api.get_account()
+        print("✅ Brevo API connected successfully!")
+        print(f"📧 Account email: {getattr(account_info, 'email', None)}")
+        return True, "connected", getattr(account_info, 'email', None)
+    except ApiException as e:  # type: ignore
+        log_error(e, "api_error")
+        return False, f"Brevo API Error: {str(e)}", None
+    except Exception as e:
+        log_error(e, "api_error")
+        return False, f"Unexpected error: {str(e)}", None
+
+# =============================
+# Brevo list helpers
+# =============================
+
+def add_to_brevo_list(email: str) -> dict:
+    if not AUTO_SYNC_TO_BREVO:
+        return {"success": True, "message": "Brevo sync disabled"}
+    if not contacts_api:
+        return {"success": False, "error": "Brevo API not initialized"}
+    try:
+        create_contact = sib_api_v3_sdk.CreateContact(  # type: ignore
+            email=email,
+            list_ids=[BREVO_LIST_ID],
+            email_blacklisted=False,
+            sms_blacklisted=False,
+            update_enabled=True,
+        )
+        contacts_api.create_contact(create_contact)
+        log_activity(f"Added {email} to Brevo list {BREVO_LIST_ID}", "success")
+        return {"success": True, "message": f"Added to Brevo list {BREVO_LIST_ID}"}
+    except ApiException as e:  # type: ignore
+        error_msg = str(e)
+        if "duplicate_parameter" in error_msg or "already exists" in error_msg.lower():
+            try:
+                contacts_api.add_contact_to_list(  # type: ignore
+                    BREVO_LIST_ID,
+                    sib_api_v3_sdk.AddContactToList(emails=[email])  # type: ignore
+                )
+                log_activity(f"Added existing contact {email} to Brevo list", "success")
+                return {"success": True, "message": "Added existing contact to list"}
+            except Exception as e2:
+                log_activity(f"Error adding existing contact {email}: {str(e2)}", "danger")
+                return {"success": True, "message": "Contact already in Brevo"}
+        else:
+            log_activity(f"Brevo API Error for {email}: {error_msg}", "danger")
+            print(f"Brevo API Error: {error_msg}")
+            return {"success": False, "error": error_msg}
+    except Exception as e:
+        log_activity(f"Unexpected error adding {email} to Brevo: {str(e)}", "danger")
+        return {"success": False, "error": str(e)}
+
+
+def remove_from_brevo_list(email: str) -> dict:
+    if not AUTO_SYNC_TO_BREVO:
+        return {"success": True, "message": "Brevo sync disabled"}
+    if not contacts_api:
+        return {"success": False, "error": "Brevo API not initialized"}
+    try:
+        contacts_api.remove_contact_from_list(  # type: ignore
+            BREVO_LIST_ID,
+            sib_api_v3_sdk.RemoveContactFromList(emails=[email])  # type: ignore
+        )
+        log_activity(f"Removed {email} from Brevo list {BREVO_LIST_ID}", "success")
+        return {"success": True, "message": f"Removed from Brevo list {BREVO_LIST_ID}"}
+    except ApiException as e:  # type: ignore
+        log_activity(f"Brevo API Error removing {email}: {str(e)}", "danger")
+        print(f"Brevo API Error: {e}")
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        log_activity(f"Unexpected error removing {email}: {str(e)}", "danger")
+        return {"success": False, "error": str(e)}
+
+# =============================
+# Stats helper
+# =============================
+
+def get_signup_stats() -> dict:
+    try:
+        now = datetime.now()
+        today = now.date()
+        week_ago = now - timedelta(days=7)
+        total_subscribers = len(subscribers_data)
+        today_signups = 0
+        week_signups = 0
+        for data in subscribers_data.values():
+            try:
+                signup_date = datetime.fromisoformat(data['date_added'])
+                if signup_date.date() == today:
+                    today_signups += 1
+                if signup_date >= week_ago:
+                    week_signups += 1
+            except (ValueError, KeyError):
+                continue
+        source_counts = defaultdict(int)
+        for data in subscribers_data.values():
+            source_counts[data.get('source', 'unknown')] += 1
+        return {
+            "total": total_subscribers,
+            "today": today_signups,
+            "week": week_signups,
+            "sources": dict(source_counts),
+        }
+    except Exception as e:
+        print(f"Error calculating stats: {e}")
+        return {"total": 0, "today": 0, "week": 0, "sources": {}}
+
+# =============================
+# Middleware logging
+# =============================
+
+@app.before_request
+def log_request_info():
+    log_activity(f"Request to {request.path} [{request.method}]", "info")
+
+
+@app.after_request
+def log_response_info(response):
+    try:
+        if response.status_code >= 400:
+            log_activity(f"Error response {response.status_code} to {request.path}", "error")
+        return response
+    except Exception:
+        return response
+
+# =============================
+# Routes
+# =============================
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    try:
+        brevo_connected, brevo_status, brevo_email = test_brevo_connection()
+        return jsonify({
+            "status": "healthy",
+            "subscribers_count": len(subscribers_data),
+            "brevo_sync": AUTO_SYNC_TO_BREVO,
+            "brevo_status": "connected" if brevo_connected else brevo_status,
+            "brevo_email": brevo_email,
+            "brevo_list_id": BREVO_LIST_ID,
+            "activities": len(activity_log),
+            "api_instances_initialized": (api_instance is not None and contacts_api is not None),
+        })
+    except Exception as e:
+        error_msg = f"Health check error: {str(e)}"
+        print(f"Health check error: {traceback.format_exc()}")
+        return jsonify({
+            "status": "error",
+            "error": error_msg,
+            "brevo_status": "error",
+            "subscribers_count": len(subscribers_data) if subscribers_data else 0,
+        }), 500
+
+
+@app.route('/clear-data', methods=['POST'])
+def clear_all_data():
+    try:
+        data = request.json or {}
+        confirmation = data.get('confirmation', '')
+        if confirmation != 'DELETE':
+            return jsonify({"success": False, "error": "Invalid confirmation"}), 400
+        count = len(subscribers_data)
+        subscribers_data.clear()
+        log_activity(f"ALL DATA CLEARED - {count} subscribers removed", "danger")
+        return jsonify({
+            "success": True,
+            "message": f"Cleared {count} subscribers",
+            "note": "Brevo data not affected - manual cleanup required",
+        })
+    except Exception as e:
+        error_msg = f"Error clearing data: {str(e)}"
+        print(f"Clear data error: {traceback.format_exc()}")
+        log_activity(f"Failed to clear data: {error_msg}", "danger")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    try:
+        return send_from_directory(app.static_folder, filename)
+    except Exception:
+        return jsonify({"success": False, "error": f"File not found: {filename}"}), 404
+
+
+@app.route('/test', methods=['GET'])
+def test_endpoint():
+    try:
+        return jsonify({
+            "success": True,
+            "message": "Backend is working",
+            "timestamp": datetime.now().isoformat(),
+            "subscribers_count": len(subscribers_data),
+            "brevo_api_initialized": api_instance is not None,
+            "contacts_api_initialized": contacts_api is not None,
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat(),
+        }), 500
+
+
+@app.route('/admin')
+def admin_dashboard():
+    try:
+        # Serve dashboard.html from same directory
+        here = os.path.dirname(os.path.abspath(__file__))
+        dashboard_path = os.path.join(here, 'dashboard.html')
+        if os.path.exists(dashboard_path):
+            with open(dashboard_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        else:
+            return (
+                """
+                <h1>Dashboard not found</h1>
+                <p>Please place <code>dashboard.html</code> next to <code>backend.py</code>.</p>
+                <p>Signup page: <a href="/signup">/signup</a></p>
+                <p>API Health: <a href="/health">/health</a></p>
+                """,
+                404,
+            )
+    except Exception as e:
+        print(f"Error serving admin dashboard: {e}")
+        return (
+            f"""
+            <h1>Error Loading Dashboard</h1>
+            <p>Error: {str(e)}</p>
+            <p>You can access the signup page at <a href="/signup">/signup</a></p>
+            """,
+            500,
+        )
+
 
 @app.route('/signup')
 def signup_page():
-    """Serve the signup page"""
+    # Returns the same embedded HTML from your original code
     signup_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -823,44 +1197,302 @@ def signup_page():
 </html>'''
     return signup_html
 
+
+@app.route('/send-campaign', methods=['POST'])
+def send_campaign():
+    try:
+        if not api_instance:
+            return jsonify({"success": False, "error": "Email API not initialized"}), 500
+        data = request.json or {}
+        subject = data.get('subject', '(no subject)')
+        body = data.get('body', '')
+        from_name = data.get('fromName', SENDER_NAME)
+        recipients = data.get('recipients', [])
+        if not recipients:
+            return jsonify({"success": False, "error": "No recipients provided"}), 400
+        if not body:
+            return jsonify({"success": False, "error": "Email body is required"}), 400
+        to_list = [{"email": email} for email in recipients]
+        email = sib_api_v3_sdk.SendSmtpEmail(  # type: ignore
+            sender={"name": from_name, "email": SENDER_EMAIL},
+            to=to_list,
+            subject=subject,
+            html_content=body,
+        )
+        api_response = api_instance.send_transac_email(email)  # type: ignore
+        log_activity(f"Campaign sent to {len(recipients)} subscribers", "success")
+        return jsonify({"success": True, "sent": len(recipients), "response": str(api_response)})
+    except ApiException as e:  # type: ignore
+        error_msg = f"Brevo API Error: {str(e)}"
+        log_activity(f"Campaign send failed: {error_msg}", "danger")
+        return jsonify({"success": False, "error": error_msg}), 500
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        log_activity(f"Campaign send failed: {error_msg}", "danger")
+        print(f"Campaign error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@app.route('/subscribers', methods=['GET'])
+def get_subscribers():
+    try:
+        subscriber_list = []
+        for email, data in subscribers_data.items():
+            subscriber_list.append({
+                "email": email,
+                "date_added": data.get('date_added', datetime.now().isoformat()),
+                "source": data.get('source', 'unknown'),
+                "status": data.get('status', 'active'),
+            })
+        subscriber_list.sort(key=lambda x: x['date_added'], reverse=True)
+        stats = get_signup_stats()
+        return jsonify({
+            "success": True,
+            "subscribers": [item['email'] for item in subscriber_list],
+            "subscriber_details": subscriber_list,
+            "count": len(subscriber_list),
+            "stats": stats,
+        })
+    except Exception as e:
+        error_msg = f"Error getting subscribers: {str(e)}"
+        print(f"Subscribers error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@app.route('/subscribe', methods=['POST'])
+def add_subscriber():
+    try:
+        data = request.json or {}
+        email = str(data.get('email', '')).strip().lower()
+        source = data.get('source', 'manual')
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+        if not is_valid_email(email):
+            return jsonify({"success": False, "error": "Invalid email format"}), 400
+        if email in subscribers_data:
+            return jsonify({"success": False, "error": "Email already subscribed"}), 400
+        subscribers_data[email] = {
+            'date_added': datetime.now().isoformat(),
+            'source': source,
+            'status': 'active',
+        }
+        brevo_result = add_to_brevo_list(email)
+        log_activity(f"New subscriber added: {email} (source: {source})", "success")
+        return jsonify({
+            "success": True,
+            "message": "Subscriber added successfully",
+            "email": email,
+            "brevo_sync": brevo_result.get("success", False),
+            "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
+        })
+    except Exception as e:
+        error_msg = f"Error adding subscriber: {str(e)}"
+        print(f"Add subscriber error: {traceback.format_exc()}")
+        log_activity(f"Failed to add subscriber: {error_msg}", "danger")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@app.route('/unsubscribe', methods=['POST'])
+def remove_subscriber():
+    try:
+        data = request.json or {}
+        email = str(data.get('email', '')).strip().lower()
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+        if email not in subscribers_data:
+            return jsonify({"success": False, "error": "Email not found"}), 404
+        del subscribers_data[email]
+        brevo_result = remove_from_brevo_list(email)
+        log_activity(f"Subscriber removed: {email}", "danger")
+        return jsonify({
+            "success": True,
+            "message": "Subscriber removed",
+            "email": email,
+            "brevo_sync": brevo_result.get("success", False),
+            "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
+        })
+    except Exception as e:
+        error_msg = f"Error removing subscriber: {str(e)}"
+        print(f"Remove subscriber error: {traceback.format_exc()}")
+        log_activity(f"Failed to remove subscriber: {error_msg}", "danger")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@app.route('/stats', methods=['GET'])
+def get_stats():
+    try:
+        stats = get_signup_stats()
+        return jsonify({
+            "success": True,
+            "stats": stats,
+            "brevo_sync_status": "✅" if AUTO_SYNC_TO_BREVO else "❌",
+        })
+    except Exception as e:
+        error_msg = f"Error getting stats: {str(e)}"
+        print(f"Stats error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@app.route('/activity', methods=['GET'])
+def get_activity():
+    try:
+        limit = int(request.args.get('limit', 20))
+        return jsonify({"success": True, "activity": activity_log[:limit]})
+    except Exception as e:
+        error_msg = f"Error getting activity: {str(e)}"
+        print(f"Activity error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@app.route('/bulk-import', methods=['POST'])
+def bulk_import():
+    try:
+        data = request.json or {}
+        emails = data.get('emails', [])
+        source = data.get('source', 'import')
+        if not emails:
+            return jsonify({"success": False, "error": "No emails provided"}), 400
+        added = 0
+        errors: list[str] = []
+        for email in emails:
+            try:
+                email = str(email).strip().lower()
+                if not is_valid_email(email):
+                    errors.append(f"Invalid email: {email}")
+                    continue
+                if email in subscribers_data:
+                    errors.append(f"Already exists: {email}")
+                    continue
+                subscribers_data[email] = {
+                    'date_added': datetime.now().isoformat(),
+                    'source': source,
+                    'status': 'active',
+                }
+                brevo_result = add_to_brevo_list(email)
+                if not brevo_result.get("success", False):
+                    errors.append(f"Brevo sync failed for {email}: {brevo_result.get('error', 'Unknown error')}")
+                added += 1
+            except Exception as e:
+                errors.append(f"Error processing {email}: {str(e)}")
+                continue
+        log_activity(f"Bulk import: {added} subscribers added, {len(errors)} errors", "info")
+        return jsonify({
+            "success": True,
+            "added": added,
+            "errors": errors,
+            "total_processed": len(emails),
+        })
+    except Exception as e:
+        error_msg = f"Error in bulk import: {str(e)}"
+        print(f"Bulk import error: {traceback.format_exc()}")
+        log_activity(f"Bulk import failed: {error_msg}", "danger")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@app.route('/sync-brevo', methods=['POST'])
+def manual_brevo_sync():
+    try:
+        if not AUTO_SYNC_TO_BREVO:
+            return jsonify({"success": False, "error": "Brevo sync is disabled"}), 400
+        if not contacts_api:
+            return jsonify({"success": False, "error": "Brevo API not initialized"}), 500
+        success_count = 0
+        error_count = 0
+        errors: list[str] = []
+        for email in list(subscribers_data.keys()):
+            try:
+                result = add_to_brevo_list(email)
+                if result.get("success", False):
+                    success_count += 1
+                else:
+                    error_count += 1
+                    errors.append(f"{email}: {result.get('error', 'Unknown error')}")
+            except Exception as e:
+                error_count += 1
+                errors.append(f"{email}: {str(e)}")
+        log_activity(f"Manual Brevo sync: {success_count} success, {error_count} errors", "info")
+        return jsonify({
+            "success": True,
+            "synced": success_count,
+            "errors": error_count,
+            "error_details": errors,
+        })
+    except Exception as e:
+        error_msg = f"Error in manual sync: {str(e)}"
+        print(f"Manual sync error: {traceback.format_exc()}")
+        log_activity(f"Manual sync failed: {error_msg}", "danger")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@app.route('/sync-status', methods=['GET'])
+def sync_status():
+    try:
+        last_activity = activity_log[0] if activity_log else None
+        return jsonify({
+            "auto_sync_enabled": AUTO_SYNC_TO_BREVO,
+            "brevo_list_id": BREVO_LIST_ID,
+            "local_subscribers": len(subscribers_data),
+            "last_activity": last_activity,
+        })
+    except Exception as e:
+        error_msg = f"Error getting sync status: {str(e)}"
+        print(f"Sync status error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
 # =============================
-# Error Handlers
+# Error Handlers (after routes)
 # =============================
+
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({"success": False, "error": "Bad request", "message": str(error)}), 400
+
+@app.errorhandler(401)
+def unauthorized(error):
+    return jsonify({"success": False, "error": "Unauthorized", "message": str(error)}), 401
+
+@app.errorhandler(403)
+def forbidden(error):
+    return jsonify({"success": False, "error": "Forbidden", "message": str(error)}), 403
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({"success": False, "error": "Not found"}), 404
+    return jsonify({"success": False, "error": "Not found", "message": str(error)}), 404
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    return jsonify({"success": False, "error": "Method not allowed", "message": str(error)}), 405
+
+@app.errorhandler(429)
+def too_many_requests(error):
+    return jsonify({"success": False, "error": "Too many requests", "message": "Please try again later"}), 429
 
 @app.errorhandler(500)
 def internal_server_error(error):
-    log_error(f"Server Error: {error}")
-    return jsonify({"success": False, "error": "Internal server error"}), 500
+    print(f"Server Error: {error}")
+    print(f"Traceback: {traceback.format_exc()}")
+    return jsonify({"success": False, "error": "Internal server error", "message": "An unexpected error occurred"}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    print(f"Unhandled Exception: {error}")
+    print(f"Traceback: {traceback.format_exc()}")
+    return jsonify({"success": False, "error": "Server error", "message": "An unexpected error occurred"}), 500
 
 # =============================
-# Main Application Startup
+# Main
 # =============================
-
 if __name__ == '__main__':
     try:
         print("🚀 SideQuest Backend starting...")
         print("=" * 50)
-        
-        # Initialize database
-        print("🗄️  Initializing database...")
-        if init_database():
-            print("✅ Database tables ready")
-        else:
-            print("⚠️  Database not available - using in-memory storage")
-        
-        # Test Brevo connection
         print("🧪 Testing Brevo API connection...")
         brevo_connected, brevo_status, brevo_email = test_brevo_connection()
         if brevo_connected:
             print(f"✅ Brevo connection successful - {brevo_email}")
         else:
             print(f"❌ Brevo connection failed: {brevo_status}")
-            print("⚠️  Email campaigns may not work")
-        
+            print("⚠️  Email campaigns and sync features may not work")
         log_activity("SideQuest Backend started", "info")
         print(f"📧 Sender email: {SENDER_EMAIL}")
         print(f"🔄 Brevo Auto-Sync: {'ON' if AUTO_SYNC_TO_BREVO else 'OFF'}")
@@ -869,17 +1501,17 @@ if __name__ == '__main__':
         print(f"📱 Signup page: http://localhost:4000/signup")
         print(f"🔧 Admin dashboard: http://localhost:4000/admin")
         print(f"📊 API Health check: http://localhost:4000/health")
+        print(f"🧪 Test endpoint: http://localhost:4000/test")
         print("=" * 50)
         print("✅ SideQuest backend ready! 🎮")
-        
         port = int(os.environ.get('PORT', 4000))
         app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
-        
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
         log_activity("Server stopped by user", "info")
     except Exception as e:
         print(f"❌ Critical error starting server: {e}")
-        log_error(f"Critical startup error: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")

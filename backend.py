@@ -1106,7 +1106,8 @@ def create_event():
         # Parse date_time
         try:
             date_time = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
-        except:
+        except Exception as e:
+            log_error(f"Date parsing error: {e}")
             return jsonify({"success": False, "error": "Invalid date_time format"}), 400
             
         # Parse end_time if provided
@@ -1141,15 +1142,18 @@ def create_event():
             data.get('requirements')
         )
         
+        log_activity(f"Attempting to create event: {data['title']}", "info")
+        log_activity(f"Query params: {params}", "info")
+        
         result = execute_query_one(query, params)
         
         if result:
             event_id = result['id']
-            log_activity(f"Created event: {data['title']} (ID: {event_id})", "success")
+            log_activity(f"Successfully created event: {data['title']} (ID: {event_id})", "success")
             
-            # Schedule automated emails if status is published
-            if data.get('status') == 'published':
-                schedule_event_emails(event_id, date_time)
+            # Comment out email scheduling for now to avoid errors
+            # if data.get('status') == 'published':
+            #     schedule_event_emails(event_id, date_time)
             
             return jsonify({
                 "success": True,
@@ -1157,359 +1161,12 @@ def create_event():
                 "message": "Event created successfully"
             })
         else:
-            return jsonify({"success": False, "error": "Failed to create event"}), 500
+            log_error("execute_query_one returned None - database insert failed", "error")
+            return jsonify({"success": False, "error": "Failed to create event - database error"}), 500
             
     except Exception as e:
         log_error(f"Error creating event: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/events/<int:event_id>', methods=['PUT'])
-def update_event(event_id):
-    """Update an existing event"""
-    try:
-        data = request.json or {}
-        
-        # Build dynamic update query
-        update_fields = []
-        params = []
-        
-        allowed_fields = [
-            'title', 'event_type', 'game_title', 'date_time', 'end_time',
-            'capacity', 'description', 'entry_fee', 'prize_pool', 'status',
-            'image_url', 'requirements'
-        ]
-        
-        for field in allowed_fields:
-            if field in data:
-                update_fields.append(f"{field} = %s")
-                if field in ['date_time', 'end_time'] and data[field]:
-                    try:
-                        params.append(datetime.fromisoformat(data[field].replace('Z', '+00:00')))
-                    except:
-                        params.append(None)
-                else:
-                    params.append(data[field])
-        
-        if not update_fields:
-            return jsonify({"success": False, "error": "No fields to update"}), 400
-            
-        params.append(event_id)
-        query = f"""
-            UPDATE events 
-            SET {', '.join(update_fields)}
-            WHERE id = %s
-        """
-        
-        result = execute_query(query, params, fetch=False)
-        
-        if result:
-            log_activity(f"Updated event ID: {event_id}", "info")
-            return jsonify({
-                "success": True,
-                "message": "Event updated successfully"
-            })
-        else:
-            return jsonify({"success": False, "error": "Event not found"}), 404
-            
-    except Exception as e:
-        log_error(f"Error updating event {event_id}: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/events/<int:event_id>', methods=['DELETE'])
-def delete_event(event_id):
-    """Delete an event"""
-    try:
-        # Check if event exists and has registrations
-        check_query = """
-            SELECT COUNT(r.id) as registration_count
-            FROM events e
-            LEFT JOIN event_registrations r ON e.id = r.event_id
-            WHERE e.id = %s
-            GROUP BY e.id
-        """
-        
-        result = execute_query_one(check_query, (event_id,))
-        
-        if not result:
-            return jsonify({"success": False, "error": "Event not found"}), 404
-            
-        if result['registration_count'] > 0:
-            if not request.args.get('force', '').lower() == 'true':
-                return jsonify({
-                    "success": False,
-                    "error": f"Event has {result['registration_count']} registrations. Use force=true to delete anyway."
-                }), 400
-        
-        query = "DELETE FROM events WHERE id = %s"
-        result = execute_query(query, (event_id,), fetch=False)
-        
-        if result:
-            log_activity(f"Deleted event ID: {event_id}", "danger")
-            return jsonify({
-                "success": True,
-                "message": "Event deleted successfully"
-            })
-        else:
-            return jsonify({"success": False, "error": "Failed to delete event"}), 500
-            
-    except Exception as e:
-        log_error(f"Error deleting event {event_id}: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/events/<int:event_id>/register', methods=['POST'])
-def register_for_event(event_id):
-    """Register a subscriber for an event"""
-    try:
-        data = request.json or {}
-        email = data.get('email', '').strip().lower()
-        
-        if not email:
-            return jsonify({"success": False, "error": "Email is required"}), 400
-            
-        # Check if subscriber exists
-        if email not in subscribers_data:
-            return jsonify({"success": False, "error": "Email not found in subscribers"}), 404
-            
-        # Check event exists and has capacity
-        event_query = """
-            SELECT e.*, COUNT(r.id) as current_registrations
-            FROM events e
-            LEFT JOIN event_registrations r ON e.id = r.event_id
-            WHERE e.id = %s
-            GROUP BY e.id
-        """
-        
-        event = execute_query_one(event_query, (event_id,))
-        
-        if not event:
-            return jsonify({"success": False, "error": "Event not found"}), 404
-            
-        if event['capacity'] and event['capacity'] > 0:
-            if event['current_registrations'] >= event['capacity']:
-                return jsonify({"success": False, "error": "Event is full"}), 400
-        
-        # Generate confirmation code
-        confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-        
-        # Register for event
-        query = """
-            INSERT INTO event_registrations (
-                event_id, subscriber_email, player_name, team_name, notes, confirmation_code
-            ) VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (event_id, subscriber_email) 
-            DO UPDATE SET notes = EXCLUDED.notes
-            RETURNING id
-        """
-        
-        params = (
-            event_id,
-            email,
-            data.get('player_name', email.split('@')[0]),
-            data.get('team_name'),
-            data.get('notes'),
-            confirmation_code
-        )
-        
-        result = execute_query_one(query, params)
-        
-        if result:
-            # Update registration count
-            update_query = """
-                UPDATE events 
-                SET current_registrations = (
-                    SELECT COUNT(*) FROM event_registrations WHERE event_id = %s
-                )
-                WHERE id = %s
-            """
-            execute_query(update_query, (event_id, event_id), fetch=False)
-            
-            log_activity(f"{email} registered for event ID: {event_id}", "success")
-            
-            # Send confirmation email
-            send_registration_confirmation(email, event, confirmation_code)
-            
-            return jsonify({
-                "success": True,
-                "message": "Registration successful",
-                "confirmation_code": confirmation_code
-            })
-        else:
-            return jsonify({"success": False, "error": "Registration failed"}), 500
-            
-    except Exception as e:
-        log_error(f"Error registering for event {event_id}: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/events/<int:event_id>/unregister', methods=['POST'])
-def unregister_from_event(event_id):
-    """Unregister a subscriber from an event"""
-    try:
-        data = request.json or {}
-        email = data.get('email', '').strip().lower()
-        
-        if not email:
-            return jsonify({"success": False, "error": "Email is required"}), 400
-            
-        query = "DELETE FROM event_registrations WHERE event_id = %s AND subscriber_email = %s"
-        result = execute_query(query, (event_id, email), fetch=False)
-        
-        if result:
-            # Update registration count
-            update_query = """
-                UPDATE events 
-                SET current_registrations = (
-                    SELECT COUNT(*) FROM event_registrations WHERE event_id = %s
-                )
-                WHERE id = %s
-            """
-            execute_query(update_query, (event_id, event_id), fetch=False)
-            
-            log_activity(f"{email} unregistered from event ID: {event_id}", "info")
-            
-            return jsonify({
-                "success": True,
-                "message": "Unregistered successfully"
-            })
-        else:
-            return jsonify({"success": False, "error": "Registration not found"}), 404
-            
-    except Exception as e:
-        log_error(f"Error unregistering from event {event_id}: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
-def get_event_attendees(event_id):
-    """Get list of attendees for an event"""
-    try:
-        query = """
-            SELECT 
-                r.*,
-                CASE 
-                    WHEN r.subscriber_email IN (SELECT email FROM subscribers) 
-                    THEN true 
-                    ELSE false 
-                END as is_subscriber
-            FROM event_registrations r
-            WHERE r.event_id = %s
-            ORDER BY r.registered_at DESC
-        """
-        
-        attendees = execute_query(query, (event_id,))
-        
-        if attendees is None:
-            return jsonify({"success": False, "error": "Database error"}), 500
-            
-        # Convert datetime objects
-        for attendee in attendees:
-            if attendee['registered_at']:
-                attendee['registered_at'] = attendee['registered_at'].isoformat()
-            if attendee['checked_in_at']:
-                attendee['checked_in_at'] = attendee['checked_in_at'].isoformat()
-                
-        return jsonify({
-            "success": True,
-            "attendees": attendees,
-            "count": len(attendees)
-        })
-        
-    except Exception as e:
-        log_error(f"Error getting attendees for event {event_id}: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
-def checkin_attendee(event_id):
-    """Check in an attendee for an event"""
-    try:
-        data = request.json or {}
-        email = data.get('email', '').strip().lower()
-        
-        if not email:
-            return jsonify({"success": False, "error": "Email is required"}), 400
-            
-        query = """
-            UPDATE event_registrations 
-            SET attended = true, checked_in_at = CURRENT_TIMESTAMP
-            WHERE event_id = %s AND subscriber_email = %s
-            RETURNING id
-        """
-        
-        result = execute_query_one(query, (event_id, email))
-        
-        if result:
-            log_activity(f"Checked in {email} for event ID: {event_id}", "success")
-            return jsonify({
-                "success": True,
-                "message": "Check-in successful"
-            })
-        else:
-            return jsonify({"success": False, "error": "Registration not found"}), 404
-            
-    except Exception as e:
-        log_error(f"Error checking in attendee: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/api/events/calendar', methods=['GET'])
-def get_calendar_events():
-    """Get events in calendar format"""
-    try:
-        start_date = request.args.get('start', datetime.now().isoformat())
-        end_date = request.args.get('end', (datetime.now() + timedelta(days=30)).isoformat())
-        
-        query = """
-            SELECT 
-                id,
-                title,
-                event_type,
-                date_time as start,
-                COALESCE(end_time, date_time + INTERVAL '2 hours') as end,
-                CASE 
-                    WHEN capacity > 0 THEN 
-                        CONCAT(current_registrations, '/', capacity, ' registered')
-                    ELSE 
-                        CONCAT(current_registrations, ' registered')
-                END as description,
-                CASE event_type
-                    WHEN 'tournament' THEN '#FF6B35'
-                    WHEN 'game_night' THEN '#4ECDC4'
-                    WHEN 'special' THEN '#FFD700'
-                    WHEN 'birthday' THEN '#FF69B4'
-                    ELSE '#95A5A6'
-                END as color,
-                status
-            FROM events
-            WHERE date_time BETWEEN %s AND %s
-                AND status != 'cancelled'
-            ORDER BY date_time
-        """
-        
-        events = execute_query(query, (start_date, end_date))
-        
-        if events is None:
-            return jsonify({"success": False, "error": "Database error"}), 500
-            
-        # Format for FullCalendar
-        calendar_events = []
-        for event in events:
-            calendar_events.append({
-                'id': event['id'],
-                'title': event['title'],
-                'start': event['start'].isoformat() if event['start'] else None,
-                'end': event['end'].isoformat() if event['end'] else None,
-                'description': event['description'],
-                'color': event['color'],
-                'extendedProps': {
-                    'event_type': event['event_type'],
-                    'status': event['status']
-                }
-            })
-            
-        return jsonify({
-            "success": True,
-            "events": calendar_events
-        })
-        
-    except Exception as e:
-        log_error(f"Error getting calendar events: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 # =============================

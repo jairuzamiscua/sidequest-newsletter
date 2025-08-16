@@ -956,20 +956,56 @@ def execute_query(query, params=None, fetch=True):
             conn.close()
 
 def execute_query_one(query, params=None):
-    """Execute a query and return single result"""
+    """Execute a query and return the first result"""
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         if not conn:
+            log_error("Failed to get database connection")
             return None
-        cursor = conn.cursor()
+            
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        log_activity(f"Executing query: {query[:100]}..." if len(query) > 100 else query, "info")
+        log_activity(f"With params: {params}", "info")
+        
         cursor.execute(query, params)
-        result = cursor.fetchone()
-        return result
-    except Exception as e:
-        log_error(f"Query execution error: {e}")
+        
+        # For INSERT/UPDATE/DELETE with RETURNING, we need to fetch the result
+        if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')) and 'RETURNING' in query.upper():
+            result = cursor.fetchone()
+            conn.commit()  # Important: commit the transaction
+            log_activity(f"Query executed successfully, returning: {result}", "success")
+            return dict(result) if result else None
+        
+        # For SELECT queries
+        elif query.strip().upper().startswith('SELECT'):
+            result = cursor.fetchone()
+            log_activity(f"Query executed successfully, returning: {result}", "success")
+            return dict(result) if result else None
+        
+        # For other queries without RETURNING
+        else:
+            conn.commit()
+            log_activity(f"Query executed successfully, no return data", "success")
+            return {"affected_rows": cursor.rowcount}
+            
+    except psycopg2.Error as e:
+        log_error(f"Database error in execute_query_one: {e}")
+        log_error(f"Query was: {query}")
+        log_error(f"Params were: {params}")
+        if conn:
+            conn.rollback()
         return None
+        
+    except Exception as e:
+        log_error(f"Unexpected error in execute_query_one: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        if conn:
+            conn.rollback()
+        return None
+        
     finally:
         if cursor:
             cursor.close()
@@ -1097,15 +1133,20 @@ def create_event():
     try:
         data = request.json or {}
         
+        # Log the incoming request
+        log_activity(f"Received create_event request: {data}", "info")
+        
         # Validate required fields
         required_fields = ['title', 'event_type', 'date_time']
         for field in required_fields:
             if field not in data:
+                log_error(f"Missing required field: {field}")
                 return jsonify({"success": False, "error": f"{field} is required"}), 400
         
         # Parse date_time
         try:
             date_time = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
+            log_activity(f"Parsed date_time: {date_time}", "info")
         except Exception as e:
             log_error(f"Date parsing error: {e}")
             return jsonify({"success": False, "error": "Invalid date_time format"}), 400
@@ -1115,7 +1156,9 @@ def create_event():
         if data.get('end_time'):
             try:
                 end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
-            except:
+                log_activity(f"Parsed end_time: {end_time}", "info")
+            except Exception as e:
+                log_error(f"End time parsing error: {e}")
                 pass
                 
         query = """
@@ -1142,18 +1185,32 @@ def create_event():
             data.get('requirements')
         )
         
-        log_activity(f"Attempting to create event: {data['title']}", "info")
-        log_activity(f"Query params: {params}", "info")
+        log_activity(f"About to execute query: {query}", "info")
+        log_activity(f"With params: {params}", "info")
         
+        # Execute the query and get detailed feedback
         result = execute_query_one(query, params)
         
-        if result:
+        log_activity(f"Query result type: {type(result)}", "info")
+        log_activity(f"Query result value: {result}", "info")
+        
+        if result is None:
+            log_error("execute_query_one returned None - check database connection and query")
+            return jsonify({"success": False, "error": "Database query failed - check logs"}), 500
+        
+        if isinstance(result, dict) and 'id' in result:
             event_id = result['id']
             log_activity(f"Successfully created event: {data['title']} (ID: {event_id})", "success")
             
-            # Comment out email scheduling for now to avoid errors
-            # if data.get('status') == 'published':
-            #     schedule_event_emails(event_id, date_time)
+            # Verify the event was actually inserted
+            verify_query = "SELECT id, title FROM events WHERE id = %s"
+            verification = execute_query_one(verify_query, (event_id,))
+            
+            if verification:
+                log_activity(f"Event verification successful: {verification}", "success")
+            else:
+                log_error(f"Event was not found after insert! ID: {event_id}")
+                return jsonify({"success": False, "error": "Event creation failed - not found after insert"}), 500
             
             return jsonify({
                 "success": True,
@@ -1161,8 +1218,8 @@ def create_event():
                 "message": "Event created successfully"
             })
         else:
-            log_error("execute_query_one returned None - database insert failed", "error")
-            return jsonify({"success": False, "error": "Failed to create event - database error"}), 500
+            log_error(f"Unexpected result format from execute_query_one: {result}")
+            return jsonify({"success": False, "error": "Unexpected database response format"}), 500
             
     except Exception as e:
         log_error(f"Error creating event: {e}")

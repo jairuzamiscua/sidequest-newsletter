@@ -1576,42 +1576,30 @@ def register_for_event(event_id):
 
 # Replace your get_event_attendees function with this ULTRA-DEBUG version:
 
+# Replace your get_event_attendees function with this FIXED version:
+
 @app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
 def get_event_attendees(event_id):
-    """Get list of attendees for an event - ULTRA DEBUG VERSION"""
-    print(f"🔍 Starting get_event_attendees for event_id: {event_id}")
-    
+    """Get list of attendees for an event - FIXED VERSION"""
     try:
-        print(f"🔍 Step 1: Getting database connection...")
-        # Check if event exists
         conn = get_db_connection()
         if not conn:
-            print(f"❌ Database connection failed!")
             return jsonify({"success": False, "error": "Database connection failed"}), 500
-        
-        print(f"✅ Step 1: Database connection successful")
-        
-        print(f"🔍 Step 2: Creating cursor...")
+            
         cursor = conn.cursor()
-        print(f"✅ Step 2: Cursor created")
         
-        print(f"🔍 Step 3: Checking if event exists...")
-        # Simple event check
+        # Simple event check - FIXED: use dictionary key instead of index
         cursor.execute("SELECT title FROM events WHERE id = %s", (event_id,))
         event_row = cursor.fetchone()
-        print(f"🔍 Step 3: Event query result: {event_row}")
         
         if not event_row:
-            print(f"❌ Event {event_id} not found in database")
             cursor.close()
             conn.close()
             return jsonify({"success": False, "error": "Event not found"}), 404
         
-        event_title = event_row[0]
-        print(f"✅ Step 3: Event found - title: {event_title}")
+        event_title = event_row['title']  # FIXED: Use dict key instead of event_row[0]
         
-        print(f"🔍 Step 4: Getting attendees...")
-        # Get attendees - VERY SIMPLE QUERY
+        # Get attendees
         cursor.execute("""
             SELECT 
                 subscriber_email,
@@ -1624,72 +1612,47 @@ def get_event_attendees(event_id):
             ORDER BY registered_at ASC
         """, (event_id,))
         
-        print(f"🔍 Step 4: Attendees query executed, fetching results...")
         rows = cursor.fetchall()
-        print(f"✅ Step 4: Found {len(rows)} attendee rows")
         
-        print(f"🔍 Step 5: Converting rows to dictionaries...")
-        # Convert to simple list of dictionaries
+        # Convert to list of dictionaries - FIXED: use dict keys
         attendees = []
-        for i, row in enumerate(rows):
-            print(f"🔍 Processing row {i}: {row}")
-            try:
-                attendee = {
-                    'subscriber_email': row[0],
-                    'player_name': row[1],
-                    'confirmation_code': row[2],
-                    'registered_at': row[3].isoformat() if row[3] else None,
-                    'attended': row[4] if row[4] is not None else False
-                }
-                attendees.append(attendee)
-                print(f"✅ Processed attendee {i}: {attendee['subscriber_email']}")
-            except Exception as row_error:
-                print(f"❌ Error processing row {i}: {row_error}")
-                print(f"❌ Row data: {row}")
-                raise row_error
+        for row in rows:
+            attendee = {
+                'subscriber_email': row['subscriber_email'],      # FIXED: dict key
+                'player_name': row['player_name'],                # FIXED: dict key  
+                'confirmation_code': row['confirmation_code'],    # FIXED: dict key
+                'registered_at': row['registered_at'].isoformat() if row['registered_at'] else None,  # FIXED: dict key
+                'attended': row['attended'] if row['attended'] is not None else False  # FIXED: dict key
+            }
+            attendees.append(attendee)
         
-        print(f"✅ Step 5: Successfully converted {len(attendees)} attendees")
-        
-        print(f"🔍 Step 6: Closing database connections...")
         cursor.close()
         conn.close()
-        print(f"✅ Step 6: Database connections closed")
         
-        print(f"🔍 Step 7: Creating response...")
-        response_data = {
+        print(f"✅ Successfully retrieved {len(attendees)} attendees for event {event_id}")
+        
+        return jsonify({
             "success": True,
             "attendees": attendees,
             "event_title": event_title,
             "total_count": len(attendees)
-        }
-        print(f"✅ Step 7: Response created successfully")
-        
-        # Log success
-        print(f"🎉 SUCCESS: Retrieved {len(attendees)} attendees for event {event_id}")
-        
-        return jsonify(response_data)
+        })
         
     except Exception as e:
-        print(f"💥 EXCEPTION in get_event_attendees: {type(e).__name__}: {str(e)}")
-        print(f"💥 Full traceback:")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Error in get_event_attendees: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
         
-        # Make sure connections are closed
         try:
             if 'cursor' in locals():
                 cursor.close()
-                print(f"🔧 Closed cursor in exception handler")
             if 'conn' in locals():
                 conn.close()
-                print(f"🔧 Closed connection in exception handler")
-        except Exception as cleanup_error:
-            print(f"💥 Error during cleanup: {cleanup_error}")
+        except:
+            pass
         
         return jsonify({
             "success": False, 
-            "error": f"Internal server error: {str(e)}",
-            "error_type": type(e).__name__
+            "error": f"Internal server error: {str(e)}"
         }), 500
 
 # 2. ALSO ADD THIS DEBUG ENDPOINT to test if registrations exist:

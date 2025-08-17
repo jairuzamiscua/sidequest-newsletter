@@ -1147,113 +1147,55 @@ def get_events():
         log_error(f"Error getting events: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-# Replace your register_for_event function with this version that handles commits properly:
-
-@app.route('/api/events/<int:event_id>/register', methods=['POST'])
-def register_for_event(event_id):
-    """Register a subscriber for an event"""
-    conn = None
-    cursor = None
+@app.route('/api/events/<int:event_id>', methods=['GET'])
+def get_event(event_id):
+    """Get single event with registration details"""
     try:
-        data = request.json or {}
-        email = data.get('email', '').strip().lower()
-        player_name = data.get('player_name', '')
-        
-        if not email:
-            return jsonify({"success": False, "error": "Email is required"}), 400
-            
-        if not is_valid_email(email):
-            return jsonify({"success": False, "error": "Invalid email format"}), 400
-        
-        # Check if event exists
-        event_check = execute_query_one("SELECT id, title, capacity FROM events WHERE id = %s", (event_id,))
-        if not event_check:
-            return jsonify({"success": False, "error": "Event not found"}), 404
-        
-        # Auto-add to subscribers if not exists
-        subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
-        if not subscriber_check:
-            if add_subscriber_to_db(email, 'event_registration'):
-                log_activity(f"Auto-added {email} to subscribers via event registration", "info")
-            else:
-                log_activity(f"Failed to auto-add {email} to subscribers, but allowing registration", "warning")
-
-        # Check if already registered
-        existing_registration = execute_query_one(
-            "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
-            (event_id, email)
-        )
-        if existing_registration:
-            return jsonify({"success": False, "error": "Already registered for this event"}), 400
-        
-        # Check capacity
-        if event_check['capacity'] > 0:
-            current_count = execute_query_one(
-                "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
-                (event_id,)
-            )
-            if current_count and current_count['count'] >= event_check['capacity']:
-                return jsonify({"success": False, "error": "Event is at full capacity"}), 400
-        
-        # Generate confirmation code
-        import random
-        import string
-        confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-        
-        # Manual database handling to ensure commit
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({"success": False, "error": "Database connection failed"}), 500
-            
-        cursor = conn.cursor()
-        
-        # Register for event with manual transaction control
-        register_query = """
-            INSERT INTO event_registrations (event_id, subscriber_email, player_name, confirmation_code)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
+        query = """
+            SELECT 
+                e.*,
+                COUNT(r.id) as registration_count,
+                CASE 
+                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
+                    ELSE NULL
+                END as spots_available,
+                ARRAY_AGG(
+                    CASE WHEN r.id IS NOT NULL THEN
+                        json_build_object(
+                            'email', r.subscriber_email,
+                            'player_name', r.player_name,
+                            'registered_at', r.registered_at,
+                            'attended', r.attended
+                        )
+                    ELSE NULL END
+                ) FILTER (WHERE r.id IS NOT NULL) as registrations
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.id = %s
+            GROUP BY e.id
         """
         
-        cursor.execute(register_query, (event_id, email, player_name or email.split('@')[0], confirmation_code))
-        result = cursor.fetchone()
+        event = execute_query_one(query, (event_id,))
         
-        if result:
-            # EXPLICITLY commit the transaction
-            conn.commit()
-            log_activity(f"Registered {email} for event: {event_check['title']} (Confirmation: {confirmation_code})", "success")
+        if not event:
+            return jsonify({"success": False, "error": "Event not found"}), 404
             
-            # Verify the registration was saved by checking immediately
-            verify_query = "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s"
-            cursor.execute(verify_query, (event_id, email))
-            verification = cursor.fetchone()
+        # Convert datetime objects
+        if event['date_time']:
+            event['date_time'] = event['date_time'].isoformat()
+        if event['end_time']:
+            event['end_time'] = event['end_time'].isoformat()
+        if event['created_at']:
+            event['created_at'] = event['created_at'].isoformat()
             
-            if verification:
-                log_activity(f"Registration verified in database for {email}", "success")
-            else:
-                log_error(f"Registration not found after insert for {email}!")
-                
-            return jsonify({
-                "success": True,
-                "message": "Registration successful",
-                "confirmation_code": confirmation_code,
-                "event_title": event_check['title']
-            })
-        else:
-            conn.rollback()
-            return jsonify({"success": False, "error": "Registration failed - no result"}), 500
-            
+        return jsonify({
+            "success": True,
+            "event": event
+        })
+        
     except Exception as e:
-        if conn:
-            conn.rollback()
-        log_error(f"Error registering for event {event_id}: {e}")
-        log_error(f"Full traceback: {traceback.format_exc()}")
+        log_error(f"Error getting event {event_id}: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
-        
-    finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
 
 @app.route('/api/events', methods=['POST'])
 def create_event():
@@ -1525,6 +1467,8 @@ def update_event(event_id):
 @app.route('/api/events/<int:event_id>/register', methods=['POST'])
 def register_for_event(event_id):
     """Register a subscriber for an event"""
+    conn = None
+    cursor = None
     try:
         data = request.json or {}
         email = data.get('email', '').strip().lower()
@@ -1541,15 +1485,14 @@ def register_for_event(event_id):
         if not event_check:
             return jsonify({"success": False, "error": "Event not found"}), 404
         
-        # Auto-add to subscribers if not exists (this allows anyone to register)
+        # Auto-add to subscribers if not exists
         subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
         if not subscriber_check:
-            # Add to subscribers automatically
             if add_subscriber_to_db(email, 'event_registration'):
                 log_activity(f"Auto-added {email} to subscribers via event registration", "info")
             else:
                 log_activity(f"Failed to auto-add {email} to subscribers, but allowing registration", "warning")
-        
+
         # Check if already registered
         existing_registration = execute_query_one(
             "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
@@ -1572,17 +1515,38 @@ def register_for_event(event_id):
         import string
         confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
         
-        # Register for event
+        # Manual database handling to ensure commit
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor()
+        
+        # Register for event with manual transaction control
         register_query = """
             INSERT INTO event_registrations (event_id, subscriber_email, player_name, confirmation_code)
             VALUES (%s, %s, %s, %s)
             RETURNING id
         """
         
-        result = execute_query_one(register_query, (event_id, email, player_name or email.split('@')[0], confirmation_code))
+        cursor.execute(register_query, (event_id, email, player_name or email.split('@')[0], confirmation_code))
+        result = cursor.fetchone()
         
         if result:
-            log_activity(f"Registered {email} for event: {event_check['title']}", "success")
+            # EXPLICITLY commit the transaction
+            conn.commit()
+            log_activity(f"Registered {email} for event: {event_check['title']} (Confirmation: {confirmation_code})", "success")
+            
+            # Verify the registration was saved by checking immediately
+            verify_query = "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s"
+            cursor.execute(verify_query, (event_id, email))
+            verification = cursor.fetchone()
+            
+            if verification:
+                log_activity(f"Registration verified in database for {email}", "success")
+            else:
+                log_error(f"Registration not found after insert for {email}!")
+                
             return jsonify({
                 "success": True,
                 "message": "Registration successful",
@@ -1590,13 +1554,21 @@ def register_for_event(event_id):
                 "event_title": event_check['title']
             })
         else:
-            log_error("Registration query failed - check if event_registrations table exists")
-            return jsonify({"success": False, "error": "Registration failed - database issue"}), 500
+            conn.rollback()
+            return jsonify({"success": False, "error": "Registration failed - no result"}), 500
             
     except Exception as e:
+        if conn:
+            conn.rollback()
         log_error(f"Error registering for event {event_id}: {e}")
         log_error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({"success": False, "error": str(e)}), 500
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 @app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
 def get_event_attendees(event_id):
@@ -1607,7 +1579,7 @@ def get_event_attendees(event_id):
         if not event_check:
             return jsonify({"success": False, "error": "Event not found"}), 404
         
-        # Get attendees - simplified query to avoid issues
+        # Get attendees
         attendees_query = """
             SELECT 
                 subscriber_email,
@@ -1624,24 +1596,15 @@ def get_event_attendees(event_id):
         
         attendees = execute_query(attendees_query, (event_id,))
         
-        # Handle case where no attendees found
         if attendees is None:
-            attendees = []
+            return jsonify({"success": False, "error": "Database error"}), 500
         
-        # Convert datetime objects to ISO format safely
+        # Convert datetime objects to ISO format
         for attendee in attendees:
-            try:
-                if attendee.get('registered_at'):
-                    attendee['registered_at'] = attendee['registered_at'].isoformat()
-                if attendee.get('check_in_time'):
-                    attendee['check_in_time'] = attendee['check_in_time'].isoformat()
-            except Exception as date_error:
-                log_error(f"Date conversion error for attendee: {date_error}")
-                # Set to None if conversion fails
-                attendee['registered_at'] = None
-                attendee['check_in_time'] = None
-        
-        log_activity(f"Retrieved {len(attendees)} attendees for event {event_id}", "info")
+            if attendee['registered_at']:
+                attendee['registered_at'] = attendee['registered_at'].isoformat()
+            if attendee['check_in_time']:
+                attendee['check_in_time'] = attendee['check_in_time'].isoformat()
         
         return jsonify({
             "success": True,
@@ -1652,8 +1615,7 @@ def get_event_attendees(event_id):
         
     except Exception as e:
         log_error(f"Error getting attendees for event {event_id}: {e}")
-        log_error(f"Full traceback: {traceback.format_exc()}")
-        return jsonify({"success": False, "error": f"Internal server error: {str(e)}"}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
 def checkin_attendee(event_id):

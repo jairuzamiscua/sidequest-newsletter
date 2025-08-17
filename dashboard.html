@@ -1419,6 +1419,7 @@
     }
 
     // Quick register subscriber to event
+    // Also enhance the quickRegister function to refresh attendees after registration:
     async function quickRegister(eventId) {
       const email = prompt('Enter subscriber email to register:');
       if (!email) return;
@@ -1433,105 +1434,176 @@
         const data = await response.json();
         
         if (data.success) {
-          showSuccess(`Registered ${email} - Confirmation: ${data.confirmation_code}`);
+          showSuccess(`✅ Registered ${email} - Confirmation: ${data.confirmation_code}`);
           loadEvents(); // Refresh the events list
           
-          // Also refresh attendees if modal is currently open
+          // Refresh attendees modal if it's open
           const modal = document.getElementById('eventModal');
           if (modal && modal.style.display === 'flex') {
-            // Modal is open, refresh attendees to show new registration
             setTimeout(() => viewAttendees(eventId), 500);
           }
         } else {
-          alert('Error: ' + (data.error || 'Failed to register'));
+          alert('❌ Error: ' + (data.error || 'Failed to register'));
         }
       } catch (error) {
         console.error('Error registering:', error);
-        alert('Failed to register');
+        alert('❌ Failed to register: ' + error.message);
       }
     }
 
     // View event attendees
     async function viewAttendees(eventId) {
+      console.log(`Attempting to view attendees for event ${eventId}`);
+      
       try {
+        // Show loading in modal immediately
+        const modal = document.getElementById('eventModal');
+        const modalTitle = document.getElementById('modalEventTitle');
+        const modalContent = document.getElementById('modalEventContent');
+        
+        modalTitle.textContent = 'Loading Attendees...';
+        modalContent.innerHTML = `
+          <div style="text-align: center; padding: 50px;">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px; color: #aaa;">Loading attendee list...</p>
+          </div>
+        `;
+        modal.style.display = 'flex';
+        
+        // First, let's debug what's happening
+        console.log(`Making request to: ${API_BASE}/api/events/${eventId}/attendees`);
+        
         const response = await fetch(`${API_BASE}/api/events/${eventId}/attendees`);
+        
+        console.log(`Response status: ${response.status}`);
+        console.log(`Response ok: ${response.ok}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
+        console.log('Attendees response data:', data);
         
         if (data.success) {
           const event = currentEvents.find(e => e.id === eventId);
-          showAttendeesModal(event, data.attendees);
+          const eventTitle = event ? event.title : data.event_title || `Event ${eventId}`;
+          
+          showAttendeesModal({ 
+            id: eventId, 
+            title: eventTitle 
+          }, data.attendees);
+          
+          console.log(`Successfully loaded ${data.attendees.length} attendees`);
+        } else {
+          throw new Error(data.error || 'Failed to load attendees');
         }
+        
       } catch (error) {
         console.error('Error loading attendees:', error);
-        alert('Failed to load attendees');
+        
+        // Show error in modal
+        const modal = document.getElementById('eventModal');
+        const modalTitle = document.getElementById('modalEventTitle');
+        const modalContent = document.getElementById('modalEventContent');
+        
+        modalTitle.textContent = 'Error Loading Attendees';
+        modalContent.innerHTML = `
+          <div style="text-align: center; padding: 30px; color: #ff6b35;">
+            <p>❌ Failed to load attendees</p>
+            <p style="font-size: 0.9rem; color: #aaa; margin-top: 10px;">
+              Error: ${error.message}
+            </p>
+            <button class="btn btn-primary mt-20" onclick="debugEventRegistrations(${eventId})">
+              🔍 Debug Event Data
+            </button>
+            <button class="btn btn-secondary mt-20" onclick="closeEventModal()">
+              Close
+            </button>
+          </div>
+        `;
+        modal.style.display = 'flex';
       }
     }
+    
 
     // Show attendees modal
     function showAttendeesModal(event, attendees) {
+      console.log('Showing attendees modal for:', event.title, 'with', attendees.length, 'attendees');
+      
       const modal = document.getElementById('eventModal');
-      document.getElementById('modalEventTitle').textContent = `Attendees: ${event.title}`;
+      const modalTitle = document.getElementById('modalEventTitle');
+      const modalContent = document.getElementById('modalEventContent');
+      
+      modalTitle.textContent = `👥 Attendees: ${event.title}`;
       
       let content = `
-        <p><strong>Total Registered:</strong> ${attendees.length}</p>
-        <div class="attendee-list">
+        <div style="margin-bottom: 20px;">
+          <p><strong>Total Registered:</strong> ${attendees.length}</p>
+          <p><strong>Attended:</strong> ${attendees.filter(a => a.attended).length}</p>
+        </div>
       `;
       
       if (attendees.length === 0) {
-        content += '<p class="text-muted">No registrations yet</p>';
+        content += `
+          <div style="text-align: center; padding: 40px; color: #aaa;">
+            <p>📭 No registrations yet</p>
+            <button class="btn btn-primary mt-20" onclick="quickRegister(${event.id})">
+              Add First Registration
+            </button>
+          </div>
+        `;
       } else {
+        content += '<div class="attendee-list">';
+        
         attendees.forEach(attendee => {
           const statusClass = attendee.attended ? 'status-attended' : 'status-registered';
           const statusText = attendee.attended ? 'Attended' : 'Registered';
+          const registeredDate = attendee.registered_at ? 
+            new Date(attendee.registered_at).toLocaleDateString() : 'Unknown';
           
           content += `
             <div class="attendee-item">
               <div>
                 <div class="attendee-email">${attendee.subscriber_email}</div>
-                <div style="color: #aaa; font-size: 0.8rem;">
-                  ${attendee.player_name || ''} | Code: ${attendee.confirmation_code}
+                <div style="color: #aaa; font-size: 0.8rem; margin-top: 5px;">
+                  Player: ${attendee.player_name || 'Not specified'} | 
+                  Code: ${attendee.confirmation_code} | 
+                  Registered: ${registeredDate}
                 </div>
               </div>
-              <div>
+              <div style="display: flex; gap: 10px; align-items: center;">
                 <span class="attendee-status ${statusClass}">${statusText}</span>
                 ${!attendee.attended ? `
                   <button class="btn btn-success btn-sm" onclick="checkinAttendee(${event.id}, '${attendee.subscriber_email}')">
-                    Check In
+                    ✓ Check In
                   </button>
                 ` : ''}
               </div>
             </div>
           `;
         });
-      }
-      
-      content += '</div>';
-      
-      document.getElementById('modalEventContent').innerHTML = content;
-      modal.style.display = 'flex';
-    }
-
-    // Check in attendee
-    async function checkinAttendee(eventId, email) {
-      try {
-        const response = await fetch(`${API_BASE}/api/events/${eventId}/checkin`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-
-        const data = await response.json();
         
-        if (data.success) {
-          showSuccess('Check-in successful!');
-          viewAttendees(eventId); // Refresh modal
-        } else {
-          alert('Error: ' + (data.error || 'Check-in failed'));
-        }
-      } catch (error) {
-        console.error('Error checking in:', error);
-        alert('Check-in failed');
+        content += '</div>';
       }
+      
+      // Add action buttons
+      content += `
+        <div style="display: flex; gap: 10px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #444;">
+          <button class="btn btn-primary" onclick="quickRegister(${event.id})">
+            ➕ Add Registration
+          </button>
+          <button class="btn btn-secondary" onclick="refreshAttendees(${event.id})">
+            🔄 Refresh
+          </button>
+          <button class="btn btn-secondary" onclick="closeEventModal()">
+            Close
+          </button>
+        </div>
+      `;
+      
+      modalContent.innerHTML = content;
+      modal.style.display = 'flex';
     }
 
     // Load event statistics
@@ -1569,6 +1641,35 @@
       } catch (error) {
         console.error('Error loading stats:', error);
       }
+    }
+
+    // Add debug function to test what's in the database:
+    async function debugEventRegistrations(eventId) {
+      try {
+        console.log(`Debugging event ${eventId}...`);
+        
+        const response = await fetch(`${API_BASE}/api/events/${eventId}/debug`);
+        const data = await response.json();
+        
+        console.log('Debug data:', data);
+        
+        alert(`Debug Results for Event ${eventId}:
+        
+    Event Exists: ${data.event_exists}
+    Registration Count: ${data.registration_count}
+    All Event Registrations: ${JSON.stringify(data.all_event_registrations, null, 2)}
+
+    Check console for full details.`);
+        
+      } catch (error) {
+        console.error('Debug error:', error);
+        alert('Debug failed: ' + error.message);
+      }
+    }
+
+    // Add refresh function:
+    async function refreshAttendees(eventId) {
+      await viewAttendees(eventId);
     }
 
     // Load calendar view

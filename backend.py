@@ -1572,74 +1572,87 @@ def register_for_event(event_id):
 
 # 1. BACKEND FIX - Replace your get_event_attendees function:
 
+# Replace your get_event_attendees function with this SIMPLE version:
+
 @app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
 def get_event_attendees(event_id):
-    """Get list of attendees for an event"""
-    conn = None
-    cursor = None
+    """Get list of attendees for an event - SIMPLIFIED VERSION"""
     try:
-        # Check if event exists first
-        event_check = execute_query_one("SELECT id, title FROM events WHERE id = %s", (event_id,))
-        if not event_check:
-            return jsonify({"success": False, "error": "Event not found"}), 404
-        
-        # Use manual connection to ensure we get the data
+        # Check if event exists
         conn = get_db_connection()
         if not conn:
             return jsonify({"success": False, "error": "Database connection failed"}), 500
             
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cursor = conn.cursor()
         
-        # Simple query to get attendees
-        attendees_query = """
+        # Simple event check
+        cursor.execute("SELECT title FROM events WHERE id = %s", (event_id,))
+        event_row = cursor.fetchone()
+        
+        if not event_row:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        event_title = event_row[0]
+        
+        # Get attendees - VERY SIMPLE QUERY
+        cursor.execute("""
             SELECT 
                 subscriber_email,
                 player_name,
                 confirmation_code,
                 registered_at,
-                attended,
-                check_in_time,
-                notes
+                attended
             FROM event_registrations 
             WHERE event_id = %s 
             ORDER BY registered_at ASC
-        """
+        """, (event_id,))
         
-        cursor.execute(attendees_query, (event_id,))
-        attendees = cursor.fetchall()
+        rows = cursor.fetchall()
         
-        # Convert to list of dicts and handle datetime objects
-        attendees_list = []
-        for attendee in attendees:
-            attendee_dict = dict(attendee)
-            
-            # Convert datetime objects to ISO format
-            if attendee_dict.get('registered_at'):
-                attendee_dict['registered_at'] = attendee_dict['registered_at'].isoformat()
-            if attendee_dict.get('check_in_time'):
-                attendee_dict['check_in_time'] = attendee_dict['check_in_time'].isoformat()
-                
-            attendees_list.append(attendee_dict)
+        # Convert to simple list of dictionaries
+        attendees = []
+        for row in rows:
+            attendee = {
+                'subscriber_email': row[0],
+                'player_name': row[1],
+                'confirmation_code': row[2],
+                'registered_at': row[3].isoformat() if row[3] else None,
+                'attended': row[4] if row[4] is not None else False
+            }
+            attendees.append(attendee)
         
-        log_activity(f"Retrieved {len(attendees_list)} attendees for event {event_id}", "info")
+        cursor.close()
+        conn.close()
+        
+        # Log success
+        print(f"✅ Successfully retrieved {len(attendees)} attendees for event {event_id}")
         
         return jsonify({
             "success": True,
-            "attendees": attendees_list,
-            "event_title": event_check['title'],
-            "total_count": len(attendees_list)
+            "attendees": attendees,
+            "event_title": event_title,
+            "total_count": len(attendees)
         })
         
     except Exception as e:
-        log_error(f"Error getting attendees for event {event_id}: {e}")
-        log_error(f"Full traceback: {traceback.format_exc()}")
-        return jsonify({"success": False, "error": f"Internal server error: {str(e)}"}), 500
+        print(f"❌ Error in get_event_attendees: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
         
-    finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+        # Make sure connections are closed
+        try:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'conn' in locals():
+                conn.close()
+        except:
+            pass
+        
+        return jsonify({
+            "success": False, 
+            "error": f"Internal server error: {str(e)}"
+        }), 500
 
 # 2. ALSO ADD THIS DEBUG ENDPOINT to test if registrations exist:
 

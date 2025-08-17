@@ -1570,16 +1570,27 @@ def register_for_event(event_id):
         if conn:
             conn.close()
 
+# 1. BACKEND FIX - Replace your get_event_attendees function:
+
 @app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
 def get_event_attendees(event_id):
     """Get list of attendees for an event"""
+    conn = None
+    cursor = None
     try:
-        # Check if event exists
+        # Check if event exists first
         event_check = execute_query_one("SELECT id, title FROM events WHERE id = %s", (event_id,))
         if not event_check:
             return jsonify({"success": False, "error": "Event not found"}), 404
         
-        # Get attendees
+        # Use manual connection to ensure we get the data
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Simple query to get attendees
         attendees_query = """
             SELECT 
                 subscriber_email,
@@ -1594,28 +1605,81 @@ def get_event_attendees(event_id):
             ORDER BY registered_at ASC
         """
         
-        attendees = execute_query(attendees_query, (event_id,))
+        cursor.execute(attendees_query, (event_id,))
+        attendees = cursor.fetchall()
         
-        if attendees is None:
-            return jsonify({"success": False, "error": "Database error"}), 500
-        
-        # Convert datetime objects to ISO format
+        # Convert to list of dicts and handle datetime objects
+        attendees_list = []
         for attendee in attendees:
-            if attendee['registered_at']:
-                attendee['registered_at'] = attendee['registered_at'].isoformat()
-            if attendee['check_in_time']:
-                attendee['check_in_time'] = attendee['check_in_time'].isoformat()
+            attendee_dict = dict(attendee)
+            
+            # Convert datetime objects to ISO format
+            if attendee_dict.get('registered_at'):
+                attendee_dict['registered_at'] = attendee_dict['registered_at'].isoformat()
+            if attendee_dict.get('check_in_time'):
+                attendee_dict['check_in_time'] = attendee_dict['check_in_time'].isoformat()
+                
+            attendees_list.append(attendee_dict)
+        
+        log_activity(f"Retrieved {len(attendees_list)} attendees for event {event_id}", "info")
         
         return jsonify({
             "success": True,
-            "attendees": attendees,
+            "attendees": attendees_list,
             "event_title": event_check['title'],
-            "total_count": len(attendees)
+            "total_count": len(attendees_list)
         })
         
     except Exception as e:
         log_error(f"Error getting attendees for event {event_id}: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": f"Internal server error: {str(e)}"}), 500
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# 2. ALSO ADD THIS DEBUG ENDPOINT to test if registrations exist:
+
+@app.route('/api/events/<int:event_id>/debug', methods=['GET'])
+def debug_event_registrations(event_id):
+    """Debug endpoint to check event registrations"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Check if event exists
+        cursor.execute("SELECT * FROM events WHERE id = %s", (event_id,))
+        event = cursor.fetchone()
+        
+        # Check registrations
+        cursor.execute("SELECT * FROM event_registrations WHERE event_id = %s", (event_id,))
+        registrations = cursor.fetchall()
+        
+        # Check all registrations
+        cursor.execute("SELECT event_id, COUNT(*) as count FROM event_registrations GROUP BY event_id")
+        all_registrations = cursor.fetchall()
+        
+        return jsonify({
+            "event_exists": event is not None,
+            "event_data": dict(event) if event else None,
+            "registrations_for_this_event": [dict(r) for r in registrations],
+            "registration_count": len(registrations),
+            "all_event_registrations": [dict(r) for r in all_registrations]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 @app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
 def checkin_attendee(event_id):

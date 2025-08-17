@@ -1462,6 +1462,8 @@ def update_event(event_id):
 
 # Add this code right after the update_event function ends:
 
+# Replace your register_for_event function with this fixed version:
+
 @app.route('/api/events/<int:event_id>/register', methods=['POST'])
 def register_for_event(event_id):
     """Register a subscriber for an event"""
@@ -1481,12 +1483,14 @@ def register_for_event(event_id):
         if not event_check:
             return jsonify({"success": False, "error": "Event not found"}), 404
         
-        # Check if subscriber exists
+        # Auto-add to subscribers if not exists (this allows anyone to register)
         subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
-    if not subscriber_check:
-        # Add to subscribers automatically
-        add_subscriber_to_db(email, 'event_registration')
-        log_activity(f"Auto-added {email} to subscribers via event registration", "info")
+        if not subscriber_check:
+            # Add to subscribers automatically
+            if add_subscriber_to_db(email, 'event_registration'):
+                log_activity(f"Auto-added {email} to subscribers via event registration", "info")
+            else:
+                log_activity(f"Failed to auto-add {email} to subscribers, but allowing registration", "warning")
         
         # Check if already registered
         existing_registration = execute_query_one(
@@ -1517,7 +1521,7 @@ def register_for_event(event_id):
             RETURNING id
         """
         
-        result = execute_query_one(register_query, (event_id, email, player_name, confirmation_code))
+        result = execute_query_one(register_query, (event_id, email, player_name or email.split('@')[0], confirmation_code))
         
         if result:
             log_activity(f"Registered {email} for event: {event_check['title']}", "success")
@@ -1528,10 +1532,12 @@ def register_for_event(event_id):
                 "event_title": event_check['title']
             })
         else:
-            return jsonify({"success": False, "error": "Registration failed"}), 500
+            log_error("Registration query failed - check if event_registrations table exists")
+            return jsonify({"success": False, "error": "Registration failed - database issue"}), 500
             
     except Exception as e:
         log_error(f"Error registering for event {event_id}: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events/<int:event_id>/attendees', methods=['GET'])

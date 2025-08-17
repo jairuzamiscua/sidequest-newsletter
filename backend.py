@@ -1549,7 +1549,7 @@ def get_event_attendees(event_id):
         if not event_check:
             return jsonify({"success": False, "error": "Event not found"}), 404
         
-        # Get attendees
+        # Get attendees - simplified query to avoid issues
         attendees_query = """
             SELECT 
                 subscriber_email,
@@ -1566,15 +1566,24 @@ def get_event_attendees(event_id):
         
         attendees = execute_query(attendees_query, (event_id,))
         
+        # Handle case where no attendees found
         if attendees is None:
-            return jsonify({"success": False, "error": "Database error"}), 500
+            attendees = []
         
-        # Convert datetime objects to ISO format
+        # Convert datetime objects to ISO format safely
         for attendee in attendees:
-            if attendee['registered_at']:
-                attendee['registered_at'] = attendee['registered_at'].isoformat()
-            if attendee['check_in_time']:
-                attendee['check_in_time'] = attendee['check_in_time'].isoformat()
+            try:
+                if attendee.get('registered_at'):
+                    attendee['registered_at'] = attendee['registered_at'].isoformat()
+                if attendee.get('check_in_time'):
+                    attendee['check_in_time'] = attendee['check_in_time'].isoformat()
+            except Exception as date_error:
+                log_error(f"Date conversion error for attendee: {date_error}")
+                # Set to None if conversion fails
+                attendee['registered_at'] = None
+                attendee['check_in_time'] = None
+        
+        log_activity(f"Retrieved {len(attendees)} attendees for event {event_id}", "info")
         
         return jsonify({
             "success": True,
@@ -1585,7 +1594,8 @@ def get_event_attendees(event_id):
         
     except Exception as e:
         log_error(f"Error getting attendees for event {event_id}: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": f"Internal server error: {str(e)}"}), 500
 
 @app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
 def checkin_attendee(event_id):

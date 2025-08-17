@@ -55,6 +55,8 @@ def get_db_connection():
         print(f"Database connection error: {e}")
         return None
 
+# Replace your init_database() function with this updated version:
+
 def init_database():
     """Initialize database tables"""
     try:
@@ -86,11 +88,79 @@ def init_database():
             )
         ''')
         
+        # Create events table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS events (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                event_type VARCHAR(100) NOT NULL,
+                game_title VARCHAR(255),
+                date_time TIMESTAMP NOT NULL,
+                end_time TIMESTAMP,
+                capacity INTEGER DEFAULT 0,
+                description TEXT,
+                entry_fee DECIMAL(10,2) DEFAULT 0,
+                prize_pool TEXT,
+                status VARCHAR(50) DEFAULT 'draft',
+                image_url TEXT,
+                requirements TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_by VARCHAR(100) DEFAULT 'admin'
+            )
+        ''')
+        
+        # Create event registrations table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS event_registrations (
+                id SERIAL PRIMARY KEY,
+                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                subscriber_email VARCHAR(255) NOT NULL,
+                player_name VARCHAR(255),
+                confirmation_code VARCHAR(50) UNIQUE NOT NULL,
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                attended BOOLEAN DEFAULT FALSE,
+                check_in_time TIMESTAMP,
+                notes TEXT
+            )
+        ''')
+        
+        # Create event emails table for automated reminders
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS event_emails (
+                id SERIAL PRIMARY KEY,
+                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                email_type VARCHAR(100) NOT NULL,
+                scheduled_for TIMESTAMP NOT NULL,
+                sent BOOLEAN DEFAULT FALSE,
+                sent_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(event_id, email_type)
+            )
+        ''')
+        
+        # Create indexes for better performance
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_events_date_time ON events(date_time);
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_event_registrations_event_id ON event_registrations(event_id);
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_event_registrations_email ON event_registrations(subscriber_email);
+        ''')
+        
         conn.commit()
         cursor.close()
         conn.close()
         
-        print("✅ Database tables initialized successfully")
+        print("✅ Database tables initialized successfully (including events)")
         return True
         
     except Exception as e:
@@ -1275,83 +1345,118 @@ def delete_event(event_id):
         log_error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
-def get_event_attendees(event_id):
-    """Get attendees for an event"""
-    try:
-        query = """
-            SELECT 
-                r.id,
-                r.subscriber_email,
-                r.player_name,
-                r.confirmation_code,
-                r.registered_at,
-                r.attended,
-                r.checked_in_at
-            FROM event_registrations r
-            WHERE r.event_id = %s
-            ORDER BY r.registered_at ASC
-        """
-        
-        result = execute_query(query, (event_id,))
-        
-        attendees = []
-        if result:
-            for row in result:
-                attendee = dict(row)
-                # Convert datetime objects
-                if attendee['registered_at']:
-                    attendee['registered_at'] = attendee['registered_at'].isoformat()
-                if attendee['checked_in_at']:
-                    attendee['checked_in_at'] = attendee['checked_in_at'].isoformat()
-                attendees.append(attendee)
-        
-        return jsonify({
-            "success": True,
-            "attendees": attendees,
-            "count": len(attendees)
-        })
-        
-    except Exception as e:
-        log_error(f"Error getting attendees for event {event_id}: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
-def checkin_attendee(event_id):
-    """Check in an attendee"""
+@app.route('/api/events/<int:event_id>', methods=['PUT'])
+def update_event(event_id):
+    """Update an existing event"""
     try:
         data = request.json or {}
-        email = data.get('email', '').strip().lower()
         
-        if not email:
-            return jsonify({"success": False, "error": "Email is required"}), 400
+        # Check if event exists
+        existing_event = execute_query_one("SELECT id FROM events WHERE id = %s", (event_id,))
+        if not existing_event:
+            return jsonify({"success": False, "error": "Event not found"}), 404
         
-        # Update the registration
-        query = """
-            UPDATE event_registrations 
-            SET attended = TRUE, checked_in_at = NOW()
-            WHERE event_id = %s AND subscriber_email = %s
-            RETURNING confirmation_code
+        # Parse date_time
+        date_time = None
+        if data.get('date_time'):
+            try:
+                date_time = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
+            except Exception as e:
+                log_error(f"Date parsing error: {e}")
+                return jsonify({"success": False, "error": "Invalid date_time format"}), 400
+        
+        # Parse end_time if provided
+        end_time = None
+        if data.get('end_time'):
+            try:
+                end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
+            except:
+                pass
+        
+        # Build update query dynamically based on provided fields
+        update_fields = []
+        params = []
+        
+        if 'title' in data:
+            update_fields.append("title = %s")
+            params.append(data['title'])
+        
+        if 'event_type' in data:
+            update_fields.append("event_type = %s")
+            params.append(data['event_type'])
+            
+        if 'game_title' in data:
+            update_fields.append("game_title = %s")
+            params.append(data.get('game_title'))
+            
+        if date_time:
+            update_fields.append("date_time = %s")
+            params.append(date_time)
+            
+        if 'end_time' in data:
+            update_fields.append("end_time = %s")
+            params.append(end_time)
+            
+        if 'capacity' in data:
+            update_fields.append("capacity = %s")
+            params.append(int(data.get('capacity', 0)))
+            
+        if 'description' in data:
+            update_fields.append("description = %s")
+            params.append(data.get('description', ''))
+            
+        if 'entry_fee' in data:
+            update_fields.append("entry_fee = %s")
+            params.append(float(data.get('entry_fee', 0)))
+            
+        if 'prize_pool' in data:
+            update_fields.append("prize_pool = %s")
+            params.append(data.get('prize_pool'))
+            
+        if 'status' in data:
+            update_fields.append("status = %s")
+            params.append(data.get('status', 'draft'))
+            
+        if 'image_url' in data:
+            update_fields.append("image_url = %s")
+            params.append(data.get('image_url'))
+            
+        if 'requirements' in data:
+            update_fields.append("requirements = %s")
+            params.append(data.get('requirements'))
+        
+        if not update_fields:
+            return jsonify({"success": False, "error": "No fields to update"}), 400
+        
+        # Add event_id to params for WHERE clause
+        params.append(event_id)
+        
+        query = f"""
+            UPDATE events 
+            SET {', '.join(update_fields)}, updated_at = NOW()
+            WHERE id = %s
+            RETURNING id, title
         """
         
-        result = execute_query_one(query, (event_id, email))
+        log_activity(f"Updating event {event_id} with query: {query}", "info")
+        log_activity(f"Update params: {params}", "info")
+        
+        result = execute_query_one(query, params)
         
         if result:
-            log_activity(f"Checked in {email} for event {event_id}", "success")
+            log_activity(f"Successfully updated event: {result['title']} (ID: {event_id})", "success")
             return jsonify({
                 "success": True,
-                "message": f"Checked in {email}",
-                "confirmation_code": result['confirmation_code']
+                "event_id": event_id,
+                "message": f"Event '{result['title']}' updated successfully"
             })
         else:
-            return jsonify({
-                "success": False,
-                "error": "Registration not found"
-            }), 404
+            log_error("Update query returned no result")
+            return jsonify({"success": False, "error": "Failed to update event"}), 500
             
     except Exception as e:
-        log_error(f"Error checking in attendee: {e}")
+        log_error(f"Error updating event {event_id}: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 # =============================

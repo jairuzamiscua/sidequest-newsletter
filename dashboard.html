@@ -1192,7 +1192,7 @@
 
     // Event variables
     let currentEvents = [];
-    let currentEventId = null;
+    let currentEditingEventId = null;
 
     // Initialize event management
     function initializeEventManagement() {
@@ -1220,32 +1220,38 @@
       }
     }
 
-    function switchEventView(view) {
-      // Update navigation buttons
-      document.querySelectorAll('.event-nav-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      document.querySelector(`.event-nav-btn[data-view="${view}"]`).classList.add('active');
+  function switchEventView(view) {
+    // Update navigation buttons
+    document.querySelectorAll('.event-nav-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    document.querySelector(`.event-nav-btn[data-view="${view}"]`).classList.add('active');
 
-      // Update views
-      document.querySelectorAll('.event-view').forEach(v => {
-        v.classList.remove('active');
-      });
-      document.getElementById(`event-${view}-view`).classList.add('active');
+    // Update views
+    document.querySelectorAll('.event-view').forEach(v => {
+      v.classList.remove('active');
+    });
+    document.getElementById(`event-${view}-view`).classList.add('active');
 
-      // Load appropriate data
-      switch(view) {
-        case 'list':
-          loadEvents();
-          break;
-        case 'calendar':
-          loadCalendarView();
-          break;
-        case 'stats':
-          loadEventStats();
-          break;
-      }
+    // If switching to create view and NOT in edit mode, reset everything
+    if (view === 'create' && !currentEditingEventId) {
+      resetCreateFormUI();
+      resetEventForm();
     }
+
+    // Load appropriate data
+    switch(view) {
+      case 'list':
+        loadEvents();
+        break;
+      case 'calendar':
+        loadCalendarView();
+        break;
+      case 'stats':
+        loadEventStats();
+        break;
+    }
+  }
 
     // Load events list
     async function loadEvents() {
@@ -1344,32 +1350,38 @@
     async function handleCreateEvent(e) {
       e.preventDefault();
       
-      const eventData = {
-        title: document.getElementById('eventTitle').value,
-        event_type: document.getElementById('eventType').value,
-        game_title: document.getElementById('gameTitle').value,
-        date_time: document.getElementById('eventDateTime').value,
-        end_time: document.getElementById('eventEndTime').value,
-        capacity: parseInt(document.getElementById('eventCapacity').value) || 0,
-        entry_fee: parseFloat(document.getElementById('eventFee').value) || 0,
-        status: document.getElementById('eventStatus').value,
-        description: document.getElementById('eventDescription').value,
-        prize_pool: document.getElementById('eventPrizes').value,
-        requirements: document.getElementById('eventRequirements').value
-      };
-
+      // Prevent double submission
+      if (e.target.dataset.submitting === 'true') return;
+      e.target.dataset.submitting = 'true';
+      
       try {
+        const eventData = {
+          title: document.getElementById('eventTitle').value,
+          event_type: document.getElementById('eventType').value,
+          game_title: document.getElementById('gameTitle').value,
+          date_time: document.getElementById('eventDateTime').value,
+          end_time: document.getElementById('eventEndTime').value,
+          capacity: parseInt(document.getElementById('eventCapacity').value) || 0,
+          entry_fee: parseFloat(document.getElementById('eventFee').value) || 0,
+          status: document.getElementById('eventStatus').value,
+          description: document.getElementById('eventDescription').value,
+          prize_pool: document.getElementById('eventPrizes').value,
+          requirements: document.getElementById('eventRequirements').value
+        };
+
         let response;
         
-        if (editingEventId) {
+        if (currentEditingEventId) {
           // Update existing event
-          response = await fetch(`${API_BASE}/api/events/${editingEventId}`, {
+          console.log('Updating event:', currentEditingEventId);
+          response = await fetch(`${API_BASE}/api/events/${currentEditingEventId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(eventData)
           });
         } else {
           // Create new event
+          console.log('Creating new event');
           response = await fetch(`${API_BASE}/api/events`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1380,23 +1392,29 @@
         const data = await response.json();
         
         if (data.success) {
-          const action = editingEventId ? 'updated' : 'created';
+          const action = currentEditingEventId ? 'updated' : 'created';
           showSuccess(`Event ${action} successfully!`);
+          
+          // Reset edit state and form
+          currentEditingEventId = null;
+          resetCreateFormUI();
           resetEventForm();
           switchEventView('list');
           
           // If published, offer to send announcement (only for new events)
-          if (!editingEventId && eventData.status === 'published') {
+          if (!currentEditingEventId && eventData.status === 'published') {
             if (confirm('Would you like to send an announcement email to all subscribers?')) {
               sendEventAnnouncement(data.event_id);
             }
           }
         } else {
-          alert('Error: ' + (data.error || `Failed to ${editingEventId ? 'update' : 'create'} event`));
+          alert('Error: ' + (data.error || `Failed to ${currentEditingEventId ? 'update' : 'create'} event`));
         }
       } catch (error) {
-        console.error(`Error ${editingEventId ? 'updating' : 'creating'} event:`, error);
-        alert(`Failed to ${editingEventId ? 'update' : 'create'} event`);
+        console.error(`Error ${currentEditingEventId ? 'updating' : 'creating'} event:`, error);
+        alert(`Failed to ${currentEditingEventId ? 'update' : 'create'} event`);
+      } finally {
+        e.target.dataset.submitting = 'false';
       }
     }
 
@@ -1667,59 +1685,73 @@
       }
     }
 
-    // Edit event
+    // Modified editEvent function
     async function editEvent(eventId) {
-      // Load event data
-      const response = await fetch(`${API_BASE}/api/events/${eventId}`);
-      const data = await response.json();
-      const event = data.event;
+      try {
+        // Load event data
+        const response = await fetch(`${API_BASE}/api/events/${eventId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+          alert('Failed to load event data');
+          return;
+        }
+        
+        const event = data.event;
+        currentEditingEventId = eventId; // Set global edit state
 
-      switchEventView('create');
+        switchEventView('create');
 
-      // Fill form with event data
-      document.getElementById('eventTitle').value = event.title;
-      document.getElementById('eventType').value = event.event_type;
-      document.getElementById('gameTitle').value = event.game_title || '';
-      document.getElementById('eventDateTime').value = event.date_time.slice(0, 16);
-      document.getElementById('eventCapacity').value = event.capacity || 0;
-      document.getElementById('eventFee').value = event.entry_fee || 0;
-      document.getElementById('eventStatus').value = event.status;
-      document.getElementById('eventDescription').value = event.description || '';
-
-      const form = document.getElementById('createEventForm');
-      form.onsubmit = async (e) => {
-        e.preventDefault();
-        await updateEvent(eventId);
-      };
-    }
-    
-    async function updateEvent(eventId) {
-      const eventData = {
-        title: document.getElementById('eventTitle').value,
-        event_type: document.getElementById('eventType').value,
-        game_title: document.getElementById('gameTitle').value,
-        date_time: document.getElementById('eventDateTime').value,
-        end_time: document.getElementById('eventEndTime').value,
-        capacity: parseInt(document.getElementById('eventCapacity').value) || 0,
-        entry_fee: parseFloat(document.getElementById('eventFee').value) || 0,
-        status: document.getElementById('eventStatus').value,
-        description: document.getElementById('eventDescription').value,
-        prize_pool: document.getElementById('eventPrizes').value,
-        requirements: document.getElementById('eventRequirements').value
-      };
-      
-      const response = await fetch(`${API_BASE}/api/events/${eventId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventData)
-      });
-      
-      if (response.ok) {
-        showSuccess('Event updated!');
-        switchEventView('list');
+        // Fill form with event data
+        fillFormWithEventData(event);
+        
+        // Update UI to show we're editing
+        updateCreateFormForEdit(event.title);
+        
+        // Close the modal if it's open
+        closeEventModal();
+        
+      } catch (error) {
+        console.error('Error loading event for edit:', error);
+        alert('Failed to load event data');
+        currentEditingEventId = null; // Reset on error
       }
     }
 
+    
+    function updateCreateFormForEdit(eventTitle) {
+      const formTitle = document.querySelector('#event-create-view .card-title');
+      if (formTitle) {
+        formTitle.textContent = `Edit Event: ${eventTitle}`;
+        formTitle.style.color = '#FFD700';
+      } else {
+        console.warn('Form title element not found');
+      }
+
+        // Update submit button with error handling
+      const submitButton = document.querySelector('#createEventForm button[type="submit"]');
+      if (submitButton) {
+        submitButton.textContent = '🎮 Update Event';
+        submitButton.classList.add('btn-warning'); // Different style for update
+        submitButton.classList.remove('btn-primary');
+      } else {
+        console.warn('Submit button not found');
+      }
+      
+      // Add cancel button if it doesn't exist
+      let cancelButton = document.getElementById('cancelEditButton');
+      if (!cancelButton && submitButton) {
+        cancelButton = document.createElement('button');
+        cancelButton.id = 'cancelEditButton';
+        cancelButton.type = 'button';
+        cancelButton.className = 'btn btn-secondary ms-2';
+        cancelButton.innerHTML = '❌ Cancel Edit';
+        cancelButton.onclick = cancelEdit;
+        
+        // Insert after submit button
+        submitButton.parentNode.insertBefore(cancelButton, submitButton.nextSibling);
+      }
+    }
 
     // Delete event
     async function deleteEvent(eventId) {
@@ -1821,9 +1853,10 @@
     // Reset event form
     function resetEventForm() {
       document.getElementById('createEventForm').reset();
-      editingEventId = null;
-      document.querySelector('#event-create-view .card-title').textContent = 'Create New Event';
-      document.querySelector('#createEventForm button[type="submit"]').textContent = '🎮 Create Event';
+      currentEditingEventId = null; // Reset edit state
+      resetCreateFormUI(); // Reset UI
+      
+      // Set default datetime to tomorrow at 7pm
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(19, 0, 0, 0);
@@ -1840,6 +1873,92 @@
         initializeEventManagement();
       }, 500);
     });
+
+    function fillFormWithEventData(event) {
+      const fields = {
+        'eventTitle': event.title,
+        'eventType': event.event_type,
+        'gameTitle': event.game_title || '',
+        'eventDateTime': event.date_time ? event.date_time.slice(0, 16) : '',
+        'eventCapacity': event.capacity || 0,
+        'eventFee': event.entry_fee || 0,
+        'eventStatus': event.status,
+        'eventDescription': event.description || '',
+        'eventEndTime': event.end_time ? event.end_time.slice(0, 16) : '',
+        'eventPrizes': event.prize_pool || '',
+        'eventRequirements': event.requirements || ''
+      };
+      
+      Object.entries(fields).forEach(([fieldId, value]) => {
+        const element = document.getElementById(fieldId);
+        if (element) {
+          element.value = value;
+        }
+      });
+    }
+
+    function updateCreateFormForEdit(eventTitle) {
+      // Update form title
+      const formTitle = document.querySelector('#event-create-view .card-title');
+      if (formTitle) {
+        formTitle.textContent = `Edit Event: ${eventTitle}`;
+        formTitle.style.color = '#ff6b35'; // Orange color to indicate edit mode
+      }
+      
+      // Update submit button
+      const submitButton = document.querySelector('#createEventForm button[type="submit"]');
+      if (submitButton) {
+        submitButton.textContent = '🎮 Update Event';
+        submitButton.classList.add('btn-warning'); // Different style for update
+        submitButton.classList.remove('btn-primary');
+      }
+      
+      // Add cancel button if it doesn't exist
+      addCancelButton(submitButton);
+    }
+
+    function addCancelButton(submitButton) {
+      let cancelButton = document.getElementById('cancelEditButton');
+      if (!cancelButton && submitButton) {
+        cancelButton = document.createElement('button');
+        cancelButton.id = 'cancelEditButton';
+        cancelButton.type = 'button';
+        cancelButton.className = 'btn btn-secondary ms-2';
+        cancelButton.innerHTML = '❌ Cancel Edit';
+        cancelButton.onclick = cancelEdit;
+        submitButton.parentNode.insertBefore(cancelButton, submitButton.nextSibling);
+      }
+    }
+
+    function resetCreateFormUI() {
+      // Reset form title
+      const formTitle = document.querySelector('#event-create-view .card-title');
+      if (formTitle) {
+        formTitle.textContent = 'Create New Event';
+        formTitle.style.color = '';
+      }
+      
+      // Reset submit button
+      const submitButton = document.querySelector('#createEventForm button[type="submit"]');
+      if (submitButton) {
+        submitButton.textContent = '🎮 Create Event';
+        submitButton.classList.add('btn-primary');
+        submitButton.classList.remove('btn-warning');
+      }
+      
+      // Remove cancel button
+      const cancelButton = document.getElementById('cancelEditButton');
+      if (cancelButton) {
+        cancelButton.remove();
+      }
+    }
+
+    function cancelEdit() {
+      currentEditingEventId = null;
+      resetCreateFormUI();
+      resetEventForm();
+      switchEventView('list');
+    }
 
     // Enhance existing tab functionality to load events
     document.addEventListener('DOMContentLoaded', function() {

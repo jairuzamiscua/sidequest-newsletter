@@ -1483,8 +1483,10 @@ def register_for_event(event_id):
         
         # Check if subscriber exists
         subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
-        if not subscriber_check:
-            return jsonify({"success": False, "error": "Email not found in subscribers list"}), 400
+    if not subscriber_check:
+        # Add to subscribers automatically
+        add_subscriber_to_db(email, 'event_registration')
+        log_activity(f"Auto-added {email} to subscribers via event registration", "info")
         
         # Check if already registered
         existing_registration = execute_query_one(
@@ -1671,6 +1673,75 @@ def get_events_calendar():
         log_error(f"Error getting calendar events: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+# =============================
+# Event Registration System
+# =============================
+
+# Add this function to your backend to verify/fix tables:
+
+def verify_event_tables():
+    """Verify and create missing event tables"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            print("❌ Could not connect to database")
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Check if event_registrations table exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'event_registrations'
+            );
+        """)
+        
+        table_exists = cursor.fetchone()[0]
+        
+        if not table_exists:
+            print("⚠️ event_registrations table missing - creating now...")
+            
+            # Create event registrations table
+            cursor.execute('''
+                CREATE TABLE event_registrations (
+                    id SERIAL PRIMARY KEY,
+                    event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                    subscriber_email VARCHAR(255) NOT NULL,
+                    player_name VARCHAR(255),
+                    confirmation_code VARCHAR(50) UNIQUE NOT NULL,
+                    registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    attended BOOLEAN DEFAULT FALSE,
+                    check_in_time TIMESTAMP,
+                    notes TEXT
+                )
+            ''')
+            
+            # Create index for better performance
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_event_registrations_event_id ON event_registrations(event_id);
+            ''')
+            
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_event_registrations_email ON event_registrations(subscriber_email);
+            ''')
+            
+            conn.commit()
+            print("✅ Created event_registrations table with indexes")
+        else:
+            print("✅ event_registrations table exists")
+            
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error verifying event tables: {e}")
+        return False
+
+# Then call this function in your init_database() function by adding this line:
+# verify_event_tables()
 
 # =============================
 # Event Email Automation

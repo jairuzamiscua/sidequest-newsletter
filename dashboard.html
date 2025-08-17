@@ -1668,10 +1668,58 @@
     }
 
     // Edit event
-    function editEvent(eventId) {
-      alert('Edit functionality coming soon! Event ID: ' + eventId);
-      // TODO: Load event data into create form and switch to update mode
+    async function editEvent(eventId) {
+      // Load event data
+      const response = await fetch(`${API_BASE}/api/events/${eventId}`);
+      const data = await response.json();
+      const event = data.event;
+
+      switchEventView('create');
+
+      // Fill form with event data
+      document.getElementById('eventTitle').value = event.title;
+      document.getElementById('eventType').value = event.event_type;
+      document.getElementById('gameTitle').value = event.game_title || '';
+      document.getElementById('eventDateTime').value = event.date_time.slice(0, 16);
+      document.getElementById('eventCapacity').value = event.capacity || 0;
+      document.getElementById('eventFee').value = event.entry_fee || 0;
+      document.getElementById('eventStatus').value = event.status;
+      document.getElementById('eventDescription').value = event.description || '';
+
+      const form = document.getElementById('createEventForm');
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        await updateEvent(eventId);
+      };
     }
+    
+    async function updateEvent(eventId) {
+      const eventData = {
+        title: document.getElementById('eventTitle').value,
+        event_type: document.getElementById('eventType').value,
+        game_title: document.getElementById('gameTitle').value,
+        date_time: document.getElementById('eventDateTime').value,
+        end_time: document.getElementById('eventEndTime').value,
+        capacity: parseInt(document.getElementById('eventCapacity').value) || 0,
+        entry_fee: parseFloat(document.getElementById('eventFee').value) || 0,
+        status: document.getElementById('eventStatus').value,
+        description: document.getElementById('eventDescription').value,
+        prize_pool: document.getElementById('eventPrizes').value,
+        requirements: document.getElementById('eventRequirements').value
+      };
+      
+      const response = await fetch(`${API_BASE}/api/events/${eventId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventData)
+      });
+      
+      if (response.ok) {
+        showSuccess('Event updated!');
+        switchEventView('list');
+      }
+    }
+
 
     // Delete event
     async function deleteEvent(eventId) {

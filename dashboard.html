@@ -1359,31 +1359,44 @@
       };
 
       try {
-        const response = await fetch(`${API_BASE}/api/events`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventData)
-        });
+        let response;
+        
+        if (editingEventId) {
+          // Update existing event
+          response = await fetch(`${API_BASE}/api/events/${editingEventId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventData)
+          });
+        } else {
+          // Create new event
+          response = await fetch(`${API_BASE}/api/events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventData)
+          });
+        }
 
         const data = await response.json();
         
         if (data.success) {
-          showSuccess('Event created successfully!');
+          const action = editingEventId ? 'updated' : 'created';
+          showSuccess(`Event ${action} successfully!`);
           resetEventForm();
           switchEventView('list');
           
-          // If published, offer to send announcement
-          if (eventData.status === 'published') {
+          // If published, offer to send announcement (only for new events)
+          if (!editingEventId && eventData.status === 'published') {
             if (confirm('Would you like to send an announcement email to all subscribers?')) {
               sendEventAnnouncement(data.event_id);
             }
           }
         } else {
-          alert('Error: ' + (data.error || 'Failed to create event'));
+          alert('Error: ' + (data.error || `Failed to ${editingEventId ? 'update' : 'create'} event`));
         }
       } catch (error) {
-        console.error('Error creating event:', error);
-        alert('Failed to create event');
+        console.error(`Error ${editingEventId ? 'updating' : 'creating'} event:`, error);
+        alert(`Failed to ${editingEventId ? 'update' : 'create'} event`);
       }
     }
 
@@ -1760,6 +1773,9 @@
     // Reset event form
     function resetEventForm() {
       document.getElementById('createEventForm').reset();
+      editingEventId = null;
+      document.querySelector('#event-create-view .card-title').textContent = 'Create New Event';
+      document.querySelector('#createEventForm button[type="submit"]').textContent = '🎮 Create Event';
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(19, 0, 0, 0);

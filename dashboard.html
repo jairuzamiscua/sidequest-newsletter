@@ -1434,7 +1434,14 @@
         
         if (data.success) {
           showSuccess(`Registered ${email} - Confirmation: ${data.confirmation_code}`);
-          loadEvents(); // Refresh list
+          loadEvents(); // Refresh the events list
+          
+          // Also refresh attendees if modal is currently open
+          const modal = document.getElementById('eventModal');
+          if (modal && modal.style.display === 'flex') {
+            // Modal is open, refresh attendees to show new registration
+            setTimeout(() => viewAttendees(eventId), 500);
+          }
         } else {
           alert('Error: ' + (data.error || 'Failed to register'));
         }

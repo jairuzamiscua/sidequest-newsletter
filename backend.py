@@ -57,8 +57,208 @@ def get_db_connection():
 
 # Replace your init_database() function with this updated version:
 
+# =============================
+# LONG-TERM DATABASE SOLUTION
+# =============================
+
+def get_current_schema_version():
+    """Get the current database schema version"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return 0
+            
+        cursor = conn.cursor()
+        
+        # Check if schema_version table exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'schema_version'
+            );
+        """)
+        
+        table_exists = cursor.fetchone()[0]
+        
+        if not table_exists:
+            # Create schema_version table
+            cursor.execute('''
+                CREATE TABLE schema_version (
+                    version INTEGER PRIMARY KEY,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    description TEXT
+                )
+            ''')
+            cursor.execute("INSERT INTO schema_version (version, description) VALUES (0, 'Initial schema')")
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return 0
+        
+        # Get current version
+        cursor.execute("SELECT MAX(version) FROM schema_version")
+        version = cursor.fetchone()[0] or 0
+        
+        cursor.close()
+        conn.close()
+        return version
+        
+    except Exception as e:
+        print(f"Error getting schema version: {e}")
+        return 0
+
+def apply_migration(version, description, sql_commands):
+    """Apply a database migration"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        print(f"🔄 Applying migration {version}: {description}")
+        
+        # Execute all SQL commands
+        for sql in sql_commands:
+            print(f"   Executing: {sql[:100]}...")
+            cursor.execute(sql)
+        
+        # Record the migration
+        cursor.execute(
+            "INSERT INTO schema_version (version, description) VALUES (%s, %s)",
+            (version, description)
+        )
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        print(f"✅ Migration {version} applied successfully")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Migration {version} failed: {e}")
+        if conn:
+            conn.rollback()
+            conn.close()
+        return False
+
+def run_database_migrations():
+    """Run all pending database migrations"""
+    current_version = get_current_schema_version()
+    print(f"📊 Current database schema version: {current_version}")
+    
+    # Define all migrations
+    migrations = [
+        {
+            'version': 1,
+            'description': 'Add check_in_time column to event_registrations',
+            'sql': [
+                'ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS check_in_time TIMESTAMP;'
+            ]
+        },
+        {
+            'version': 2, 
+            'description': 'Add indexes for better performance',
+            'sql': [
+                'CREATE INDEX IF NOT EXISTS idx_event_registrations_attended ON event_registrations(attended);',
+                'CREATE INDEX IF NOT EXISTS idx_events_event_type ON events(event_type);',
+                'CREATE INDEX IF NOT EXISTS idx_subscribers_source ON subscribers(source);'
+            ]
+        },
+        {
+            'version': 3,
+            'description': 'Add updated_at triggers for events table',
+            'sql': [
+                '''CREATE OR REPLACE FUNCTION update_updated_at_column()
+                   RETURNS TRIGGER AS $$
+                   BEGIN
+                       NEW.updated_at = CURRENT_TIMESTAMP;
+                       RETURN NEW;
+                   END;
+                   $$ language 'plpgsql';''',
+                '''DROP TRIGGER IF EXISTS update_events_updated_at ON events;''',
+                '''CREATE TRIGGER update_events_updated_at 
+                   BEFORE UPDATE ON events 
+                   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();'''
+            ]
+        },
+        # Add more migrations here as needed
+    ]
+    
+    # Apply pending migrations
+    for migration in migrations:
+        if migration['version'] > current_version:
+            success = apply_migration(
+                migration['version'],
+                migration['description'], 
+                migration['sql']
+            )
+            if not success:
+                print(f"❌ Failed to apply migration {migration['version']}")
+                return False
+    
+    print("✅ All database migrations completed successfully")
+    return True
+
+def verify_database_schema():
+    """Verify that all required tables and columns exist"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Check required tables
+        required_tables = ['subscribers', 'events', 'event_registrations', 'activity_log', 'schema_version']
+        
+        for table in required_tables:
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = %s
+                );
+            """, (table,))
+            
+            exists = cursor.fetchone()[0]
+            if not exists:
+                print(f"❌ Missing required table: {table}")
+                return False
+        
+        # Check required columns in event_registrations
+        required_columns = {
+            'event_registrations': ['id', 'event_id', 'subscriber_email', 'confirmation_code', 
+                                  'registered_at', 'attended', 'check_in_time', 'notes']
+        }
+        
+        for table, columns in required_columns.items():
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = %s
+            """, (table,))
+            
+            existing_columns = [row[0] for row in cursor.fetchall()]
+            
+            for column in columns:
+                if column not in existing_columns:
+                    print(f"❌ Missing column {column} in table {table}")
+                    return False
+        
+        cursor.close()
+        conn.close()
+        
+        print("✅ Database schema verification passed")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Schema verification failed: {e}")
+        return False
+
+# Update your init_database function to include migrations
 def init_database():
-    """Initialize database tables"""
+    """Initialize database tables and run migrations"""
     try:
         conn = get_db_connection()
         if not conn:
@@ -67,7 +267,7 @@ def init_database():
             
         cursor = conn.cursor()
         
-        # Create subscribers table
+        # Create core tables (same as before)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS subscribers (
                 id SERIAL PRIMARY KEY,
@@ -78,7 +278,6 @@ def init_database():
             )
         ''')
         
-        # Create activity log table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS activity_log (
                 id SERIAL PRIMARY KEY,
@@ -88,7 +287,6 @@ def init_database():
             )
         ''')
         
-        # Create events table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS events (
                 id SERIAL PRIMARY KEY,
@@ -110,7 +308,7 @@ def init_database():
             )
         ''')
         
-        # Create event registrations table
+        # Create event_registrations with all required columns
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS event_registrations (
                 id SERIAL PRIMARY KEY,
@@ -125,47 +323,68 @@ def init_database():
             )
         ''')
         
-        # Create event emails table for automated reminders
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS event_emails (
-                id SERIAL PRIMARY KEY,
-                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
-                email_type VARCHAR(100) NOT NULL,
-                scheduled_for TIMESTAMP NOT NULL,
-                sent BOOLEAN DEFAULT FALSE,
-                sent_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(event_id, email_type)
-            )
-        ''')
-        
-        # Create indexes for better performance
-        cursor.execute('''
-            CREATE INDEX IF NOT EXISTS idx_events_date_time ON events(date_time);
-        ''')
-        
-        cursor.execute('''
-            CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);
-        ''')
-        
-        cursor.execute('''
-            CREATE INDEX IF NOT EXISTS idx_event_registrations_event_id ON event_registrations(event_id);
-        ''')
-        
-        cursor.execute('''
-            CREATE INDEX IF NOT EXISTS idx_event_registrations_email ON event_registrations(subscriber_email);
-        ''')
+        # Create basic indexes
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_events_date_time ON events(date_time);')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_registrations_event_id ON event_registrations(event_id);')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_registrations_email ON event_registrations(subscriber_email);')
         
         conn.commit()
         cursor.close()
         conn.close()
         
-        print("✅ Database tables initialized successfully (including events)")
+        print("✅ Core database tables initialized")
+        
+        # Run migrations for any additional schema changes
+        if not run_database_migrations():
+            print("❌ Database migrations failed")
+            return False
+        
+        # Verify schema is correct
+        if not verify_database_schema():
+            print("❌ Database schema verification failed")
+            return False
+        
+        print("✅ Database initialization completed successfully")
         return True
         
     except Exception as e:
         print(f"❌ Database initialization error: {e}")
         return False
+
+# Also add this backup function for safety
+def backup_database_schema():
+    """Create a backup of the current database schema"""
+    try:
+        import subprocess
+        import os
+        from datetime import datetime
+        
+        # Only works if you have pg_dump available
+        database_url = os.environ.get('DATABASE_URL')
+        if not database_url:
+            print("⚠️ DATABASE_URL not found, skipping schema backup")
+            return True
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_file = f"schema_backup_{timestamp}.sql"
+        
+        # Create schema-only backup
+        result = subprocess.run([
+            'pg_dump', '--schema-only', '--no-owner', '--no-privileges', 
+            database_url, '-f', backup_file
+        ], capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print(f"✅ Schema backup created: {backup_file}")
+            return True
+        else:
+            print(f"⚠️ Schema backup failed: {result.stderr}")
+            return True  # Don't fail initialization for backup issues
+            
+    except Exception as e:
+        print(f"⚠️ Schema backup error: {e}")
+        return True  # Don't fail initialization for backup issues
 
 # =============================
 # Database Helper Functions
@@ -1695,52 +1914,104 @@ def debug_event_registrations(event_id):
         if conn:
             conn.close()
 
+# Replace your existing checkin_attendee route with this improved version:
+
 @app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
 def checkin_attendee(event_id):
     """Check in an attendee for an event"""
+    conn = None
+    cursor = None
     try:
         data = request.json or {}
         email = data.get('email', '').strip().lower()
         notes = data.get('notes', '')
         
+        print(f"🔍 Check-in attempt: Event {event_id}, Email: {email}")
+        
         if not email:
+            print("❌ No email provided")
             return jsonify({"success": False, "error": "Email is required"}), 400
         
+        # Manual database connection for better error handling
+        conn = get_db_connection()
+        if not conn:
+            print("❌ Database connection failed")
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
         # Check if registration exists
-        registration_check = execute_query_one(
-            "SELECT id, attended FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
+        print(f"🔍 Checking if registration exists...")
+        cursor.execute(
+            "SELECT id, attended, confirmation_code FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
             (event_id, email)
         )
+        registration = cursor.fetchone()
         
-        if not registration_check:
+        if not registration:
+            print(f"❌ Registration not found for {email} in event {event_id}")
+            cursor.close()
+            conn.close()
             return jsonify({"success": False, "error": "Registration not found"}), 404
         
-        if registration_check['attended']:
+        print(f"✅ Found registration: {dict(registration)}")
+        
+        if registration['attended']:
+            print(f"⚠️ Already checked in: {email}")
+            cursor.close()
+            conn.close()
             return jsonify({"success": False, "error": "Already checked in"}), 400
         
         # Check in attendee
-        checkin_query = """
+        print(f"🔄 Checking in attendee...")
+        cursor.execute("""
             UPDATE event_registrations 
             SET attended = TRUE, check_in_time = CURRENT_TIMESTAMP, notes = %s
             WHERE event_id = %s AND subscriber_email = %s
-            RETURNING confirmation_code
-        """
+            RETURNING confirmation_code, attended
+        """, (notes, event_id, email))
         
-        result = execute_query_one(checkin_query, (notes, event_id, email))
+        result = cursor.fetchone()
         
         if result:
+            conn.commit()  # IMPORTANT: Commit the transaction
+            print(f"✅ Successfully checked in {email}")
+            
             log_activity(f"Checked in {email} for event ID {event_id}", "success")
+            
             return jsonify({
                 "success": True,
                 "message": "Check-in successful",
-                "confirmation_code": result['confirmation_code']
+                "confirmation_code": result['confirmation_code'],
+                "attended": result['attended']
             })
         else:
-            return jsonify({"success": False, "error": "Check-in failed"}), 500
+            conn.rollback()
+            print(f"❌ Update failed for {email}")
+            return jsonify({"success": False, "error": "Check-in update failed"}), 500
             
+    except psycopg2.Error as db_error:
+        if conn:
+            conn.rollback()
+        error_msg = f"Database error during check-in: {str(db_error)}"
+        print(f"❌ {error_msg}")
+        log_error(error_msg)
+        return jsonify({"success": False, "error": f"Database error: {str(db_error)}"}), 500
+        
     except Exception as e:
-        log_error(f"Error checking in attendee for event {event_id}: {e}")
+        if conn:
+            conn.rollback()
+        error_msg = f"Error checking in attendee for event {event_id}: {str(e)}"
+        print(f"❌ {error_msg}")
+        print(f"❌ Full traceback: {traceback.format_exc()}")
+        log_error(error_msg)
         return jsonify({"success": False, "error": str(e)}), 500
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 @app.route('/api/events/calendar', methods=['GET'])
 def get_events_calendar():

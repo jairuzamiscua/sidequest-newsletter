@@ -1918,7 +1918,7 @@ def debug_event_registrations(event_id):
 
 @app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
 def checkin_attendee(event_id):
-    """Check in an attendee for an event"""
+    """Check in an attendee for an event - SIMPLIFIED VERSION"""
     conn = None
     cursor = None
     try:
@@ -1926,22 +1926,16 @@ def checkin_attendee(event_id):
         email = data.get('email', '').strip().lower()
         notes = data.get('notes', '')
         
-        print(f"🔍 Check-in attempt: Event {event_id}, Email: {email}")
-        
         if not email:
-            print("❌ No email provided")
             return jsonify({"success": False, "error": "Email is required"}), 400
         
-        # Manual database connection for better error handling
         conn = get_db_connection()
         if not conn:
-            print("❌ Database connection failed")
             return jsonify({"success": False, "error": "Database connection failed"}), 500
             
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         
         # Check if registration exists
-        print(f"🔍 Checking if registration exists...")
         cursor.execute(
             "SELECT id, attended, confirmation_code FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
             (event_id, email)
@@ -1949,24 +1943,15 @@ def checkin_attendee(event_id):
         registration = cursor.fetchone()
         
         if not registration:
-            print(f"❌ Registration not found for {email} in event {event_id}")
-            cursor.close()
-            conn.close()
             return jsonify({"success": False, "error": "Registration not found"}), 404
         
-        print(f"✅ Found registration: {dict(registration)}")
-        
         if registration['attended']:
-            print(f"⚠️ Already checked in: {email}")
-            cursor.close()
-            conn.close()
             return jsonify({"success": False, "error": "Already checked in"}), 400
         
-        # Check in attendee
-        print(f"🔄 Checking in attendee...")
+        # Check in attendee - REMOVE check_in_time to avoid column error
         cursor.execute("""
             UPDATE event_registrations 
-            SET attended = TRUE, check_in_time = CURRENT_TIMESTAMP, notes = %s
+            SET attended = TRUE, notes = %s
             WHERE event_id = %s AND subscriber_email = %s
             RETURNING confirmation_code, attended
         """, (notes, event_id, email))
@@ -1974,9 +1959,7 @@ def checkin_attendee(event_id):
         result = cursor.fetchone()
         
         if result:
-            conn.commit()  # IMPORTANT: Commit the transaction
-            print(f"✅ Successfully checked in {email}")
-            
+            conn.commit()
             log_activity(f"Checked in {email} for event ID {event_id}", "success")
             
             return jsonify({
@@ -1986,25 +1969,12 @@ def checkin_attendee(event_id):
                 "attended": result['attended']
             })
         else:
-            conn.rollback()
-            print(f"❌ Update failed for {email}")
             return jsonify({"success": False, "error": "Check-in update failed"}), 500
             
-    except psycopg2.Error as db_error:
-        if conn:
-            conn.rollback()
-        error_msg = f"Database error during check-in: {str(db_error)}"
-        print(f"❌ {error_msg}")
-        log_error(error_msg)
-        return jsonify({"success": False, "error": f"Database error: {str(db_error)}"}), 500
-        
     except Exception as e:
         if conn:
             conn.rollback()
-        error_msg = f"Error checking in attendee for event {event_id}: {str(e)}"
-        print(f"❌ {error_msg}")
-        print(f"❌ Full traceback: {traceback.format_exc()}")
-        log_error(error_msg)
+        log_error(f"Error checking in attendee for event {event_id}: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
         
     finally:

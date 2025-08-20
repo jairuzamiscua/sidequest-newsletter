@@ -1672,6 +1672,35 @@
       await viewAttendees(eventId);
     }
 
+    // Add refresh function:
+    async function refreshAttendees(eventId) {
+      await viewAttendees(eventId);
+    }
+
+    // Check in attendee function - ADD THIS NEW FUNCTION
+    async function checkinAttendee(eventId, email) {
+      try {
+        const response = await fetch(`${API_BASE}/api/events/${eventId}/checkin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          showSuccess(`✅ Checked in ${email}`);
+          // Refresh the attendees modal
+          setTimeout(() => viewAttendees(eventId), 500);
+        } else {
+          alert('❌ Error: ' + (data.error || 'Failed to check in'));
+        }
+      } catch (error) {
+        console.error('Error checking in attendee:', error);
+        alert('❌ Failed to check in: ' + error.message);
+      }
+    }
+
     // Load calendar view
     async function loadCalendarView() {
       try {

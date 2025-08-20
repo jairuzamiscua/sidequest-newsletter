@@ -1527,84 +1527,6 @@
     }
     
 
-    // Show attendees modal
-    function showAttendeesModal(event, attendees) {
-      console.log('Showing attendees modal for:', event.title, 'with', attendees.length, 'attendees');
-      
-      const modal = document.getElementById('eventModal');
-      const modalTitle = document.getElementById('modalEventTitle');
-      const modalContent = document.getElementById('modalEventContent');
-      
-      modalTitle.textContent = `👥 Attendees: ${event.title}`;
-      
-      let content = `
-        <div style="margin-bottom: 20px;">
-          <p><strong>Total Registered:</strong> ${attendees.length}</p>
-          <p><strong>Attended:</strong> ${attendees.filter(a => a.attended).length}</p>
-        </div>
-      `;
-      
-      if (attendees.length === 0) {
-        content += `
-          <div style="text-align: center; padding: 40px; color: #aaa;">
-            <p>📭 No registrations yet</p>
-            <button class="btn btn-primary mt-20" onclick="quickRegister(${event.id})">
-              Add First Registration
-            </button>
-          </div>
-        `;
-      } else {
-        content += '<div class="attendee-list">';
-        
-        attendees.forEach(attendee => {
-          const statusClass = attendee.attended ? 'status-attended' : 'status-registered';
-          const statusText = attendee.attended ? 'Attended' : 'Registered';
-          const registeredDate = attendee.registered_at ? 
-            new Date(attendee.registered_at).toLocaleDateString() : 'Unknown';
-          
-          content += `
-            <div class="attendee-item">
-              <div>
-                <div class="attendee-email">${attendee.subscriber_email}</div>
-                <div style="color: #aaa; font-size: 0.8rem; margin-top: 5px;">
-                  Player: ${attendee.player_name || 'Not specified'} | 
-                  Code: ${attendee.confirmation_code} | 
-                  Registered: ${registeredDate}
-                </div>
-              </div>
-              <div style="display: flex; gap: 10px; align-items: center;">
-                <span class="attendee-status ${statusClass}">${statusText}</span>
-                ${!attendee.attended ? `
-                  <button class="btn btn-success btn-sm" onclick="checkinAttendee(${event.id}, '${attendee.subscriber_email}')">
-                    ✓ Check In
-                  </button>
-                ` : ''}
-              </div>
-            </div>
-          `;
-        });
-        
-        content += '</div>';
-      }
-      
-      // Add action buttons
-      content += `
-        <div style="display: flex; gap: 10px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #444;">
-          <button class="btn btn-primary" onclick="quickRegister(${event.id})">
-            ➕ Add Registration
-          </button>
-          <button class="btn btn-secondary" onclick="refreshAttendees(${event.id})">
-            🔄 Refresh
-          </button>
-          <button class="btn btn-secondary" onclick="closeEventModal()">
-            Close
-          </button>
-        </div>
-      `;
-      
-      modalContent.innerHTML = content;
-      modal.style.display = 'flex';
-    }
 
     // Load event statistics
     async function loadEventStats() {
@@ -1677,7 +1599,90 @@
       await viewAttendees(eventId);
     }
 
-    // Check in attendee function - ADD THIS NEW FUNCTION
+    // Search and filter functions for attendees
+    function filterAttendees() {
+      const searchTerm = document.getElementById('attendeeSearch').value.toLowerCase();
+      const attendeeItems = document.querySelectorAll('.attendee-item');
+      const noResults = document.getElementById('noResults');
+      let visibleCount = 0;
+      
+      attendeeItems.forEach(item => {
+        const email = item.dataset.email || '';
+        const name = item.dataset.name || '';
+        const code = item.dataset.code || '';
+        
+        const matches = email.includes(searchTerm) || 
+                       name.includes(searchTerm) || 
+                       code.includes(searchTerm);
+        
+        if (matches) {
+          item.style.display = 'flex';
+          visibleCount++;
+        } else {
+          item.style.display = 'none';
+        }
+      });
+      
+      // Show/hide "no results" message
+      if (visibleCount === 0 && searchTerm.length > 0) {
+        noResults.style.display = 'block';
+      } else {
+        noResults.style.display = 'none';
+      }
+    }
+    
+    function filterByStatus(status) {
+      const attendeeItems = document.querySelectorAll('.attendee-item');
+      const searchInput = document.getElementById('attendeeSearch');
+      const noResults = document.getElementById('noResults');
+      let visibleCount = 0;
+      
+      // Clear search when using status filter
+      searchInput.value = '';
+      
+      attendeeItems.forEach(item => {
+        const itemStatus = item.dataset.status;
+        
+        if (status === 'all' || itemStatus === status) {
+          item.style.display = 'flex';
+          visibleCount++;
+        } else {
+          item.style.display = 'none';
+        }
+      });
+      
+      // Update filter button states
+      setActiveFilter(status);
+      
+      // Show/hide "no results" message
+      if (visibleCount === 0) {
+        noResults.style.display = 'block';
+      } else {
+        noResults.style.display = 'none';
+      }
+    }
+    
+    function setActiveFilter(activeStatus) {
+      // Remove active class from all filter buttons
+      document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary');
+      });
+      
+      // Add active class to selected filter
+      const activeBtn = document.getElementById(`filter-${activeStatus}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('btn-secondary');
+        activeBtn.classList.add('btn-primary');
+      }
+    }
+    
+    function clearSearch() {
+      document.getElementById('attendeeSearch').value = '';
+      filterByStatus('all');
+    }
+
+    // Check in attendee function
     async function checkinAttendee(eventId, email) {
       try {
         console.log(`🔍 Attempting check-in for Event ${eventId}, Email: ${email}`);
@@ -1705,6 +1710,118 @@
         console.error('❌ Network error during check-in:', error);
         alert('❌ Network error: ' + error.message);
       }
+    }
+
+    // Show attendees modal
+    function showAttendeesModal(event, attendees) {
+      console.log('Showing attendees modal for:', event.title, 'with', attendees.length, 'attendees');
+      
+      const modal = document.getElementById('eventModal');
+      const modalTitle = document.getElementById('modalEventTitle');
+      const modalContent = document.getElementById('modalEventContent');
+      
+      modalTitle.textContent = `👥 Attendees: ${event.title}`;
+      
+      let content = `
+        <div style="margin-bottom: 20px;">
+          <p><strong>Total Registered:</strong> ${attendees.length}</p>
+          <p><strong>Attended:</strong> ${attendees.filter(a => a.attended).length}</p>
+        </div>
+      `;
+      
+      if (attendees.length === 0) {
+        content += `
+          <div style="text-align: center; padding: 40px; color: #aaa;">
+            <p>📭 No registrations yet</p>
+            <button class="btn btn-primary mt-20" onclick="quickRegister(${event.id})">
+              Add First Registration
+            </button>
+          </div>
+        `;
+      } else {
+        // Add search/filter box
+        content += `
+          <div style="margin-bottom: 20px;">
+            <div style="position: relative;">
+              <input type="text" id="attendeeSearch" class="form-input" 
+                     placeholder="🔍 Search by email, name, or confirmation code..." 
+                     style="padding-left: 50px; margin-bottom: 15px;"
+                     oninput="filterAttendees()">
+              <span style="position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #FFD700; font-size: 18px;">🔍</span>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button class="btn btn-secondary btn-sm" onclick="filterByStatus('all')" id="filter-all">All</button>
+              <button class="btn btn-secondary btn-sm" onclick="filterByStatus('registered')" id="filter-registered">Not Checked In</button>
+              <button class="btn btn-secondary btn-sm" onclick="filterByStatus('attended')" id="filter-attended">Checked In</button>
+            </div>
+          </div>
+        `;
+        
+        content += '<div class="attendee-list" id="attendeeListContainer">';
+        
+        attendees.forEach((attendee, index) => {
+          const statusClass = attendee.attended ? 'status-attended' : 'status-registered';
+          const statusText = attendee.attended ? 'Attended' : 'Registered';
+          const registeredDate = attendee.registered_at ? 
+            new Date(attendee.registered_at).toLocaleDateString() : 'Unknown';
+          
+          content += `
+            <div class="attendee-item" data-email="${attendee.subscriber_email.toLowerCase()}" 
+                 data-name="${(attendee.player_name || '').toLowerCase()}" 
+                 data-code="${attendee.confirmation_code.toLowerCase()}"
+                 data-status="${attendee.attended ? 'attended' : 'registered'}"
+                 data-index="${index}">
+              <div>
+                <div class="attendee-email">${attendee.subscriber_email}</div>
+                <div style="color: #aaa; font-size: 0.8rem; margin-top: 5px;">
+                  Player: ${attendee.player_name || 'Not specified'} | 
+                  <strong style="color: #FFD700;">Code: ${attendee.confirmation_code}</strong> | 
+                  Registered: ${registeredDate}
+                </div>
+              </div>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <span class="attendee-status ${statusClass}">${statusText}</span>
+                ${!attendee.attended ? `
+                  <button class="btn btn-success btn-sm" onclick="checkinAttendee(${event.id}, '${attendee.subscriber_email}')">
+                    ✓ Check In
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        });
+        
+        content += '</div>';
+        
+        // Add "No results" message (hidden by default)
+        content += `
+          <div id="noResults" style="display: none; text-align: center; padding: 40px; color: #aaa;">
+            <p>🔍 No attendees match your search</p>
+            <button class="btn btn-secondary btn-sm" onclick="clearSearch()">Clear Search</button>
+          </div>
+        `;
+      }
+      
+      // Add action buttons
+      content += `
+        <div style="display: flex; gap: 10px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #444;">
+          <button class="btn btn-primary" onclick="quickRegister(${event.id})">
+            ➕ Add Registration
+          </button>
+          <button class="btn btn-secondary" onclick="refreshAttendees(${event.id})">
+            🔄 Refresh
+          </button>
+          <button class="btn btn-secondary" onclick="closeEventModal()">
+            Close
+          </button>
+        </div>
+      `;
+      
+      modalContent.innerHTML = content;
+      modal.style.display = 'flex';
+      
+      // Set initial filter state
+      setActiveFilter('all');
     }
 
 

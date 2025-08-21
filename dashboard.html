@@ -986,7 +986,7 @@
     .fc-list-event.birthday {
       border-left-color: #FF69B4 !important;
     }
-    
+
  </style>
 </head>
 <body>
@@ -1175,14 +1175,16 @@
               <div class="card-header">
                 <h3 class="card-title">Upcoming Events</h3>
                 <div>
-                  <select id="eventTypeFilter" class="form-select" style="width: 150px; display: inline-block;">
+                  <select id="eventTypeFilter" 
+                          class="form-select" 
+                          style="width: 150px; display: inline-block;" 
+                          onchange="loadEvents()">
                     <option value="all">All Types</option>
                     <option value="tournament">Tournaments</option>
                     <option value="game_night">Game Nights</option>
                     <option value="special">Special Events</option>
                     <option value="birthday">Birthdays</option>
                   </select>
-                  <button class="btn btn-primary btn-sm" onclick="loadEvents()">🔄 Refresh</button>
                 </div>
               </div>
 
@@ -1615,26 +1617,36 @@
 
     // Load events list
     async function loadEvents() {
+      const listContainer = document.getElementById('eventsList');
+      
       try {
         const typeFilter = document.getElementById('eventTypeFilter')?.value || 'all';
-        
-        // Show all events (both draft and published) in admin dashboard
+
+        // Show spinner while loading
+        listContainer.innerHTML = `
+          <div style="text-align: center; padding: 50px; color: #aaaaaa;">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px;">Loading events...</p>
+          </div>
+        `;
+
+        // Fetch events
         const response = await fetch(`${API_BASE}/api/events?type=${typeFilter}&upcoming=true`);
-        
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
           currentEvents = data.events;
-          renderEventsList(data.events);
+          renderEventsList(data.events);  // your existing render function
         } else {
           console.error('API returned error:', data.error);
-          document.getElementById('eventsList').innerHTML = '<p class="text-danger">Failed to load events: ' + (data.error || 'Unknown error') + '</p>';
+          listContainer.innerHTML = `<p class="text-danger">Failed to load events: ${data.error || 'Unknown error'}</p>`;
         }
+
       } catch (error) {
         console.error('Error loading events:', error);
-        document.getElementById('eventsList').innerHTML = '<p class="text-danger">Failed to load events: ' + error.message + '</p>';
+        listContainer.innerHTML = `<p class="text-danger">Failed to load events: ${error.message}</p>`;
       }
     }
 

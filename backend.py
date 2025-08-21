@@ -10,6 +10,8 @@ import re
 import json
 import traceback
 import psycopg2
+import base64
+from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -2159,6 +2161,52 @@ def send_registration_confirmation(email, event, confirmation_code):
         
     except Exception as e:
         log_error(f"Error sending confirmation email: {e}")
+
+# =============================
+# PHASE 2: PUBLIC EVENT SIGNUP - STEP 1
+# =============================
+
+@app.route('/api/events/<int:event_id>/public', methods=['GET'])
+def get_public_event(event_id):
+    """Get public event details for signup page"""
+    try:
+        query = """
+            SELECT 
+                e.*,
+                COUNT(r.id) as registration_count,
+                CASE 
+                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
+                    ELSE NULL
+                END as spots_available
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.id = %s
+            GROUP BY e.id
+        """
+        
+        event = execute_query_one(query, (event_id,))
+        
+        if not event:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        # Convert datetime objects
+        if event['date_time']:
+            event['date_time'] = event['date_time'].isoformat()
+        if event['end_time']:
+            event['end_time'] = event['end_time'].isoformat()
+        if event['created_at']:
+            event['created_at'] = event['created_at'].isoformat()
+        if event['updated_at']:
+            event['updated_at'] = event['updated_at'].isoformat()
+            
+        return jsonify({
+            "success": True,
+            "event": event
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting public event {event_id}: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500      
 
 # =============================
 # Event Statistics

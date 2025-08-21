@@ -608,23 +608,25 @@
       display: block;
     }
     
-    .events-container {
+   .events-container {
       display: grid;
-      gap: 20px;
+      gap: 30px; /* This creates consistent spacing between all event cards */
+      padding: 20px 0; /* Add some padding at top/bottom */
     }
 
-    event-card {
+   .event-card {
       background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 15px; /* Slightly more rounded */
+      padding: 30px; /* More breathing room inside */
       border-left: 4px solid #FFD700;
       transition: all 0.3s ease;
       cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2); /* Add subtle shadow */
     }
 
     
     .event-card:hover {
-      transform: translateY(-2px);
+      transform: translateY(-3px); /* Slightly more lift on hover */
       box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
     }
 

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SideQuest Mail Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.14/index.global.min.js'></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
@@ -779,6 +781,143 @@
 
     .status-attended { background: #00ff88; color: #1a1a1a; }
     .status-registered { background: #FFD700; color: #1a1a1a; }
+
+
+    .fc {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      border-radius: 15px;
+      border: 1px solid #444;
+      overflow: hidden;
+    }
+
+    .fc-header-toolbar {
+      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+      padding: 20px 25px !important;
+      border-bottom: 3px solid #FFD700;
+      margin-bottom: 0 !important;
+    }
+
+    .fc-toolbar-title {
+      color: #1a1a1a !important;
+      font-weight: 800 !important;
+      font-size: 1.8rem !important;
+    }
+
+    .fc-button {
+      background: #1a1a1a !important;
+      border: 2px solid #FFD700 !important;
+      color: #FFD700 !important;
+      font-weight: 600 !important;
+      border-radius: 8px !important;
+      padding: 8px 16px !important;
+      transition: all 0.3s ease !important;
+    }
+
+    .fc-button:hover {
+      background: #FFD700 !important;
+      color: #1a1a1a !important;
+      transform: translateY(-2px) !important;
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3) !important;
+    }
+
+    .fc-button-active {
+      background: #FFD700 !important;
+      color: #1a1a1a !important;
+    }
+
+    .fc-view-harness {
+      background: #1a1a1a;
+    }
+
+    .fc-day {
+      background: #2a2a2a !important;
+      border-color: #444 !important;
+      transition: all 0.3s ease;
+    }
+
+    .fc-day:hover {
+      background: #3a3a3a !important;
+    }
+
+    .fc-day-today {
+      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+      color: #1a1a1a !important;
+      font-weight: 800 !important;
+    }
+
+    .fc-col-header {
+      background: #2a2a2a !important;
+      border-bottom: 2px solid #FFD700 !important;
+    }
+
+    .fc-col-header-cell-cushion {
+      color: #FFD700 !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 1px !important;
+      padding: 15px 0 !important;
+    }
+
+    .fc-daygrid-day-number {
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      padding: 8px !important;
+    }
+
+    .fc-event {
+      border: none !important;
+      border-radius: 6px !important;
+      padding: 3px 6px !important;
+      margin: 2px !important;
+      font-weight: 600 !important;
+      font-size: 0.75rem !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+      border-left: 3px solid transparent !important;
+    }
+
+    .fc-event:hover {
+      transform: translateY(-1px) !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+    }
+
+    .fc-event.tournament {
+      background: linear-gradient(135deg, #FF6B35 0%, #FF4757 100%) !important;
+      color: white !important;
+      border-left-color: #FF6B35 !important;
+    }
+
+    .fc-event.game_night {
+      background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%) !important;
+      color: #1a1a1a !important;
+      border-left-color: #4ECDC4 !important;
+    }
+
+    .fc-event.special {
+      background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%) !important;
+      color: white !important;
+      border-left-color: #8B5CF6 !important;
+    }
+
+    .fc-event.birthday {
+      background: linear-gradient(135deg, #FF69B4 0%, #FF1493 100%) !important;
+      color: white !important;
+      border-left-color: #FF69B4 !important;
+    }
+
+    .fc-more-link {
+      color: #FFD700 !important;
+      font-weight: 600 !important;
+      background: #666 !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      margin: 1px !important;
+    }
+
+    .fc-more-link:hover {
+      background: #FFD700 !important;
+      color: #1a1a1a !important;
+    }
  </style>
 </head>
 <body>
@@ -986,17 +1125,72 @@
               </div>
             </div> 
 
-            <!-- Calendar View -->
+            <!-- Replace the calendar view section -->
             <div class="event-view" id="event-calendar-view">
               <div class="card-header">
                 <h3 class="card-title">Event Calendar</h3>
+                <button class="btn btn-primary btn-sm" onclick="refreshCalendar()">🔄 Refresh</button>
               </div>
-              <div id="eventCalendar" style="background: #1a1a1a; border-radius: 12px; padding: 20px; min-height: 500px;">
-                <!-- Calendar will be rendered here -->
+              
+              <!-- FullCalendar Container -->
+              <div id="fullCalendar" style="padding: 20px;"></div>
+            </div>
+
+
+            <!-- Event Modal for FullCalendar -->
+            <div id="fcEventModal" class="modal" style="display: none;">
+              <div class="modal-content">
+                <span class="modal-close" onclick="closeFCModal()">&times;</span>
+                <h2 id="fcModalTitle">Create Event</h2>
+                <form id="fcEventForm">
+                  <div class="form-group">
+                    <label class="form-label">Event Title</label>
+                    <input type="text" class="form-input" id="fcEventTitle" required>
+                  </div>
+                  
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                      <label class="form-label">Event Type</label>
+                      <select class="form-select" id="fcEventType" required>
+                        <option value="tournament">Tournament</option>
+                        <option value="game_night">Game Night</option>
+                        <option value="special">Special Event</option>
+                        <option value="birthday">Birthday</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Game</label>
+                      <input type="text" class="form-input" id="fcEventGame">
+                    </div>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                      <label class="form-label">Start Time</label>
+                      <input type="time" class="form-input" id="fcEventTime" value="18:00">
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">End Time</label>
+                      <input type="time" class="form-input" id="fcEventEndTime" value="21:00">
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" id="fcEventDescription" rows="3"></textarea>
+                  </div>
+
+                  <input type="hidden" id="fcEventDate">
+                  
+                  <div style="display: flex; gap: 12px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary">🎮 Create Event</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeFCModal()">Cancel</button>
+                  </div>
+                </form>
               </div>
             </div>
             
-          <!-- Create Event View -->
+            <!-- Create Event View -->
             <div class="event-view" id="event-create-view">
               <div class="card-header">
                 <h3 class="card-title">Create New Event</h3>
@@ -1032,7 +1226,7 @@
                     <input type="datetime-local" class="form-input" id="eventDateTime" required>
                   </div>
                   
-                  <div class="form-group
+                  <div class="form-group>
                     <label class="form-label">End Date & Time*</label>
                     <input type="datetime-local" class="form-input" id="eventEndTime">
                   </div>
@@ -1186,9 +1380,93 @@
   <script>
     // Configuration
     const API_BASE = 'https://sidequest-newsletter-production.up.railway.app';
+    
 
-        // Event Management JavaScript - FIXED VERSION
-    // Add this to your existing script section
+    let calendar;
+
+    // Initialize FullCalendar
+    function initFullCalendar() {
+      const calendarEl = document.getElementById('fullCalendar');
+      
+      calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,listWeek'
+        },
+        height: 'auto',
+        events: loadCalendarEvents,
+        
+        // Event styling based on type
+        eventDidMount: function(info) {
+          const eventType = info.event.extendedProps.event_type || 'default';
+          info.el.classList.add(eventType);
+        },
+        
+        // Click day to create event
+        dateClick: function(info) {
+          document.getElementById('fcEventDate').value = info.dateStr;
+          document.getElementById('fcModalTitle').textContent = `Create Event - ${info.date.toLocaleDateString('en-GB')}`;
+          document.getElementById('fcEventModal').style.display = 'flex';
+        },
+        
+        // Click event to view details
+        eventClick: function(info) {
+          showEventDetails(info.event.id);
+        },
+        
+        dayMaxEvents: 3,
+        moreLinkClick: 'popover'
+      });
+      
+      calendar.render();
+    }
+
+    // Load events from your backend
+    async function loadCalendarEvents(fetchInfo, successCallback, failureCallback) {
+      try {
+        const response = await fetch(`${API_BASE}/api/events/calendar`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const events = data.events.map(event => ({
+            id: event.id,
+            title: event.title,
+            start: event.start || event.date_time,
+            end: event.end || event.end_time,
+            backgroundColor: event.color,
+            borderColor: event.color,
+            textColor: getTextColor(event.event_type),
+            extendedProps: {
+              event_type: event.event_type,
+              game_title: event.game_title,
+              description: event.description
+            }
+          }));
+          
+          successCallback(events);
+        } else {
+          failureCallback(data.error);
+        }
+      } catch (error) {
+        console.error('Error loading calendar events:', error);
+        failureCallback(error);
+      }
+    }
+
+    // Get text color based on event type
+    function getTextColor(eventType) {
+      switch(eventType) {
+        case 'tournament':
+        case 'special':
+        case 'birthday':
+          return 'white';
+        case 'game_night':
+        default:
+          return '#1a1a1a';
+      }
+    }
 
     // Event variables
     let currentEvents = [];
@@ -1826,17 +2104,81 @@
 
 
     // Load calendar view
-    async function loadCalendarView() {
-      try {
-        const response = await fetch(`${API_BASE}/api/events/calendar`);
-        const data = await response.json();
-        
-        if (data.success) {
-          renderCalendar(data.events);
+    function loadCalendarView() {
+      setTimeout(() => {
+        if (!calendar) {
+          initFullCalendar();
+        } else {
+          calendar.refetchEvents();
         }
-      } catch (error) {
-        console.error('Error loading calendar:', error);
-        document.getElementById('eventCalendar').innerHTML = '<p class="text-danger">Failed to load calendar</p>';
+      }, 100);
+    }
+
+    // Form submission
+    document.addEventListener('DOMContentLoaded', function() {
+      const fcForm = document.getElementById('fcEventForm');
+      if (fcForm) {
+        fcForm.addEventListener('submit', async function(e) {
+          e.preventDefault();
+          
+          const eventData = {
+            title: document.getElementById('fcEventTitle').value,
+            event_type: document.getElementById('fcEventType').value,
+            game_title: document.getElementById('fcEventGame').value,
+            date_time: document.getElementById('fcEventDate').value + 'T' + document.getElementById('fcEventTime').value,
+            end_time: document.getElementById('fcEventDate').value + 'T' + document.getElementById('fcEventEndTime').value,
+            description: document.getElementById('fcEventDescription').value,
+            capacity: 0,
+            entry_fee: 0,
+            status: 'draft'
+          };
+
+          try {
+            const response = await fetch(`${API_BASE}/api/events`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(eventData)
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+              closeFCModal();
+              if (calendar) calendar.refetchEvents();
+              showSuccess('Event created successfully!');
+            } else {
+              alert('Error: ' + (data.error || 'Failed to create event'));
+            }
+          } catch (error) {
+            console.error('Error creating event:', error);
+            alert('Failed to create event');
+          }
+        });
+      }
+
+      // Close modal when clicking outside
+      const modal = document.getElementById('fcEventModal');
+      if (modal) {
+        modal.addEventListener('click', function(e) {
+          if (e.target === this) {
+            closeFCModal();
+          }
+        });
+      }
+    });
+
+
+
+    // Modal functions
+    function closeFCModal() {
+      document.getElementById('fcEventModal').style.display = 'none';
+      document.getElementById('fcEventForm').reset();
+    }
+
+    function refreshCalendar() {
+      if (calendar) {
+        calendar.refetchEvents();
+        showSuccess('Calendar refreshed!');
       }
     }
 

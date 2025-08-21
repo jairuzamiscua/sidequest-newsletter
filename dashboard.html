@@ -920,19 +920,6 @@
     }
 
 
-     /* Add this to your existing FullCalendar CSS */
-    .fc-event-title {
-      font-weight: 600 !important;
-      white-space: normal !important; /* Allow text wrapping */
-      overflow: visible !important;
-      text-overflow: clip !important;
-    }
-
-    .fc-event {
-      white-space: normal !important; /* Allow multi-line events */
-      overflow: visible !important;
-      min-height: 20px !important;
-    }
 
     /* Make events expand on hover to show full content */
     .fc-event:hover {
@@ -1459,9 +1446,10 @@
         const data = await response.json();
         
         if (data.success) {
-          const events = data.events.map(event => ({
+            const events = data.events.map(event => ({
             id: event.id,
-            title: event.title,
+            title: event.title.length > 15 ? event.title.substring(0, 12) + '...' : event.title,
+            fullTitle: event.title,
             start: event.start || event.date_time,
             end: event.end || event.end_time,
             backgroundColor: event.color,
@@ -3537,4 +3525,3 @@
 </body>
 
 </html>
-

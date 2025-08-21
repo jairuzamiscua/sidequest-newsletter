@@ -1582,38 +1582,44 @@
       }
     }
 
-  function switchEventView(view) {
-    // Update navigation buttons
-    document.querySelectorAll('.event-nav-btn').forEach(btn => {
-      btn.classList.remove('active');
-    });
-    document.querySelector(`.event-nav-btn[data-view="${view}"]`).classList.add('active');
+    function switchEventView(view) {
+      // Update navigation buttons
+      document.querySelectorAll('.event-nav-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector(`.event-nav-btn[data-view="${view}"]`).classList.add('active');
 
-    // Update views
-    document.querySelectorAll('.event-view').forEach(v => {
-      v.classList.remove('active');
-    });
-    document.getElementById(`event-${view}-view`).classList.add('active');
+      // Update views
+      document.querySelectorAll('.event-view').forEach(v => {
+        v.classList.remove('active');
+      });
+      document.getElementById(`event-${view}-view`).classList.add('active');
 
-    // If switching to create view and NOT in edit mode, reset everything
-    if (view === 'create' && !currentEditingEventId) {
-      resetCreateFormUI();
-      resetEventForm();
+      // ALWAYS reset edit state when switching views
+      if (view === 'create') {
+        // Reset edit state
+        currentEditingEventId = null;
+        resetCreateFormUI();
+        resetEventForm();
+      } else {
+        // If leaving create view, also reset edit state
+        currentEditingEventId = null;
+        resetCreateFormUI();
+      }
+
+      // Load appropriate data
+      switch(view) {
+        case 'list':
+          loadEvents();
+          break;
+        case 'calendar':
+          loadCalendarView();
+          break;
+        case 'stats':
+          loadEventStats();
+          break;
+      }
     }
-
-    // Load appropriate data
-    switch(view) {
-      case 'list':
-        loadEvents();
-        break;
-      case 'calendar':
-        loadCalendarView();
-        break;
-      case 'stats':
-        loadEventStats();
-        break;
-    }
-  }
 
     // Load events list
     async function loadEvents() {
@@ -2632,15 +2638,15 @@
       const formTitle = document.querySelector('#event-create-view .card-title');
       if (formTitle) {
         formTitle.textContent = 'Create New Event';
-        formTitle.style.color = '';
+        formTitle.style.color = '#FFD700'; // Reset to default gold color
       }
       
       // Reset submit button
       const submitButton = document.querySelector('#createEventForm button[type="submit"]');
       if (submitButton) {
         submitButton.textContent = '🎮 Create Event';
-        submitButton.classList.add('btn-primary');
         submitButton.classList.remove('btn-warning');
+        submitButton.classList.add('btn-primary');
       }
       
       // Remove cancel button
@@ -2648,6 +2654,9 @@
       if (cancelButton) {
         cancelButton.remove();
       }
+      
+      // Reset global edit state
+      currentEditingEventId = null;
     }
 
     function cancelEdit() {

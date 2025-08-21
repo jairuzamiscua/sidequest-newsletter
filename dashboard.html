@@ -1599,7 +1599,7 @@
       await viewAttendees(eventId);
     }
 
-    // Search and filter functions for attendees
+        // Search and filter functions for attendees
     function filterAttendees() {
       const searchTerm = document.getElementById('attendeeSearch').value.toLowerCase();
       const attendeeItems = document.querySelectorAll('.attendee-item');
@@ -1632,6 +1632,12 @@
     }
     
     function filterByStatus(status) {
+      const attendeeItems = document.querySelectorAll('.attendee-item');
+      const searchInput = document.getElementById('attendeeSearch');
+      const noResults = document.getElementById('noResults');
+      let visibleCount = 0;
+      
+        function filterByStatus(status) {
       const attendeeItems = document.querySelectorAll('.attendee-item');
       const searchInput = document.getElementById('attendeeSearch');
       const noResults = document.getElementById('noResults');
@@ -1744,7 +1750,7 @@
           <div style="margin-bottom: 20px;">
             <div style="position: relative;">
               <input type="text" id="attendeeSearch" class="form-input" 
-                     placeholder="Search by email, name, or confirmation code..." 
+                     placeholder="🔍 Search by email, name, or confirmation code..." 
                      style="padding-left: 50px; margin-bottom: 15px;"
                      oninput="filterAttendees()">
               <span style="position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #FFD700; font-size: 18px;">🔍</span>
@@ -1822,7 +1828,7 @@
       
       // Set initial filter state
       setActiveFilter('all');
-    }
+    }  
 
 
     // Load calendar view
@@ -3166,4 +3172,3 @@
 </body>
 
 </html>
-

@@ -939,6 +939,54 @@
       overflow: visible !important;
       white-space: normal !important;
     }
+
+        fc-list-view {
+      background: #1a1a1a !important;
+    }
+
+    .fc-list-day-cushion {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%) !important;
+      color: #FFD700 !important;
+      font-weight: 700 !important;
+      border-bottom: 2px solid #FFD700 !important;
+    }
+
+    .fc-list-event {
+      background: #2a2a2a !important;
+      border-left: 4px solid #FFD700 !important;
+    }
+
+    .fc-list-event:hover {
+      background: #3a3a3a !important;
+    }
+
+    .fc-list-event-time {
+      color: #FFD700 !important;
+      font-weight: 600 !important;
+    }
+
+    .fc-list-event-title {
+      color: #ffffff !important;
+      font-weight: 600 !important;
+    }
+
+    /* List view event type colors */
+    .fc-list-event.tournament {
+      border-left-color: #FF6B35 !important;
+    }
+
+    .fc-list-event.game_night {
+      border-left-color: #4ECDC4 !important;
+    }
+
+    .fc-list-event.special {
+      border-left-color: #8B5CF6 !important;
+    }
+
+    .fc-list-event.birthday {
+      border-left-color: #FF69B4 !important;
+    }
+    
  </style>
 </head>
 <body>
@@ -1452,14 +1500,21 @@
     // Load events from your backend
     async function loadCalendarEvents(fetchInfo, successCallback, failureCallback) {
       try {
-        const response = await fetch(`${API_BASE}/api/events/calendar`);
+        // Add date range to ensure we get all events in the visible timeframe
+        const start = fetchInfo.start.toISOString().split('T')[0];
+        const end = fetchInfo.end.toISOString().split('T')[0];
+        
+        console.log('Loading events from', start, 'to', end); // Debug
+        
+        const response = await fetch(`${API_BASE}/api/events/calendar?start=${start}&end=${end}`);
         const data = await response.json();
         
         if (data.success) {
-            const events = data.events.map(event => ({
+          console.log('Total events loaded:', data.events.length); // Debug
+          
+          const events = data.events.map(event => ({
             id: event.id,
-            title: event.title.length > 15 ? event.title.substring(0, 12) + '...' : event.title,
-            fullTitle: event.title,
+            title: event.title,
             start: event.start || event.date_time,
             end: event.end || event.end_time,
             backgroundColor: event.color,

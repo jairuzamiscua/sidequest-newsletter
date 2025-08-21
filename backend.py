@@ -1154,135 +1154,118 @@ def signup_page():
 @app.route('/signup/event/<int:event_id>')
 def public_signup_page(event_id):
     """Serve the public event signup page"""
-    return f'''<!DOCTYPE html>
+    return '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register for Event - SideQuest Gaming Cafe</title>
     <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #ffffff; min-height: 100vh; }}
-        .container {{ max-width: 800px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #1a1a1a; padding: 25px; border-radius: 15px; margin-bottom: 30px; text-align: center; }}
-        .logo {{ width: 60px; height: 60px; background: #1a1a1a; border-radius: 12px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: #FFD700; font-weight: 900; font-size: 18px; }}
-        .event-card, .form-card {{ background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); border-radius: 15px; padding: 30px; margin-bottom: 30px; border-left: 4px solid #FFD700; }}
-        .form-group {{ margin-bottom: 25px; }}
-        .form-label {{ display: block; margin-bottom: 8px; font-weight: 600; color: #FFD700; }}
-        .form-input {{ width: 100%; padding: 14px 18px; border: 2px solid #444; border-radius: 10px; background: #1a1a1a; color: #ffffff; font-size: 16px; }}
-        .form-input:focus {{ outline: none; border-color: #FFD700; box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2); }}
-        .btn {{ padding: 16px 32px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #1a1a1a; border: none; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; }}
-        .btn:hover {{ transform: translateY(-2px); }}
-        .success {{ background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); color: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; }}
-        .error {{ background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%); color: #ffffff; padding: 15px; border-radius: 10px; }}
-        .loading {{ text-align: center; padding: 50px; color: #aaa; }}
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #1a1a1a; color: white; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { background: #FFD700; color: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-input { width: 100%; padding: 10px; border-radius: 5px; border: none; }
+        .btn { background: #FFD700; color: #1a1a1a; padding: 15px 30px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .success { background: #00ff88; color: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px; }
+        .error { background: #ff6b35; color: white; padding: 15px; border-radius: 5px; margin-top: 15px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">SQ</div>
-            <h1>Event Registration</h1>
-            <p>SideQuest Gaming Cafe</p>
+            <h1>🎮 SideQuest Gaming Cafe</h1>
+            <p>Event Registration</p>
         </div>
         
-        <div id="eventDetails" class="loading">Loading event details...</div>
+        <div id="eventDetails">Loading event details...</div>
         
         <div id="registrationForm" style="display: none;">
-            <div class="form-card">
-                <h2 style="color: #FFD700; margin-bottom: 25px;">Register for this Event</h2>
-                <form id="regForm">
-                    <div class="form-group">
-                        <label class="form-label">Email Address *</label>
-                        <input type="email" id="email" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Player Name *</label>
-                        <input type="text" id="playerName" class="form-input" required>
-                    </div>
-                    <button type="submit" class="btn">🎮 Register Now</button>
-                </form>
-                <div id="message" style="margin-top: 20px;"></div>
-            </div>
+            <h2>Register for this Event</h2>
+            <form id="regForm">
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" id="email" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Player Name *</label>
+                    <input type="text" id="playerName" class="form-input" required>
+                </div>
+                <button type="submit" class="btn">🎮 Register Now</button>
+            </form>
+            <div id="message"></div>
         </div>
         
         <div id="confirmationPage" style="display: none;">
             <div class="success">
                 <h2>✅ Registration Confirmed!</h2>
-                <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; margin: 20px 0; color: #FFD700;">
-                    <h3>Your Confirmation Code</h3>
-                    <div id="confirmationCode" style="font-size: 24px; font-weight: 900; margin: 10px 0;"></div>
-                    <p>Show this code at check-in</p>
-                </div>
-                <p>📧 Check your email for confirmation details</p>
+                <h3>Your Confirmation Code: <span id="confirmationCode"></span></h3>
+                <p>Show this code at check-in!</p>
             </div>
         </div>
     </div>
     
     <script>
-        const EVENT_ID = {event_id};
+        const EVENT_ID = ''' + str(event_id) + ''';
         
         document.addEventListener('DOMContentLoaded', loadEventDetails);
         
-        async function loadEventDetails() {{
-            try {{
-                const response = await fetch(`/api/events/${{EVENT_ID}}/public`);
+        async function loadEventDetails() {
+            try {
+                const response = await fetch(`/api/events/${EVENT_ID}/public`);
                 const data = await response.json();
                 
-                if (data.success) {{
+                if (data.success) {
                     const event = data.event;
                     const eventDate = new Date(event.date_time);
                     
                     document.getElementById('eventDetails').innerHTML = `
-                        <div class="event-card">
-                            <h1 style="color: #FFD700; margin-bottom: 20px;">${{event.title}}</h1>
-                            <div style="display: grid; gap: 15px;">
-                                <div><strong>📅 Date:</strong> ${{eventDate.toLocaleDateString('en-GB', {{ weekday: 'long', day: 'numeric', month: 'long' }})}}</div>
-                                <div><strong>🕐 Time:</strong> ${{eventDate.toLocaleTimeString('en-GB', {{ hour: '2-digit', minute: '2-digit' }})}}</div>
-                                ${{event.game_title ? `<div><strong>🎮 Game:</strong> ${{event.game_title}}</div>` : ''}}
-                                <div><strong>💰 Entry:</strong> ${{event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE!'}}</div>
-                                <div><strong>👥 Available Spots:</strong> ${{event.spots_available || 'Unlimited'}}</div>
-                                <div><strong>📍 Location:</strong> SideQuest Gaming Cafe, Canterbury</div>
-                            </div>
+                        <div style="background: #2a2a2a; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                            <h1 style="color: #FFD700;">${event.title}</h1>
+                            <p><strong>📅 Date:</strong> ${eventDate.toLocaleDateString()}</p>
+                            <p><strong>🕐 Time:</strong> ${eventDate.toLocaleTimeString()}</p>
+                            <p><strong>🎮 Game:</strong> ${event.game_title || 'TBA'}</p>
+                            <p><strong>💰 Entry:</strong> ${event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE!'}</p>
+                            <p><strong>👥 Spots Available:</strong> ${event.spots_available || 'Unlimited'}</p>
                         </div>
                     `;
                     
                     document.getElementById('registrationForm').style.display = 'block';
-                }} else {{
+                } else {
                     document.getElementById('eventDetails').innerHTML = '<div class="error">Event not found</div>';
-                }}
-            }} catch (error) {{
+                }
+            } catch (error) {
                 document.getElementById('eventDetails').innerHTML = '<div class="error">Failed to load event</div>';
-            }}
-        }}
+            }
+        }
         
-        document.getElementById('regForm').addEventListener('submit', async function(e) {{
+        document.getElementById('regForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const email = document.getElementById('email').value;
             const playerName = document.getElementById('playerName').value;
-            const messageDiv = document.getElementById('message');
             
-            try {{
-                const response = await fetch(`/api/events/${{EVENT_ID}}/register-public`, {{
+            try {
+                const response = await fetch(`/api/events/${EVENT_ID}/register-public`, {
                     method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ email, player_name: playerName }})
-                }});
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, player_name: playerName })
+                });
                 
                 const data = await response.json();
                 
-                if (data.success) {{
+                if (data.success) {
                     document.getElementById('registrationForm').style.display = 'none';
                     document.getElementById('confirmationCode').textContent = data.confirmation_code;
                     document.getElementById('confirmationPage').style.display = 'block';
-                }} else {{
-                    messageDiv.innerHTML = `<div class="error">${{data.error}}</div>`;
-                }}
-            }} catch (error) {{
-                messageDiv.innerHTML = '<div class="error">Registration failed. Please try again.</div>';
-            }}
-        }});
+                } else {
+                    document.getElementById('message').innerHTML = `<div class="error">${data.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('message').innerHTML = '<div class="error">Registration failed. Please try again.</div>';
+            }
+        });
     </script>
 </body>
 </html>'''
@@ -2565,6 +2548,5 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
-
 
 

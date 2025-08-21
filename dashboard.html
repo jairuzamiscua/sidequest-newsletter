@@ -568,7 +568,7 @@
     .text-danger { color: #ff6b35; }
     .text-muted { color: #aaaaaa; }
 
-    /* Event Management Styles */
+    /* EVENT MANAGEMENT STYLES - CLEAN VERSION */
     .event-nav {
       display: flex;
       gap: 10px;
@@ -608,56 +608,44 @@
       display: block;
     }
 
-    
     .events-container {
       display: grid;
-      gap: 30px;
+      gap: 25px;
       padding: 20px 0;
-    }padding: 20px 0; /* Add some padding at top/bottom */
-    
-
-    event-card {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      padding: 30px;
-      border-left: 4px solid #FFD700; /* Default gold */
-      transition: all 0.3s ease;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      position: relative; /* Add this */
-      overflow: hidden; /* Add this to contain any overflow */
     }
 
-    
+    .event-card {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      border-radius: 12px;
+      padding: 25px;
+      border-left: 4px solid #FFD700;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
     .event-card:hover {
-      transform: translateY(-3px);
+      transform: translateY(-2px);
       box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
     }
 
-    .event-card.tournament { 
-      border-left: 4px solid #FF6B35 !important; 
-    }
-    .event-card.game_night { 
-      border-left: 4px solid #4ECDC4 !important; 
-    }
-    .event-card.special { 
-      border-left: 4px solid #FFD700 !important; 
-    }
-    .event-card.birthday { 
-      border-left: 4px solid #FF69B4 !important; 
-    }
+    .event-card.tournament { border-left-color: #FF6B35; }
+    .event-card.game_night { border-left-color: #4ECDC4; }
+    .event-card.special { border-left-color: #FFD700; }
+    .event-card.birthday { border-left-color: #FF69B4; }
 
     .event-header {
       display: flex;
       justify-content: space-between;
-      align-items: start;
-      margin-bottom: 20px;
+      align-items: flex-start;
+      margin-bottom: 15px;
     }
 
     .event-title {
       font-size: 1.3rem;
       font-weight: 700;
       color: #FFD700;
+      margin: 0;
     }
 
     .event-badge {
@@ -675,9 +663,9 @@
 
     .event-details {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 15px;
     }
 
     .event-detail {
@@ -693,12 +681,40 @@
       font-size: 1.1rem;
     }
 
+    .capacity-bar {
+      width: 100%;
+      height: 20px;
+      background: #1a1a1a;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 15px 0;
+      position: relative;
+    }
+
+    .capacity-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
+      transition: width 0.3s ease;
+    }
+
+    .capacity-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+
     .event-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 25px;
-      padding-top: 20px; /* Add a subtle separator */
-      border-top: 1px solid rgba(255, 215, 0, 0.1); /* Subtle divider line */
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(255, 215, 0, 0.2);
     }
 
     .capacity-bar {

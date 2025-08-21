@@ -918,6 +918,30 @@
       background: #FFD700 !important;
       color: #1a1a1a !important;
     }
+
+
+     /* Add this to your existing FullCalendar CSS */
+    .fc-event-title {
+      font-weight: 600 !important;
+      white-space: normal !important; /* Allow text wrapping */
+      overflow: visible !important;
+      text-overflow: clip !important;
+    }
+
+    .fc-event {
+      white-space: normal !important; /* Allow multi-line events */
+      overflow: visible !important;
+      min-height: 20px !important;
+    }
+
+    /* Make events expand on hover to show full content */
+    .fc-event:hover {
+      transform: translateY(-1px) !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+      z-index: 999 !important;
+      overflow: visible !important;
+      white-space: normal !important;
+    }
  </style>
 </head>
 <body>
@@ -1372,6 +1396,48 @@
                 }
               }, 100);
             }, 100);
+        },
+
+        // Add hover tooltips to your FullCalendar config
+        eventDidMount: function(info) {
+          const eventType = info.event.extendedProps.event_type || 'default';
+          info.el.classList.add(eventType);
+          
+          // Add tooltip on hover
+          info.el.setAttribute('title', `${info.event.title}\n${info.event.start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
+          
+          // Better hover popup
+          info.el.addEventListener('mouseenter', function() {
+            // Create custom tooltip
+            const tooltip = document.createElement('div');
+            tooltip.style.cssText = `
+              position: absolute;
+              background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+              color: white;
+              padding: 10px 15px;
+              border-radius: 8px;
+              border: 2px solid #FFD700;
+              font-size: 12px;
+              font-weight: 600;
+              z-index: 9999;
+              box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+              pointer-events: none;
+              max-width: 200px;
+            `;
+            tooltip.textContent = info.event.title;
+            tooltip.id = 'event-tooltip';
+            document.body.appendChild(tooltip);
+            
+            // Position tooltip
+            const rect = info.el.getBoundingClientRect();
+            tooltip.style.left = rect.left + 'px';
+            tooltip.style.top = (rect.top - tooltip.offsetHeight - 5) + 'px';
+          });
+          
+          info.el.addEventListener('mouseleave', function() {
+            const tooltip = document.getElementById('event-tooltip');
+            if (tooltip) tooltip.remove();
+          });
         },
         
         // Click event to view details
@@ -3471,3 +3537,4 @@
 </body>
 
 </html>
+

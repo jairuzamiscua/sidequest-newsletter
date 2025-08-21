@@ -1151,6 +1151,79 @@ def signup_page():
 </html>'''
     return signup_html
 
+@app.route('/test-signup/<int:event_id>')
+def test_signup_page(event_id):
+    """Simple test page for registration"""
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Test Registration</title></head>
+    <body style="padding: 40px; font-family: Arial;">
+        <h2>Test Registration for Event {event_id}</h2>
+        <form id="testForm">
+            <p>
+                <label>Email:</label><br>
+                <input type="email" id="email" required style="padding: 8px; width: 300px;">
+            </p>
+            <p>
+                <label>Player Name:</label><br>
+                <input type="text" id="playerName" required style="padding: 8px; width: 300px;">
+            </p>
+            <button type="submit" style="padding: 10px 20px; background: #007cba; color: white; border: none;">
+                Register
+            </button>
+        </form>
+        
+        <div id="result" style="margin-top: 20px; padding: 10px; display: none;"></div>
+        
+        <script>
+        document.getElementById('testForm').addEventListener('submit', async function(e) {{
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const playerName = document.getElementById('playerName').value;
+            const resultDiv = document.getElementById('result');
+            
+            try {{
+                const response = await fetch('/api/events/{event_id}/register-public', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{
+                        email: email,
+                        player_name: playerName
+                    }})
+                }});
+                
+                const data = await response.json();
+                
+                if (data.success) {{
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = '#d4edda';
+                    resultDiv.style.color = '#155724';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Registration Successful!</h3>
+                        <p><strong>Confirmation Code:</strong> ${{data.confirmation_code}}</p>
+                        <p><strong>Event:</strong> ${{data.event_title}}</p>
+                        <p><strong>Player:</strong> ${{data.player_name}}</p>
+                    `;
+                }} else {{
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = '#f8d7da';
+                    resultDiv.style.color = '#721c24';
+                    resultDiv.innerHTML = `<h3>❌ Error:</h3><p>${{data.error}}</p>`;
+                }}
+            }} catch (error) {{
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = '#f8d7da';
+                resultDiv.style.color = '#721c24';
+                resultDiv.innerHTML = `<h3>❌ Network Error:</h3><p>${{error.message}}</p>`;
+            }}
+        }});
+        </script>
+    </body>
+    </html>
+    '''
+
 # Error handlers
 @app.errorhandler(400)
 def bad_request(error):
@@ -2308,6 +2381,9 @@ def register_public(event_id):
             cursor.close()
         if conn:
             conn.close()      
+
+
+
 
 # =============================
 # Event Statistics

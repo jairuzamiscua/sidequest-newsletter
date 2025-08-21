@@ -609,20 +609,23 @@
     }
 
     
-   .events-container {
+    .events-container {
       display: grid;
-      gap: 30px; /* This creates consistent spacing between all event cards */
-      padding: 20px 0; /* Add some padding at top/bottom */
-    }
+      gap: 30px;
+      padding: 20px 0;
+    }padding: 20px 0; /* Add some padding at top/bottom */
+    
 
-    .event-card {
+    event-card {
       background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px; /* Slightly more rounded */
-      padding: 30px; /* More breathing room inside */
-      border-left: 4px solid #FFD700;
+      border-radius: 15px;
+      padding: 30px;
+      border-left: 4px solid #FFD700; /* Default gold */
       transition: all 0.3s ease;
       cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2); /* Add subtle shadow */
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      position: relative; /* Add this */
+      overflow: hidden; /* Add this to contain any overflow */
     }
 
     
@@ -631,10 +634,18 @@
       box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
     }
 
-    .event-card.tournament { border-left-color: #FF6B35; }
-    .event-card.game_night { border-left-color: #4ECDC4; }
-    .event-card.special { border-left-color: #FFD700; }
-    .event-card.birthday { border-left-color: #FF69B4; }
+    .event-card.tournament { 
+      border-left: 4px solid #FF6B35 !important; 
+    }
+    .event-card.game_night { 
+      border-left: 4px solid #4ECDC4 !important; 
+    }
+    .event-card.special { 
+      border-left: 4px solid #FFD700 !important; 
+    }
+    .event-card.birthday { 
+      border-left: 4px solid #FF69B4 !important; 
+    }
 
     .event-header {
       display: flex;

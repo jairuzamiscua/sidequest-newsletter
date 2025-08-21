@@ -1350,11 +1350,28 @@
           info.el.classList.add(eventType);
         },
         
-        // Click day to create event
         dateClick: function(info) {
-          document.getElementById('eventDateTime').value = info.dateStr + 'T18:00';
-          document.querySelector('.tab[data-tab="events"]').click();
-          setTimeout(() => switchEventView('create'), 100);
+        // Pre-fill the date in create form
+        const selectedDate = info.dateStr + 'T18:00'; // Format: 2025-08-22T18:00
+        
+        // Switch to events tab first
+        document.querySelector('.tab[data-tab="events"]').click();
+        
+        // Small delay to ensure tab loads, then switch to create view and set date
+        setTimeout(() => {
+          switchEventView('create');
+
+              // Set the date after view loads
+              setTimeout(() => {
+                const dateInput = document.getElementById('eventDateTime');
+                if (dateInput) {
+                  dateInput.value = selectedDate;
+                  console.log('Date set to:', selectedDate); // For debugging
+                } else {
+                  console.error('eventDateTime input not found');
+                }
+              }, 100);
+            }, 100);
         },
         
         // Click event to view details

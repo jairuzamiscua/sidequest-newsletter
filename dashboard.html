@@ -1708,20 +1708,88 @@
               </div>
             ` : ''}
             
-            <div class="event-actions">
+            <div class="event-actions" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
               <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); quickRegister(${event.id})">
-                Quick Register Subscriber
+                Quick Register
               </button>
               <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); editEvent(${event.id})">
-                Edit
+                Edit Event
               </button>
               <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); viewAttendees(${event.id})">
                 View Attendees
               </button>
+              <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); showMarketing(${event.id})">
+                📊 Marketing
+              </button>
             </div>
-          </div>
         `;
       }).join('');
+    }
+
+
+    async function showMarketing(eventId) {
+      try {
+        // Get QR code
+        const response = await fetch(`${API_BASE}/api/events/${eventId}/qr-code`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const modal = document.getElementById('eventModal');
+          const modalTitle = document.getElementById('modalEventTitle');
+          const modalContent = document.getElementById('modalEventContent');
+          
+          modalTitle.textContent = '📊 Marketing Assets';
+          
+          modalContent.innerHTML = `
+            <div style="display: grid; gap: 25px;">
+              
+              <!-- Signup URL -->
+              <div style="background: #1a1a1a; border-radius: 12px; padding: 20px;">
+                <h4 style="color: #FFD700; margin-bottom: 15px;">🌐 Public Signup URL</h4>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                  <input type="text" value="${data.signup_url}" readonly 
+                        style="flex: 1; padding: 10px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff;">
+                  <button class="btn btn-primary btn-sm" onclick="copyToClipboard('${data.signup_url}')">📋 Copy</button>
+                  <button class="btn btn-success btn-sm" onclick="window.open('${data.signup_url}', '_blank')">👁️ Preview</button>
+                </div>
+              </div>
+              
+              <!-- QR Code -->
+              <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; text-align: center;">
+                <h4 style="color: #FFD700; margin-bottom: 15px;">📱 QR Code</h4>
+                <img src="${data.qr_code}" style="max-width: 200px; border-radius: 8px; background: white; padding: 10px;">
+                <div style="margin-top: 15px;">
+                  <button class="btn btn-primary btn-sm" onclick="downloadQR('${data.qr_code}')">💾 Download</button>
+                </div>
+              </div>
+              
+            </div>
+            
+            <div style="margin-top: 25px; text-align: center;">
+              <button class="btn btn-secondary" onclick="closeEventModal()">Close</button>
+            </div>
+          `;
+          
+          modal.style.display = 'flex';
+        }
+      } catch (error) {
+        alert('Failed to load marketing assets');
+      }
+    }
+
+    // Add these helper functions too
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showSuccess('📋 Copied to clipboard!');
+      });
+    }
+
+    function downloadQR(dataUrl) {
+      const link = document.createElement('a');
+      link.download = 'event_qr_code.png';
+      link.href = dataUrl;
+      link.click();
+      showSuccess('💾 QR code downloaded!');
     }
 
     // Create new event

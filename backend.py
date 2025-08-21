@@ -11,7 +11,9 @@ import json
 import traceback
 import psycopg2
 import base64
-
+import qrcode
+import io
+import base64
 from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta

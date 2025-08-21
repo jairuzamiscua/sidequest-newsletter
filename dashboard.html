@@ -1135,60 +1135,6 @@
               <!-- FullCalendar Container -->
               <div id="fullCalendar" style="padding: 20px;"></div>
             </div>
-
-
-            <!-- Event Modal for FullCalendar -->
-            <div id="fcEventModal" class="modal" style="display: none;">
-              <div class="modal-content">
-                <span class="modal-close" onclick="closeFCModal()">&times;</span>
-                <h2 id="fcModalTitle">Create Event</h2>
-                <form id="fcEventForm">
-                  <div class="form-group">
-                    <label class="form-label">Event Title</label>
-                    <input type="text" class="form-input" id="fcEventTitle" required>
-                  </div>
-                  
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="form-group">
-                      <label class="form-label">Event Type</label>
-                      <select class="form-select" id="fcEventType" required>
-                        <option value="tournament">Tournament</option>
-                        <option value="game_night">Game Night</option>
-                        <option value="special">Special Event</option>
-                        <option value="birthday">Birthday</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">Game</label>
-                      <input type="text" class="form-input" id="fcEventGame">
-                    </div>
-                  </div>
-
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="form-group">
-                      <label class="form-label">Start Time</label>
-                      <input type="time" class="form-input" id="fcEventTime" value="18:00">
-                    </div>
-                    <div class="form-group">
-                      <label class="form-label">End Time</label>
-                      <input type="time" class="form-input" id="fcEventEndTime" value="21:00">
-                    </div>
-                  </div>
-
-                  <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <textarea class="form-textarea" id="fcEventDescription" rows="3"></textarea>
-                  </div>
-
-                  <input type="hidden" id="fcEventDate">
-                  
-                  <div style="display: flex; gap: 12px; margin-top: 20px;">
-                    <button type="submit" class="btn btn-primary">🎮 Create Event</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeFCModal()">Cancel</button>
-                  </div>
-                </form>
-              </div>
-            </div>
             
             <!-- Create Event View -->
             <div class="event-view" id="event-create-view">
@@ -1406,9 +1352,9 @@
         
         // Click day to create event
         dateClick: function(info) {
-          document.getElementById('fcEventDate').value = info.dateStr;
-          document.getElementById('fcModalTitle').textContent = `Create Event - ${info.date.toLocaleDateString('en-GB')}`;
-          document.getElementById('fcEventModal').style.display = 'flex';
+          document.getElementById('eventDateTime').value = info.dateStr + 'T18:00';
+          document.querySelector('.tab[data-tab="events"]').click();
+          setTimeout(() => switchEventView('create'), 100);
         },
         
         // Click event to view details

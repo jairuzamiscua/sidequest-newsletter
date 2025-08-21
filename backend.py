@@ -11,6 +11,9 @@ import json
 import traceback
 import psycopg2
 import base64
+import qrcode
+import io
+import base64
 from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
@@ -2426,7 +2429,36 @@ def register_public(event_id):
         if cursor:
             cursor.close()
         if conn:
-            conn.close()      
+            conn.close()
+
+@app.route('/api/events/<int:event_id>/qr-code')
+def get_event_qr_code(event_id):
+    """Generate QR code for event signup"""
+    try:
+        signup_url = f"{request.scheme}://{request.host}/signup/event/{event_id}"
+        
+        # Generate QR code
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(signup_url)
+        qr.make(fit=True)
+        
+        # Create image
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert to base64
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        
+        return jsonify({
+            "success": True,
+            "qr_code": f"data:image/png;base64,{img_str}",
+            "signup_url": signup_url
+        })
+        
+    except Exception as e:
+        log_error(f"Error generating QR code: {e}")
+        return jsonify({"success": False, "error": "Failed to generate QR code"}), 500      
 
 
 

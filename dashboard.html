@@ -1599,17 +1599,8 @@
       });
       document.getElementById(`event-${view}-view`).classList.add('active');
 
-      // ALWAYS reset edit state when switching views
-      if (view === 'create') {
-        // Reset edit state
-        currentEditingEventId = null;
-        resetCreateFormUI();
-        resetEventForm();
-      } else {
-        // If leaving create view, also reset edit state
-        currentEditingEventId = null;
-        resetCreateFormUI();
-      }
+      // DON'T reset edit state automatically - only reset when explicitly needed
+      // REMOVE ALL THE currentEditingEventId = null; lines from here!
 
       // Load appropriate data
       switch(view) {

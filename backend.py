@@ -2715,7 +2715,304 @@ def get_event_qr_code(event_id):
         
     except Exception as e:
         log_error(f"Error generating QR code: {e}")
-        return jsonify({"success": False, "error": "Failed to generate QR code"}), 500          
+        return jsonify({"success": False, "error": "Failed to generate QR code"}), 500 
+
+@app.route('/api/analytics/subscriber-data', methods=['GET'])
+def get_subscriber_analytics():
+    """Get subscriber analytics data"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Get growth data
+        growth_query = """
+            SELECT 
+                DATE(date_added) as date,
+                COUNT(*) as signups,
+                SUM(COUNT(*)) OVER (ORDER BY DATE(date_added)) as cumulative
+            FROM subscribers 
+            WHERE date_added >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY DATE(date_added)
+            ORDER BY date
+        """
+        growth_data = execute_query(growth_query, (days,))
+        
+        # Get engagement metrics
+        engagement_query = """
+            SELECT 
+                COUNT(DISTINCT s.email) as total_subscribers,
+                COUNT(DISTINCT r.subscriber_email) as active_subscribers,
+                COUNT(DISTINCT CASE WHEN r.attended = true THEN r.subscriber_email END) as attending_subscribers
+            FROM subscribers s
+            LEFT JOIN event_registrations r ON s.email = r.subscriber_email
+            WHERE s.date_added >= CURRENT_DATE - INTERVAL '%s days'
+        """
+        engagement_data = execute_query_one(engagement_query, (days,))
+        
+        return jsonify({
+            "success": True,
+            "growth_data": growth_data or [],
+            "engagement_data": engagement_data or {}
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting subscriber analytics: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/event-data', methods=['GET'])
+def get_event_analytics():
+    """Get event analytics data"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Event performance by type
+        performance_query = """
+            SELECT 
+                event_type,
+                COUNT(*) as event_count,
+                COUNT(r.id) as total_registrations,
+                COUNT(CASE WHEN r.attended = true THEN r.id END) as total_attended,
+                AVG(CASE WHEN e.capacity > 0 THEN (COUNT(r.id)::float / e.capacity * 100) END) as avg_capacity_util
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY event_type
+        """
+        performance_data = execute_query(performance_query, (days,))
+        
+        # Popular games
+        games_query = """
+            SELECT 
+                game_title,
+                COUNT(*) as event_count,
+                COUNT(r.id) as total_registrations
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.game_title IS NOT NULL 
+            AND e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY game_title
+            ORDER BY total_registrations DESC
+            LIMIT 10
+        """
+        games_data = execute_query(games_query, (days,))
+        
+        # Registration timeline
+        timeline_query = """
+            SELECT 
+                DATE(r.registered_at) as date,
+                COUNT(*) as registrations
+            FROM event_registrations r
+            JOIN events e ON r.event_id = e.id
+            WHERE r.registered_at >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY DATE(r.registered_at)
+            ORDER BY date
+        """
+        timeline_data = execute_query(timeline_query, (days,))
+        
+        return jsonify({
+            "success": True,
+            "performance_data": performance_data or [],
+            "games_data": games_data or [],
+            "timeline_data": timeline_data or []
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting event analytics: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/revenue-data', methods=['GET'])
+def get_revenue_analytics():
+    """Get revenue analytics data"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Revenue by event type
+        revenue_query = """
+            SELECT 
+                e.event_type,
+                SUM(e.entry_fee * COUNT(r.id)) as total_revenue,
+                AVG(e.entry_fee * COUNT(r.id)) as avg_revenue,
+                COUNT(DISTINCT e.id) as event_count
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            AND e.entry_fee > 0
+            GROUP BY e.event_type, e.id
+        """
+        revenue_data = execute_query(revenue_query, (days,))
+        
+        # Monthly revenue trend
+        monthly_query = """
+            SELECT 
+                DATE_TRUNC('week', e.date_time) as week,
+                SUM(e.entry_fee * COUNT(r.id)) as weekly_revenue
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY DATE_TRUNC('week', e.date_time), e.id
+            ORDER BY week
+        """
+        monthly_data = execute_query(monthly_query, (days,))
+        
+        return jsonify({
+            "success": True,
+            "revenue_by_type": revenue_data or [],
+            "monthly_revenue": monthly_data or []
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting revenue analytics: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/insights', methods=['GET'])
+def get_analytics_insights():
+    """Get detailed analytics insights"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Top performing events
+        top_events_query = """
+            SELECT 
+                e.title,
+                e.event_type,
+                COUNT(r.id) as registration_count,
+                COUNT(CASE WHEN r.attended = true THEN r.id END) as attendance_count,
+                e.entry_fee * COUNT(r.id) as revenue
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY e.id, e.title, e.event_type, e.entry_fee
+            ORDER BY registration_count DESC
+            LIMIT 5
+        """
+        top_events = execute_query(top_events_query, (days,))
+        
+        # Peak registration times
+        peak_times_query = """
+            SELECT 
+                EXTRACT(hour FROM r.registered_at) as hour,
+                COUNT(*) as registration_count
+            FROM event_registrations r
+            WHERE r.registered_at >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY EXTRACT(hour FROM r.registered_at)
+            ORDER BY registration_count DESC
+            LIMIT 5
+        """
+        peak_times = execute_query(peak_times_query, (days,))
+        
+        return jsonify({
+            "success": True,
+            "top_events": top_events or [],
+            "peak_times": peak_times or []
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting analytics insights: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+def calculate_growth_rate(subscriber_data):
+    """Calculate subscriber growth rate"""
+    try:
+        if not subscriber_data.get('growth_data'):
+            return 0
+        
+        growth_data = subscriber_data['growth_data']
+        if len(growth_data) < 2:
+            return 0
+            
+        current_week = sum(day['signups'] for day in growth_data[-7:])
+        previous_week = sum(day['signups'] for day in growth_data[-14:-7])
+        
+        if previous_week == 0:
+            return 100 if current_week > 0 else 0
+            
+        growth_rate = ((current_week - previous_week) / previous_week) * 100
+        return round(growth_rate, 1)
+        
+    except Exception:
+        return 0
+
+def calculate_conversion_rate(subscriber_data, event_data):
+    """Calculate conversion rate (subscribers who attend events)"""
+    try:
+        engagement = subscriber_data.get('engagement_data', {})
+        total = engagement.get('total_subscribers', 0)
+        active = engagement.get('attending_subscribers', 0)
+        
+        if total == 0:
+            return 0
+            
+        return round((active / total) * 100, 1)
+        
+    except Exception:
+        return 0
+
+def calculate_engagement_rate(subscriber_data, event_data):
+    """Calculate engagement rate (subscribers who register for events)"""
+    try:
+        engagement = subscriber_data.get('engagement_data', {})
+        total = engagement.get('total_subscribers', 0)
+        active = engagement.get('active_subscribers', 0)
+        
+        if total == 0:
+            return 0
+            
+        return round((active / total) * 100, 1)
+        
+    except Exception:
+        return 0
+
+def calculate_avg_revenue(revenue_data):
+    """Calculate average revenue per event"""
+    try:
+        revenue_by_type = revenue_data.get('revenue_by_type', [])
+        if not revenue_by_type:
+            return 0
+            
+        total_revenue = sum(item.get('total_revenue', 0) for item in revenue_by_type)
+        total_events = sum(item.get('event_count', 0) for item in revenue_by_type)
+        
+        if total_events == 0:
+            return 0
+            
+        return round(total_revenue / total_events, 2)
+        
+    except Exception:
+        return 0
+
+def calculate_attendance_rate(event_data):
+    """Calculate attendance rate"""
+    try:
+        performance_data = event_data.get('performance_data', [])
+        if not performance_data:
+            return 0
+            
+        total_registrations = sum(item.get('total_registrations', 0) for item in performance_data)
+        total_attended = sum(item.get('total_attended', 0) for item in performance_data)
+        
+        if total_registrations == 0:
+            return 0
+            
+        return round((total_attended / total_registrations) * 100, 1)
+        
+    except Exception:
+        return 0
+
+def calculate_capacity_utilization(event_data):
+    """Calculate average capacity utilization"""
+    try:
+        performance_data = event_data.get('performance_data', [])
+        if not performance_data:
+            return 0
+            
+        utilizations = [item.get('avg_capacity_util', 0) for item in performance_data if item.get('avg_capacity_util')]
+        
+        if not utilizations:
+            return 0
+            
+        return round(sum(utilizations) / len(utilizations), 1)
+        
+    except Exception:
+        return 0
 
 # =============================
 # Main

@@ -987,6 +987,134 @@
       border-left-color: #FF69B4 !important;
     }
 
+    /* Analytics Styles */
+    .analytics-section {
+      margin-bottom: 40px;
+    }
+
+    .analytics-section-title {
+      color: #FFD700;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #444;
+      padding-bottom: 10px;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .kpi-card {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      padding: 20px;
+      border-radius: 12px;
+      border-left: 4px solid;
+      text-align: center;
+      transition: transform 0.2s ease;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .kpi-card.primary { border-left-color: #FFD700; }
+    .kpi-card.success { border-left-color: #00ff88; }
+    .kpi-card.warning { border-left-color: #ff6b35; }
+    .kpi-card.info { border-left-color: #8b5cf6; }
+
+    .kpi-value {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: #FFD700;
+      margin-bottom: 5px;
+    }
+
+    .kpi-label {
+      color: #ffffff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .kpi-period {
+      color: #aaaaaa;
+      font-size: 0.8rem;
+    }
+
+    .analytics-charts {
+      margin-bottom: 40px;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+
+    .chart-half {
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid #444;
+    }
+
+    .chart-title {
+      color: #FFD700;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 15px;
+    }
+
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 25px;
+    }
+
+    .insight-card {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      padding: 25px;
+      border-radius: 12px;
+      border: 1px solid #444;
+    }
+
+    .insight-card h5 {
+      color: #FFD700;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 15px;
+    }
+
+    .insight-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .insight-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #444;
+    }
+
+    .insight-item:last-child {
+      border-bottom: none;
+    }
+
+    @media (max-width: 768px) {
+      .chart-row {
+        grid-template-columns: 1fr;
+      }
+      
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
  </style>
 </head>
 <body>
@@ -1072,34 +1200,123 @@
           <!-- Analytics Tab -->
           <div class="tab-content" id="analytics">
             <div class="card-header">
-              <h3 class="card-title">Subscriber Analytics</h3>
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label">Growth Chart (Last 30 Days)</label>
-              <div class="chart-container">
-                <canvas id="growthChart"></canvas>
+              <h3 class="card-title">Analytics Dashboard</h3>
+              <div>
+                <select id="analyticsTimeFilter" class="form-select" style="width: 150px;" onchange="updateAnalytics()">
+                  <option value="7">Last 7 Days</option>
+                  <option value="30" selected>Last 30 Days</option>
+                  <option value="90">Last 90 Days</option>
+                </select>
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Signup Sources</label>
-              <div class="source-stats">
-                <div class="source-stat">
-                  <div class="source-stat-value" id="webSignups">-</div>
-                  <div class="source-stat-label">Web Signups</div>
+            <!-- Key Performance Indicators -->
+            <div class="analytics-section">
+              <h4 class="analytics-section-title">📈 Key Performance Indicators</h4>
+              <div class="kpi-grid">
+                <div class="kpi-card primary">
+                  <div class="kpi-value" id="growthRate">+0%</div>
+                  <div class="kpi-label">Growth Rate</div>
+                  <div class="kpi-period">vs last period</div>
                 </div>
-                <div class="source-stat">
-                  <div class="source-stat-value" id="manualSignups">-</div>
-                  <div class="source-stat-label">Manual Adds</div>
+                <div class="kpi-card success">
+                  <div class="kpi-value" id="conversionRate">0%</div>
+                  <div class="kpi-label">Event Conversion</div>
+                  <div class="kpi-period">subscribers → attendees</div>
                 </div>
-                <div class="source-stat">
-                  <div class="source-stat-value" id="importSignups">-</div>
-                  <div class="source-stat-label">Imports</div>
+                <div class="kpi-card warning">
+                  <div class="kpi-value" id="engagementRate">0%</div>
+                  <div class="kpi-label">Engagement Rate</div>
+                  <div class="kpi-period">active subscribers</div>
+                </div>
+                <div class="kpi-card info">
+                  <div class="kpi-value" id="avgRevenue">£0</div>
+                  <div class="kpi-label">Avg Revenue/Event</div>
+                  <div class="kpi-period">per event</div>
+                </div>
+                <div class="kpi-card primary">
+                  <div class="kpi-value" id="attendanceRate">0%</div>
+                  <div class="kpi-label">Attendance Rate</div>
+                  <div class="kpi-period">registered vs showed up</div>
+                </div>
+                <div class="kpi-card success">
+                  <div class="kpi-value" id="capacityUtil">0%</div>
+                  <div class="kpi-label">Capacity Usage</div>
+                  <div class="kpi-period">average fill rate</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="analytics-charts">
+              <div class="chart-row">
+                <div class="chart-half">
+                  <h4 class="chart-title">📊 Subscriber Growth (Last 30 Days)</h4>
+                  <div class="chart-container">
+                    <canvas id="growthChart"></canvas>
+                  </div>
+                </div>
+                <div class="chart-half">
+                  <h4 class="chart-title">🎮 Event Performance</h4>
+                  <div class="chart-container">
+                    <canvas id="eventPerformanceChart"></canvas>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="chart-row">
+                <div class="chart-half">
+                  <h4 class="chart-title">💰 Revenue by Event Type</h4>
+                  <div class="chart-container">
+                    <canvas id="revenueChart"></canvas>
+                  </div>
+                </div>
+                <div class="chart-half">
+                  <h4 class="chart-title">📅 Registration Timeline</h4>
+                  <div class="chart-container">
+                    <canvas id="registrationChart"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detailed Analytics -->
+            <div class="analytics-section">
+              <h4 class="analytics-section-title">📋 Detailed Insights</h4>
+              <div class="insights-grid">
+                <div class="insight-card">
+                  <h5>🏆 Top Performing Events</h5>
+                  <div id="topEvents" class="insight-list"></div>
+                </div>
+                <div class="insight-card">
+                  <h5>🎯 Popular Games</h5>
+                  <div id="popularGames" class="insight-list"></div>
+                </div>
+                <div class="insight-card">
+                  <h5>📊 Signup Sources</h5>
+                  <div class="source-stats">
+                    <div class="source-stat">
+                      <div class="source-stat-value" id="webSignups">-</div>
+                      <div class="source-stat-label">Web Signups</div>
+                    </div>
+                    <div class="source-stat">
+                      <div class="source-stat-value" id="manualSignups">-</div>
+                      <div class="source-stat-label">Manual Adds</div>
+                    </div>
+                    <div class="source-stat">
+                      <div class="source-stat-value" id="importSignups">-</div>
+                      <div class="source-stat-label">Imports</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="insight-card">
+                  <h5>⏰ Peak Registration Times</h5>
+                  <div id="peakTimes" class="insight-list"></div>
                 </div>
               </div>
             </div>
           </div>
+
 
           <!-- Tools Tab -->
           <div class="tab-content" id="tools">
@@ -2938,6 +3155,159 @@
         serverStatusElement.innerHTML = isOnline ? '🟢 Online' : '🔴 Offline';
       }
     }
+
+    // Enhanced analytics functions
+    async function loadAnalytics() {
+      try {
+        const timeFilter = document.getElementById('analyticsTimeFilter')?.value || 30;
+        
+        // Load all analytics data
+        const [subscriberData, eventData, revenueData] = await Promise.all([
+          loadSubscriberAnalytics(timeFilter),
+          loadEventAnalytics(timeFilter),
+          loadRevenueAnalytics(timeFilter)
+        ]);
+        
+        updateKPIs(subscriberData, eventData, revenueData);
+        updateCharts(subscriberData, eventData, revenueData);
+        updateInsights(subscriberData, eventData, revenueData);
+        
+      } catch (error) {
+        console.error('Error loading analytics:', error);
+      }
+    }
+
+    function updateKPIs(subscriberData, eventData, revenueData) {
+      // Growth Rate
+      const growthRate = calculateGrowthRate(subscriberData);
+      document.getElementById('growthRate').textContent = `+${growthRate}%`;
+      
+      // Conversion Rate (subscribers who attend events)
+      const conversionRate = calculateConversionRate(subscriberData, eventData);
+      document.getElementById('conversionRate').textContent = `${conversionRate}%`;
+      
+      // Engagement Rate
+      const engagementRate = calculateEngagementRate(subscriberData, eventData);
+      document.getElementById('engagementRate').textContent = `${engagementRate}%`;
+      
+      // Average Revenue per Event
+      const avgRevenue = calculateAvgRevenue(revenueData);
+      document.getElementById('avgRevenue').textContent = `£${avgRevenue}`;
+      
+      // Attendance Rate
+      const attendanceRate = calculateAttendanceRate(eventData);
+      document.getElementById('attendanceRate').textContent = `${attendanceRate}%`;
+      
+      // Capacity Utilization
+      const capacityUtil = calculateCapacityUtilization(eventData);
+      document.getElementById('capacityUtil').textContent = `${capacityUtil}%`;
+    }
+
+    function initializeAnalyticsCharts() {
+      // Event Performance Chart (Doughnut)
+      const eventCtx = document.getElementById('eventPerformanceChart');
+      if (eventCtx) {
+        new Chart(eventCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Tournaments', 'Game Nights', 'Special Events', 'Birthdays'],
+            datasets: [{
+              data: [30, 45, 15, 10],
+              backgroundColor: ['#FF6B35', '#4ECDC4', '#8B5CF6', '#FF69B4'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#ffffff' }
+              }
+            }
+          }
+        });
+      }
+      
+      // Revenue Chart (Bar)
+      const revenueCtx = document.getElementById('revenueChart');
+      if (revenueCtx) {
+        new Chart(revenueCtx, {
+          type: 'bar',
+          data: {
+            labels: ['Tournaments', 'Game Nights', 'Special Events'],
+            datasets: [{
+              label: 'Revenue (£)',
+              data: [450, 200, 350],
+              backgroundColor: '#FFD700',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#cccccc' },
+                grid: { color: '#444' }
+              },
+              x: {
+                ticks: { color: '#cccccc' },
+                grid: { color: '#444' }
+              }
+            }
+          }
+        });
+      }
+      
+      // Registration Timeline (Line)
+      const regCtx = document.getElementById('registrationChart');
+      if (regCtx) {
+        new Chart(regCtx, {
+          type: 'line',
+          data: {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            datasets: [{
+              label: 'Registrations',
+              data: [12, 19, 15, 25],
+              borderColor: '#00ff88',
+              backgroundColor: 'rgba(0, 255, 136, 0.1)',
+              tension: 0.4,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#cccccc' },
+                grid: { color: '#444' }
+              },
+              x: {
+                ticks: { color: '#cccccc' },
+                grid: { color: '#444' }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Call when analytics tab is opened
+    function updateAnalytics() {
+      loadAnalytics();
+    }
+
 
     // Initialize growth chart
     function initializeGrowthChart() {

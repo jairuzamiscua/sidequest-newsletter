@@ -406,23 +406,42 @@ def require_admin_auth(f):
     """Decorator to require admin authentication"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        print(f"Checking auth for {request.path}")  # Debug log
+        print(f"Session authenticated: {session.get('admin_authenticated')}")  # Debug log
+        
         if not session.get('admin_authenticated'):
+            print("Not authenticated - redirecting to login")  # Debug log
             return redirect('/admin/login')
+        
+        print("Authentication passed")  # Debug log
         return f(*args, **kwargs)
     return decorated_function
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     """Admin login page"""
-    if request.method == 'POST':
-        password = request.form.get('password', '')
-        if password == ADMIN_PASSWORD:
-            session['admin_authenticated'] = True
-            return redirect('/admin')
-        else:
-            return render_template_string(LOGIN_TEMPLATE, error="Invalid password")
-    
-    return render_template_string(LOGIN_TEMPLATE)
+    try:
+        if request.method == 'POST':
+            password = request.form.get('password', '')
+            print(f"Login attempt with password: '{password}'")  # Debug log
+            print(f"Expected password: '{ADMIN_PASSWORD}'")  # Debug log
+            
+            if password == ADMIN_PASSWORD:
+                session['admin_authenticated'] = True
+                print("Login successful - redirecting to /admin")  # Debug log
+                return redirect('/admin')
+            else:
+                print("Login failed - wrong password")  # Debug log
+                error_html = '<div class="error">Invalid password</div>'
+                return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', error_html)
+        
+        # GET request - show login form
+        return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', '')
+        
+    except Exception as e:
+        print(f"Error in admin_login: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return f"Login error: {str(e)}", 500)
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -1423,9 +1442,7 @@ LOGIN_TEMPLATE = '''
         <div class="logo">SQ</div>
         <h1>Admin Login</h1>
         
-        {% if error %}
-        <div class="error">{{ error }}</div>
-        {% endif %}
+        ERROR_PLACEHOLDER
         
         <form method="POST">
             <div class="form-group">

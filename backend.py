@@ -19,7 +19,6 @@ from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from collections import defaultdict
-
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string
 from flask_cors import CORS
 
@@ -445,7 +444,7 @@ def admin_login():
 def admin_logout():
     """Admin logout"""
     session.pop('admin_authenticated', None)
-    return redirect('/admin/login'
+    return redirect('/admin/login')
 
 # =============================
 # Database Helper Functions

@@ -2466,8 +2466,9 @@
 
     // Modified editEvent function
     async function editEvent(eventId) {
+      console.log('EDIT DEBUG: Setting currentEditingEventId to:', eventId); // ADD THIS
+      
       try {
-        // Load event data
         const response = await fetch(`${API_BASE}/api/events/${eventId}`);
         const data = await response.json();
         
@@ -2477,23 +2478,18 @@
         }
         
         const event = data.event;
-        currentEditingEventId = eventId; // Set global edit state
+        currentEditingEventId = eventId; // Make sure this line exists
+        console.log('EDIT DEBUG: currentEditingEventId is now:', currentEditingEventId); // ADD THIS
 
         switchEventView('create');
-
-        // Fill form with event data
         fillFormWithEventData(event);
-        
-        // Update UI to show we're editing
         updateCreateFormForEdit(event.title);
-        
-        // Close the modal if it's open
         closeEventModal();
         
       } catch (error) {
         console.error('Error loading event for edit:', error);
         alert('Failed to load event data');
-        currentEditingEventId = null; // Reset on error
+        currentEditingEventId = null;
       }
     }
 

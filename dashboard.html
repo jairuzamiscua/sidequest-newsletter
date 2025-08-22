@@ -1803,6 +1803,8 @@
       // Prevent double submission
       if (e.target.dataset.submitting === 'true') return;
       e.target.dataset.submitting = 'true';
+
+      const isEditing = currentEditingEventId !== null;
       
       try {
         const eventData = {
@@ -1820,8 +1822,7 @@
         };
 
         let response;
-       // Line ~1167 - You check currentEditingEventId twice with different logic
-      const isEditing = currentEditingEventId !== null; // Fix: Check if we're editing
+
 
       if (isEditing) {
         // Update existing event
@@ -1898,10 +1899,10 @@
         } else {
           alert('❌ Error: ' + (data.error || 'Failed to register'));
         }
-      } catch (error) {
-        console.error('Error registering:', error);
-        alert('❌ Failed to register: ' + error.message);
-      }
+    } catch (error) {
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} event:`, error);
+      alert(`Failed to ${isEditing ? 'update' : 'create'} event`);
+    }
     }
 
     // View event attendees

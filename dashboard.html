@@ -3177,6 +3177,88 @@
       }
     }
 
+    // Add these functions to your dashboard JavaScript:
+    function calculateGrowthRate(subscriberData) {
+      try {
+        const growth = subscriberData?.growth_data || [];
+        if (growth.length < 2) return 0;
+        
+        const recent = growth.slice(-7).reduce((sum, day) => sum + (day.signups || 0), 0);
+        const previous = growth.slice(-14, -7).reduce((sum, day) => sum + (day.signups || 0), 0);
+        
+        if (previous === 0) return recent > 0 ? 100 : 0;
+        return Math.round(((recent - previous) / previous) * 100);
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    function calculateConversionRate(subscriberData, eventData) {
+      try {
+        const engagement = subscriberData?.engagement_data || {};
+        const total = engagement.total_subscribers || 0;
+        const active = engagement.attending_subscribers || 0;
+        
+        if (total === 0) return 0;
+        return Math.round((active / total) * 100);
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    function calculateEngagementRate(subscriberData, eventData) {
+      try {
+        const engagement = subscriberData?.engagement_data || {};
+        const total = engagement.total_subscribers || 0;
+        const active = engagement.active_subscribers || 0;
+        
+        if (total === 0) return 0;
+        return Math.round((active / total) * 100);
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    function calculateAvgRevenue(revenueData) {
+      try {
+        const revenue = revenueData?.revenue_by_type || [];
+        if (revenue.length === 0) return 0;
+        
+        const total = revenue.reduce((sum, item) => sum + (item.total_revenue || 0), 0);
+        const events = revenue.reduce((sum, item) => sum + (item.event_count || 0), 0);
+        
+        if (events === 0) return 0;
+        return Math.round(total / events);
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    function calculateAttendanceRate(eventData) {
+      try {
+        const performance = eventData?.performance_data || [];
+        const totalReg = performance.reduce((sum, item) => sum + (item.total_registrations || 0), 0);
+        const totalAtt = performance.reduce((sum, item) => sum + (item.total_attended || 0), 0);
+        
+        if (totalReg === 0) return 0;
+        return Math.round((totalAtt / totalReg) * 100);
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    function calculateCapacityUtilization(eventData) {
+      try {
+        const performance = eventData?.performance_data || [];
+        const utils = performance.filter(item => item.avg_capacity_util).map(item => item.avg_capacity_util);
+        
+        if (utils.length === 0) return 0;
+        return Math.round(utils.reduce((sum, util) => sum + util, 0) / utils.length);
+      } catch (error) {
+        return 0;
+      }
+    }   
+
     function updateKPIs(subscriberData, eventData, revenueData) {
       // Growth Rate
       const growthRate = calculateGrowthRate(subscriberData);

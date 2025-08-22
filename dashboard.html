@@ -3303,9 +3303,41 @@
       }
     }
 
+    
+
     // Call when analytics tab is opened
     function updateAnalytics() {
       loadAnalytics();
+    }
+
+    async function loadSubscriberAnalytics(timeFilter) {
+      try {
+        const response = await fetch(`${API_BASE}/api/analytics/subscriber-data?days=${timeFilter}`);
+        return await response.json();
+      } catch (error) {
+        console.error('Error loading subscriber analytics:', error);
+        return { success: false, growth_data: [], engagement_data: {} };
+      }
+    }
+
+    async function loadEventAnalytics(timeFilter) {
+      try {
+        const response = await fetch(`${API_BASE}/api/analytics/event-data?days=${timeFilter}`);
+        return await response.json();
+      } catch (error) {
+        console.error('Error loading event analytics:', error);
+        return { success: false, performance_data: [], games_data: [], timeline_data: [] };
+      }
+    }
+
+    async function loadRevenueAnalytics(timeFilter) {
+      try {
+        const response = await fetch(`${API_BASE}/api/analytics/revenue-data?days=${timeFilter}`);
+        return await response.json();
+      } catch (error) {
+        console.error('Error loading revenue analytics:', error);
+        return { success: false, revenue_by_type: [], monthly_revenue: [] };
+      }
     }
 
 

@@ -1820,47 +1820,48 @@
         };
 
         let response;
-        const isEditing = currentEditingEventId !== null; // Fix: Check if we're editing
-        
-        if (isEditing) {
-          // Update existing event
-          console.log('Updating event:', currentEditingEventId);
-          response = await fetch(`${API_BASE}/api/events/${currentEditingEventId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(eventData)
-          });
-        } else {
-          // Create new event
-          console.log('Creating new event');
-          response = await fetch(`${API_BASE}/api/events`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(eventData)
-          });
-        }
+       // Line ~1167 - You check currentEditingEventId twice with different logic
+      const isEditing = currentEditingEventId !== null; // Fix: Check if we're editing
 
-        const data = await response.json();
+      if (isEditing) {
+        // Update existing event
+        console.log('Updating event:', currentEditingEventId);
+        response = await fetch(`${API_BASE}/api/events/${currentEditingEventId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(eventData)
+        });
+      } else {
+        // Create new event
+        console.log('Creating new event');
+        response = await fetch(`${API_BASE}/api/events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(eventData)
+        });
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        const action = isEditing ? 'updated' : 'created'; // Fix: Use isEditing variable consistently
+        showSuccess(`Event ${action} successfully!`);
         
-        if (data.success) {
-          const action = isEditing ? 'updated' : 'created'; // Fix: Use isEditing variable
-          showSuccess(`Event ${action} successfully!`);
-          
-          // Reset edit state and form
-          currentEditingEventId = null;
-          resetCreateFormUI();
-          resetEventForm();
-          switchEventView('list');
-          
-          // If published, offer to send announcement (only for new events)
-          if (!isEditing && eventData.status === 'published') {
-            if (confirm('Would you like to send an announcement email to all subscribers?')) {
-              sendEventAnnouncement(data.event_id);
-            }
+        // Reset edit state and form
+        currentEditingEventId = null;
+        resetCreateFormUI();
+        resetEventForm();
+        switchEventView('list');
+        
+        // If published, offer to send announcement (only for new events)
+        if (!isEditing && eventData.status === 'published') { // Fix: Use isEditing here too
+          if (confirm('Would you like to send an announcement email to all subscribers?')) {
+            sendEventAnnouncement(data.event_id);
           }
-        } else {
-          alert('Error: ' + (data.error || `Failed to ${isEditing ? 'update' : 'create'} event`));
         }
+      } else {
+        alert('Error: ' + (data.error || `Failed to ${isEditing ? 'update' : 'create'} event`)); // Fix: Use isEditing
+      }
       } catch (error) {
         const isEditing = currentEditingEventId !== null;
         console.error(`Error ${isEditing ? 'updating' : 'creating'} event:`, error);

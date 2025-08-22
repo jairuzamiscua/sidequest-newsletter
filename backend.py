@@ -14,6 +14,8 @@ import base64
 import qrcode
 import io
 import base64
+from functools import wraps
+from flask import session
 from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
@@ -390,6 +392,37 @@ def backup_database_schema():
     except Exception as e:
         print(f"⚠️ Schema backup error: {e}")
         return True  # Don't fail initialization for backup issues
+
+# Add these config variables near the top
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest2024')  # Change this!
+
+def require_admin_auth(f):
+    """Decorator to require admin authentication"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('admin_authenticated'):
+            return redirect('/admin/login')
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Admin login page"""
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        if password == ADMIN_PASSWORD:
+            session['admin_authenticated'] = True
+            return redirect('/admin')
+        else:
+            return render_template_string(LOGIN_TEMPLATE, error="Invalid password")
+    
+    return render_template_string(LOGIN_TEMPLATE)
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Admin logout"""
+    session.pop('admin_authenticated', None)
+    return redirect('/admin/login')
 
 # =============================
 # Database Helper Functions
@@ -1027,7 +1060,9 @@ def sync_status():
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/admin')
+@require_admin_auth
 def admin_dashboard():
+    # Your existing admin dashboard code
     try:
         here = os.path.dirname(os.path.abspath(__file__))
         dashboard_path = os.path.join(here, 'dashboard.html')
@@ -1044,6 +1079,17 @@ def admin_dashboard():
                 """,
                 404,
             )
+    except Exception as e:
+        print(f"Error serving admin dashboard: {e}")
+        return (
+            f"""
+            <h1>Error Loading Dashboard</h1>
+            <p>Error: {str(e)}</p>
+            <p>You can access the signup page at <a href="/signup">/signup</a></p>
+            """,
+            500,
+        )
+
     except Exception as e:
         print(f"Error serving admin dashboard: {e}")
         return (
@@ -1272,6 +1318,136 @@ def public_signup_page(event_id):
     </script>
 </body>
 </html>'''
+
+# Add the login template
+LOGIN_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SideQuest Admin Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 2px solid #FFD700;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 12px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1a1a1a;
+            font-weight: 900;
+            font-size: 18px;
+        }
+        h1 {
+            color: #FFD700;
+            margin-bottom: 30px;
+            font-size: 1.8rem;
+        }
+        .form-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #FFD700;
+            font-weight: 600;
+        }
+        input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #444;
+            border-radius: 10px;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+        }
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+        }
+        .error {
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">SQ</div>
+        <h1>Admin Login</h1>
+        
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autofocus>
+            </div>
+            <button type="submit" class="btn">🔓 Access Dashboard</button>
+        </form>
+        
+        <div class="footer">
+            <p>SideQuest Gaming Cafe</p>
+            <p>Canterbury Admin Panel</p>
+        </div>
+    </div>
+</body>
+</html>
+'''
 
 # Error handlers
 @app.errorhandler(400)

@@ -1798,13 +1798,15 @@
 
     // Fixed handleCreateEvent function
     async function handleCreateEvent(e) {
-      e.preventDefault();
-      
-      // Prevent double submission
-      if (e.target.dataset.submitting === 'true') return;
-      e.target.dataset.submitting = 'true';
+    e.preventDefault();
+    
+    if (e.target.dataset.submitting === 'true') return;
+    e.target.dataset.submitting = 'true';
 
-      const isEditing = currentEditingEventId !== null;
+    // ADD THESE DEBUG LINES:
+    console.log('DEBUG: currentEditingEventId =', currentEditingEventId);
+    const isEditing = currentEditingEventId !== null;
+    console.log('DEBUG: isEditing =', isEditing);
       
       try {
         const eventData = {
@@ -1824,23 +1826,21 @@
         let response;
 
 
-      if (isEditing) {
-        // Update existing event
-        console.log('Updating event:', currentEditingEventId);
-        response = await fetch(`${API_BASE}/api/events/${currentEditingEventId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventData)
-        });
-      } else {
-        // Create new event
-        console.log('Creating new event');
-        response = await fetch(`${API_BASE}/api/events`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventData)
-        });
-      }
+        if (isEditing) {
+              console.log('DEBUG: Making PUT request to update event:', currentEditingEventId);
+              response = await fetch(`${API_BASE}/api/events/${currentEditingEventId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData)
+              });
+            } else {
+              console.log('DEBUG: Making POST request to create new event');
+              response = await fetch(`${API_BASE}/api/events`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData)
+              });
+            }
 
       const data = await response.json();
 

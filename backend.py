@@ -15,14 +15,20 @@ import qrcode
 import io
 import base64
 from functools import wraps
-from flask import session
 from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string
 from flask_cors import CORS
+
+# Add this right after you create the Flask app
+app = Flask(__name__, static_folder="static")
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key-change-this-in-production')  # Add this line!
+CORS(app)
+
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest1234')  # Change this!
 
 # =============================
 # --- CONFIG & GLOBALS FIRST ---
@@ -1060,7 +1066,7 @@ def sync_status():
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/admin')
-@require_admin_auth
+@require_admin_auth  # Add this decorator
 def admin_dashboard():
     # Your existing admin dashboard code
     try:
@@ -1079,17 +1085,6 @@ def admin_dashboard():
                 """,
                 404,
             )
-    except Exception as e:
-        print(f"Error serving admin dashboard: {e}")
-        return (
-            f"""
-            <h1>Error Loading Dashboard</h1>
-            <p>Error: {str(e)}</p>
-            <p>You can access the signup page at <a href="/signup">/signup</a></p>
-            """,
-            500,
-        )
-
     except Exception as e:
         print(f"Error serving admin dashboard: {e}")
         return (

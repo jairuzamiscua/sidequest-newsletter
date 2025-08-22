@@ -613,7 +613,7 @@
       gap: 20px;
     }
 
-    event-card {
+   .event-card {
       background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
       border-radius: 12px;
       padding: 20px;
@@ -940,7 +940,7 @@
       white-space: normal !important;
     }
 
-        fc-list-view {
+    .fc-list-view {
       background: #1a1a1a !important;
     }
 
@@ -1443,7 +1443,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                   <div class="form-group">
                     <label class="form-label">Event Type*</label>
-                    <select class=""form-select" id="eventType" required>
+                    <select class="form-select" id="eventType" required></select>
                       <option value="">Select Type*</option>
                       <option value="tournament">Tournament</option>
                       <option value="game_night">Game Night</option>
@@ -1464,7 +1464,7 @@
                     <input type="datetime-local" class="form-input" id="eventDateTime" required>
                   </div>
                   
-                  <div class="form-group>
+                  <div class="form-group"></div>
                     <label class="form-label">End Date & Time*</label>
                     <input type="datetime-local" class="form-input" id="eventEndTime">
                   </div>
@@ -1529,11 +1529,11 @@
                 </div>
                 <div class="stat-card warning">
                   <div class="stat-value" id="totalEventRegistrations">-</div>
-                  <div class="stat-label>Total Registrations</div>
+                  <div class="stat-label">Total Registrations</div>
                 </div>
                 <div class="stat-card info">
                   <div class="stat-value" id="avgCapacityFilled">-%</div>
-                  <div class="stat-label">Avg Capacity Fillled</div> 
+                  <div class="stat-label">Avg Capacity Filled</div> 
                 </div>
               </div>
               

@@ -3156,24 +3156,524 @@
       }
     }
 
+    async function loadKPIs() {
+      try {
+        const response = await fetch(`${API_BASE}/api/analytics/kpis`);
+        const data = await response.json();
+        
+        if (data.success) {
+          return data.kpis;
+        } else {
+          throw new Error(data.error || 'Failed to load KPIs');
+        }
+      } catch (error) {
+        console.error('Error loading KPIs:', error);
+        return {
+          growth_rate: 0,
+          event_conversion: 0,
+          engagement_rate: 0,
+          avg_revenue: 0,
+          attendance_rate: 0,
+          capacity_utilization: 0
+        };
+      }
+    }
+
+    async function loadGrowthData() {
+      try {
+        const timeFilter = document.getElementById('analyticsTimeFilter')?.value || 30;
+        const response = await fetch(`${API_BASE}/api/analytics/subscriber-growth?days=${timeFilter}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          return data.growth_data;
+        } else {
+          throw new Error(data.error || 'Failed to load growth data');
+        }
+      } catch (error) {
+        console.error('Error loading growth data:', error);
+        return [];
+      }
+    }
+
+    async function loadPerformanceData() {
+      try {
+        const response = await fetch(`${API_BASE}/api/analytics/event-performance`);
+        const data = await response.json();
+        
+        if (data.success) {
+          return data.performance_data;
+        } else {
+          throw new Error(data.error || 'Failed to load performance data');
+        }
+      } catch (error) {
+        console.error('Error loading performance data:', error);
+        return [];
+      }
+    }
+    async function loadRevenueData() {
+      try {
+        const response = await fetch(`${API_BASE}/api/analytics/revenue-data`);
+        const data = await response.json();
+        
+        if (data.success) {
+          return {
+            revenue_by_type: data.revenue_by_type,
+            weekly_revenue: data.weekly_revenue
+          };
+        } else {
+          throw new Error(data.error || 'Failed to load revenue data');
+        }
+      } catch (error) {
+        console.error('Error loading revenue data:', error);
+        return {
+          revenue_by_type: [],
+          weekly_revenue: []
+        };
+      }
+    }
+
+    async function loadInsightsData() {
+      try {
+        const response = await fetch(`${API_BASE}/api/analytics/insights`);
+        const data = await response.json();
+        
+        if (data.success) {
+          return data;
+        } else {
+          throw new Error(data.error || 'Failed to load insights');
+        }
+      } catch (error) {
+        console.error('Error loading insights:', error);
+        return {
+          top_events: [],
+          popular_games: [],
+          peak_times: []
+        };
+      }
+    }
+
+    function updateKPICards(kpis) {
+      try {
+        // Update KPI values
+        const growthElement = document.getElementById('growthRate');
+        if (growthElement) {
+          const rate = kpis.growth_rate || 0;
+          growthElement.textContent = `${rate >= 0 ? '+' : ''}${rate}%`;
+          growthElement.style.color = rate >= 0 ? '#00ff88' : '#ff6b35';
+        }
+        
+        const conversionElement = document.getElementById('conversionRate');
+        if (conversionElement) {
+          conversionElement.textContent = `${kpis.event_conversion || 0}%`;
+        }
+        
+        const engagementElement = document.getElementById('engagementRate');
+        if (engagementElement) {
+          engagementElement.textContent = `${kpis.engagement_rate || 0}%`;
+        }
+        
+        const revenueElement = document.getElementById('avgRevenue');
+        if (revenueElement) {
+          revenueElement.textContent = `£${kpis.avg_revenue || 0}`;
+        }
+        
+        const attendanceElement = document.getElementById('attendanceRate');
+        if (attendanceElement) {
+          attendanceElement.textContent = `${kpis.attendance_rate || 0}%`;
+        }
+        
+        const capacityElement = document.getElementById('capacityUtil');
+        if (capacityElement) {
+          capacityElement.textContent = `${kpis.capacity_utilization || 0}%`;
+        }
+        
+        console.log('📊 KPIs updated:', kpis);
+        
+      } catch (error) {
+        console.error('Error updating KPI cards:', error);
+      }
+    }
+
+    function updateAnalyticsCharts(growthData, performanceData, revenueData) {
+      try {
+        // Update Growth Chart
+        updateGrowthChart(growthData);
+        
+        // Update Event Performance Chart (Doughnut)
+        updateEventPerformanceChart(performanceData);
+        
+        // Update Revenue Chart
+        updateRevenueChart(revenueData.revenue_by_type);
+        
+        // Update Registration Timeline Chart
+        updateRegistrationChart(revenueData.weekly_revenue);
+        
+        console.log('📈 All charts updated');
+        
+      } catch (error) {
+        console.error('Error updating charts:', error);
+      }
+    }
+
+    function updateGrowthChart(growthData) {
+      try {
+        const ctx = document.getElementById('growthChart');
+        if (!ctx || !growthData || growthData.length === 0) return;
+        
+        // Destroy existing chart
+        if (window.growthChartInstance) {
+          window.growthChartInstance.destroy();
+        }
+        
+        const labels = growthData.map(item => {
+          const date = new Date(item.date);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+        
+        const cumulativeData = growthData.map(item => item.cumulative_total);
+        
+        window.growthChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Total Subscribers',
+              data: cumulativeData,
+              borderColor: '#FFD700',
+              backgroundColor: 'rgba(255, 215, 0, 0.1)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#FFD700' }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: '#444' },
+                ticks: { color: '#cccccc' }
+              },
+              x: {
+                grid: { color: '#444' },
+                ticks: { color: '#cccccc' }
+              }
+            }
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error updating growth chart:', error);
+      }
+    }
+
+    
+    function updateEventPerformanceChart(performanceData) {
+      try {
+        const ctx = document.getElementById('eventPerformanceChart');
+        if (!ctx || !performanceData || performanceData.length === 0) {
+          // Show "No data" in the chart
+          if (ctx) {
+            const chartContext = ctx.getContext('2d');
+            chartContext.clearRect(0, 0, ctx.width, ctx.height);
+            chartContext.fillStyle = '#aaa';
+            chartContext.font = '16px Arial';
+            chartContext.textAlign = 'center';
+            chartContext.fillText('No event data yet', ctx.width / 2, ctx.height / 2);
+          }
+          return;
+        }
+        
+        // Destroy existing chart
+        if (window.performanceChartInstance) {
+          window.performanceChartInstance.destroy();
+        }
+        
+        const eventTypeColors = {
+          'tournament': '#FF6B35',
+          'game_night': '#4ECDC4', 
+          'special': '#8B5CF6',
+          'birthday': '#FF69B4'
+        };
+        
+        const labels = performanceData.map(item => 
+          item.event_type.replace('_', ' ').toUpperCase()
+        );
+        
+        const data = performanceData.map(item => item.total_registrations);
+        const colors = performanceData.map(item => 
+          eventTypeColors[item.event_type] || '#FFD700'
+        );
+        
+        window.performanceChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: colors,
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#ffffff' }
+              }
+            }
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error updating event performance chart:', error);
+      }
+    }
+
+    function updateRevenueChart(revenueData) {
+      try {
+        const ctx = document.getElementById('revenueChart');
+        if (!ctx) return;
+        
+        // Destroy existing chart
+        if (window.revenueChartInstance) {
+          window.revenueChartInstance.destroy();
+        }
+        
+        if (!revenueData || revenueData.length === 0) {
+          // Show "No revenue data" message
+          const chartContext = ctx.getContext('2d');
+          chartContext.clearRect(0, 0, ctx.width, ctx.height);
+          chartContext.fillStyle = '#aaa';
+          chartContext.font = '16px Arial';
+          chartContext.textAlign = 'center';
+          chartContext.fillText('No revenue data yet', ctx.width / 2, ctx.height / 2);
+          return;
+        }
+        
+        const labels = revenueData.map(item => 
+          item.event_type.replace('_', ' ').toUpperCase()
+        );
+        
+        const data = revenueData.map(item => parseFloat(item.total_revenue) || 0);
+        
+        window.revenueChartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Revenue (£)',
+              data: data,
+              backgroundColor: '#FFD700',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#cccccc' },
+                grid: { color: '#444' }
+              },
+              x: {
+                ticks: { color: '#cccccc' },
+                grid: { color: '#444' }
+              }
+            }
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error updating revenue chart:', error);
+      }
+    }
+
+    function updateRegistrationChart(weeklyData) {
+      try {
+        const ctx = document.getElementById('registrationChart');
+        if (!ctx) return;
+        
+        // Destroy existing chart
+        if (window.registrationChartInstance) {
+          window.registrationChartInstance.destroy();
+        }
+        
+        if (!weeklyData || weeklyData.length === 0) {
+          // Show "No data" message
+          const chartContext = ctx.getContext('2d');
+          chartContext.clearRect(0, 0, ctx.width, ctx.height);
+          chartContext.fillStyle = '#aaa';
+          chartContext.font = '16px Arial';
+          chartContext.textAlign = 'center';
+          chartContext.fillText('No registration data yet', ctx.width / 2, ctx.height / 2);
+          return;
+        }
+        
+        const labels = weeklyData.map(item => {
+          const date = new Date(item.week);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+        
+        const data = weeklyData.map(item => parseFloat(item.weekly_revenue) || 0);
+        
+        window.registrationChartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Weekly Revenue',
+              data: data,
+              borderColor: '#00ff88',
+              backgroundColor: 'rgba(0, 255, 136, 0.1)',
+              tension: 0.4,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#cccccc' },
+                grid: { color: '#444' }
+              },
+              x: {
+                ticks: { color: '#cccccc' },
+                grid: { color: '#444' }
+              }
+            }
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error updating registration chart:', error);
+      }
+    }
+
+    function updateInsightsSections(insightsData) {
+      try {
+        // Update Top Performing Events
+        const topEventsContainer = document.getElementById('topEvents');
+        if (topEventsContainer) {
+          if (!insightsData.top_events || insightsData.top_events.length === 0) {
+            topEventsContainer.innerHTML = '<p class="text-muted">No completed events yet</p>';
+          } else {
+            topEventsContainer.innerHTML = insightsData.top_events.map((event, index) => `
+              <div class="insight-item">
+                <div>
+                  <span style="color: #FFD700; font-weight: 700;">#${index + 1}</span>
+                  <span style="margin-left: 10px;">${event.title}</span>
+                </div>
+                <span style="color: #FFD700; font-weight: 600;">${event.registration_count} regs</span>
+              </div>
+            `).join('');
+          }
+        }
+        
+        // Update Popular Games
+        const popularGamesContainer = document.getElementById('popularGames');
+        if (popularGamesContainer) {
+          if (!insightsData.popular_games || insightsData.popular_games.length === 0) {
+            popularGamesContainer.innerHTML = '<p class="text-muted">No game data yet</p>';
+          } else {
+            popularGamesContainer.innerHTML = insightsData.popular_games.map((game, index) => `
+              <div class="insight-item">
+                <div>
+                  <span style="color: #FFD700; font-weight: 700;">#${index + 1}</span>
+                  <span style="margin-left: 10px;">${game.game_title}</span>
+                </div>
+                <span style="color: #FFD700; font-weight: 600;">${game.total_registrations} regs</span>
+              </div>
+            `).join('');
+          }
+        }
+        
+        // Update Peak Registration Times
+        const peakTimesContainer = document.getElementById('peakTimes');
+        if (peakTimesContainer) {
+          if (!insightsData.peak_times || insightsData.peak_times.length === 0) {
+            peakTimesContainer.innerHTML = '<p class="text-muted">No registration data yet</p>';
+          } else {
+            peakTimesContainer.innerHTML = insightsData.peak_times.map((time, index) => {
+              const hour = parseInt(time.hour);
+              const timeString = hour === 0 ? '12 AM' : 
+                              hour === 12 ? '12 PM' : 
+                              hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+              
+              return `
+                <div class="insight-item">
+                  <div>
+                    <span style="color: #FFD700; font-weight: 700;">#${index + 1}</span>
+                    <span style="margin-left: 10px;">${timeString}</span>
+                  </div>
+                  <span style="color: #FFD700; font-weight: 600;">${time.registration_count} regs</span>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+        
+        console.log('📋 Insights sections updated');
+        
+      } catch (error) {
+        console.error('Error updating insights sections:', error);
+      }
+    }
+
+    // Update the existing updateAnalytics function to use the new loadAnalytics
+    function updateAnalytics() {
+      console.log('🔄 Analytics time filter changed, reloading...');
+      loadAnalytics();
+    }
+
+
+
+
     // Enhanced analytics functions
     async function loadAnalytics() {
       try {
-        const timeFilter = document.getElementById('analyticsTimeFilter')?.value || 30;
+        console.log('🔄 Loading analytics data...');
         
-        // Load all analytics data
-        const [subscriberData, eventData, revenueData] = await Promise.all([
-          loadSubscriberAnalytics(timeFilter),
-          loadEventAnalytics(timeFilter),
-          loadRevenueAnalytics(timeFilter)
+        // Load all analytics data concurrently
+        const [kpisData, growthData, performanceData, revenueData, insightsData] = await Promise.all([
+          loadKPIs(),
+          loadGrowthData(),
+          loadPerformanceData(), 
+          loadRevenueData(),
+          loadInsightsData()
         ]);
         
-        updateKPIs(subscriberData, eventData, revenueData);
-        updateCharts(subscriberData, eventData, revenueData);
-        updateInsights(subscriberData, eventData, revenueData);
+        // Update KPIs
+        updateKPICards(kpisData);
+        
+        // Update charts
+        updateAnalyticsCharts(growthData, performanceData, revenueData);
+        
+        // Update insights
+        updateInsightsSections(insightsData);
+        
+        console.log('✅ Analytics loaded successfully');
         
       } catch (error) {
-        console.error('Error loading analytics:', error);
+        console.error('❌ Error loading analytics:', error);
       }
     }
 
@@ -3340,110 +3840,88 @@
       document.getElementById('capacityUtil').textContent = `${capacityUtil}%`;
     }
 
-    function initializeAnalyticsCharts() {
-      // Event Performance Chart (Doughnut)
-      const eventCtx = document.getElementById('eventPerformanceChart');
-      if (eventCtx && !window.eventChart) {
-        window.eventChart = new Chart(eventCtx, {
-          type: 'doughnut',
-          data: {
-            labels: ['Tournaments', 'Game Nights', 'Special Events', 'Birthdays'],
-            datasets: [{
-              data: [0, 0, 0, 0], // Will update with real data
-              backgroundColor: ['#FF6B35', '#4ECDC4', '#8B5CF6', '#FF69B4'],
-              borderWidth: 0
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'bottom',
-                labels: { color: '#ffffff' }
-              }
-            }
-          }
-        });
-      }
+    // Enhanced chart initialization that works with real data
+  function initializeAnalyticsCharts() {
+    // This function is now handled by the individual update functions
+    // Charts are created when updateAnalyticsCharts is called with real data
+    console.log('📊 Analytics charts initialized');
+  }
       
-      // Revenue Chart (Bar)
-      const revenueCtx = document.getElementById('revenueChart');
-      if (revenueCtx) {
-        new Chart(revenueCtx, {
-          type: 'bar',
-          data: {
-            labels: ['Tournaments', 'Game Nights', 'Special Events'],
-            datasets: [{
-              label: 'Revenue (£)',
-              data: [450, 200, 350],
-              backgroundColor: '#FFD700',
-              borderRadius: 6
-            }]
+    // Revenue Chart (Bar)
+    const revenueCtx = document.getElementById('revenueChart');
+    if (revenueCtx) {
+      new Chart(revenueCtx, {
+        type: 'bar',
+        data: {
+          labels: ['Tournaments', 'Game Nights', 'Special Events'],
+          datasets: [{
+            label: 'Revenue (£)',
+            data: [450, 200, 350],
+            backgroundColor: '#FFD700',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false }
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#cccccc' },
+              grid: { color: '#444' }
             },
-            scales: {
-              y: {
-                beginAtZero: true,
-                ticks: { color: '#cccccc' },
-                grid: { color: '#444' }
-              },
-              x: {
-                ticks: { color: '#cccccc' },
-                grid: { color: '#444' }
-              }
+            x: {
+              ticks: { color: '#cccccc' },
+              grid: { color: '#444' }
             }
           }
-        });
-      }
-      
-      // Registration Timeline (Line)
-      const regCtx = document.getElementById('registrationChart');
-      if (regCtx) {
-        new Chart(regCtx, {
-          type: 'line',
-          data: {
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-            datasets: [{
-              label: 'Registrations',
-              data: [12, 19, 15, 25],
-              borderColor: '#00ff88',
-              backgroundColor: 'rgba(0, 255, 136, 0.1)',
-              tension: 0.4,
-              fill: true
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                ticks: { color: '#cccccc' },
-                grid: { color: '#444' }
-              },
-              x: {
-                ticks: { color: '#cccccc' },
-                grid: { color: '#444' }
-              }
-            }
-          }
-        });
-      }
+        }
+      });
     }
-
+      
+    // Registration Timeline (Line)
+    const regCtx = document.getElementById('registrationChart');
+    if (regCtx) {
+      new Chart(regCtx, {
+        type: 'line',
+        data: {
+          labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+          datasets: [{
+            label: 'Registrations',
+            data: [12, 19, 15, 25],
+            borderColor: '#00ff88',
+            backgroundColor: 'rgba(0, 255, 136, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#cccccc' },
+              grid: { color: '#444' }
+            },
+            x: {
+              ticks: { color: '#cccccc' },
+              grid: { color: '#444' }
+            }
+          }
+        }
+      });
+    }
     
 
-    // Call when analytics tab is opened
     function updateAnalytics() {
+      console.log('🔄 Analytics time filter changed, reloading...');
       loadAnalytics();
     }
 
@@ -4195,8 +4673,10 @@
     }
 
     // Handle Enter key in email input
+    // Combined DOMContentLoaded handler - replace your existing one with this
     document.addEventListener('DOMContentLoaded', function() {
       try {
+        // Original email input enter key handler
         const emailInput = document.getElementById('newSubscriberEmail');
         if (emailInput) {
           emailInput.addEventListener('keypress', function(e) {
@@ -4205,8 +4685,30 @@
             }
           });
         }
+        
+        // Analytics loading functionality
+        const analyticsTab = document.querySelector('.tab[data-tab="analytics"]');
+        if (analyticsTab) {
+          analyticsTab.addEventListener('click', function() {
+            // Small delay to ensure tab content is visible
+            setTimeout(() => {
+              loadAnalytics();
+            }, 200);
+          });
+        }
+        
+        // Also load analytics if we're already on the analytics tab
+        if (analyticsTab && analyticsTab.classList.contains('active')) {
+          setTimeout(() => {
+            loadAnalytics();
+          }, 1000);
+        }
+        
+        // Initialize other dashboard components
+        console.log('Dashboard initialization complete');
+        
       } catch (error) {
-        console.error('Error setting up enter key handler:', error);
+        console.error('Error in DOMContentLoaded handler:', error);
       }
     });
   </script>

@@ -651,63 +651,7 @@ def get_analytics_insights():
         log_error(f"Error getting insights: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-def run_database_migrations():
-    """Run all pending database migrations"""
-    current_version = get_current_schema_version()
-    print(f"📊 Current database schema version: {current_version}")
-    
-    # Define all migrations
-    migrations = [
-        {
-            'version': 1,
-            'description': 'Add check_in_time column to event_registrations',
-            'sql': [
-                'ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS check_in_time TIMESTAMP;'
-            ]
-        },
-        {
-            'version': 2, 
-            'description': 'Add indexes for better performance',
-            'sql': [
-                'CREATE INDEX IF NOT EXISTS idx_event_registrations_attended ON event_registrations(attended);',
-                'CREATE INDEX IF NOT EXISTS idx_events_event_type ON events(event_type);',
-                'CREATE INDEX IF NOT EXISTS idx_subscribers_source ON subscribers(source);'
-            ]
-        },
-        {
-            'version': 3,
-            'description': 'Add updated_at triggers for events table',
-            'sql': [
-                '''CREATE OR REPLACE FUNCTION update_updated_at_column()
-                   RETURNS TRIGGER AS $$
-                   BEGIN
-                       NEW.updated_at = CURRENT_TIMESTAMP;
-                       RETURN NEW;
-                   END;
-                   $$ language 'plpgsql';''',
-                '''DROP TRIGGER IF EXISTS update_events_updated_at ON events;''',
-                '''CREATE TRIGGER update_events_updated_at 
-                   BEFORE UPDATE ON events 
-                   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();'''
-            ]
-        },
-        # Add more migrations here as needed
-    ]
-    
-    # Apply pending migrations
-    for migration in migrations:
-        if migration['version'] > current_version:
-            success = apply_migration(
-                migration['version'],
-                migration['description'], 
-                migration['sql']
-            )
-            if not success:
-                print(f"❌ Failed to apply migration {migration['version']}")
-                return False
-    
-    print("✅ All database migrations completed successfully")
-    return True
+
 
 def verify_database_schema():
     """Verify that all required tables and columns exist"""

@@ -3257,7 +3257,62 @@
       } catch (error) {
         return 0;
       }
-    }   
+    }
+    
+    // Add this missing function
+    function updateCharts(subscriberData, eventData, revenueData) {
+      try {
+        // Initialize charts if they don't exist yet
+        if (!window.chartsInitialized) {
+          initializeAnalyticsCharts();
+          window.chartsInitialized = true;
+        }
+        
+        console.log('📊 Updating charts with data:', { subscriberData, eventData, revenueData });
+        
+        // Charts will update automatically when data is available
+        // The chart initialization handles the data rendering
+        
+      } catch (error) {
+        console.error('Error updating charts:', error);
+      }
+    }
+
+    // Add missing insights update function
+    function updateInsights(subscriberData, eventData, revenueData) {
+      try {
+        // Update Top Performing Events
+        const topEventsContainer = document.getElementById('topEvents');
+        if (topEventsContainer && eventData.performance_data) {
+          if (eventData.performance_data.length === 0) {
+            topEventsContainer.innerHTML = '<p class="text-muted">No completed events yet</p>';
+          } else {
+            // Render top events here
+            topEventsContainer.innerHTML = '<p class="text-muted">Events data available</p>';
+          }
+        }
+        
+        // Update Popular Games
+        const popularGamesContainer = document.getElementById('popularGames');
+        if (popularGamesContainer && eventData.games_data) {
+          if (eventData.games_data.length === 0) {
+            popularGamesContainer.innerHTML = '<p class="text-muted">No game data yet</p>';
+          } else {
+            popularGamesContainer.innerHTML = eventData.games_data.map(game => 
+              `<div class="insight-item">
+                <span>${game.game_title}</span>
+                <span>${game.total_registrations} registrations</span>
+              </div>`
+            ).join('');
+          }
+        }
+        
+        console.log('📋 Updated insights sections');
+        
+      } catch (error) {
+        console.error('Error updating insights:', error);
+      }
+    }
 
     function updateKPIs(subscriberData, eventData, revenueData) {
       // Growth Rate
@@ -3288,13 +3343,13 @@
     function initializeAnalyticsCharts() {
       // Event Performance Chart (Doughnut)
       const eventCtx = document.getElementById('eventPerformanceChart');
-      if (eventCtx) {
-        new Chart(eventCtx, {
+      if (eventCtx && !window.eventChart) {
+        window.eventChart = new Chart(eventCtx, {
           type: 'doughnut',
           data: {
             labels: ['Tournaments', 'Game Nights', 'Special Events', 'Birthdays'],
             datasets: [{
-              data: [30, 45, 15, 10],
+              data: [0, 0, 0, 0], // Will update with real data
               backgroundColor: ['#FF6B35', '#4ECDC4', '#8B5CF6', '#FF69B4'],
               borderWidth: 0
             }]

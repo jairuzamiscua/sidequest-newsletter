@@ -225,15 +225,16 @@
       border-color: var(--border-light);
     }
     
-    /* Main Content Area */
     .main-content {
-      margin-left: 300px;
-      min-height: 100vh;
-      background: var(--bg-primary);
+      margin-left: 300px !important;
+      width: calc(100% - 300px) !important;
+      min-height: 100vh !important;
+      display: block !important;
     }
-    
+
     .content-wrapper {
-      padding: 2.5rem;
+      padding: 2.5rem !important;
+      display: block !important;
     }
     
     .page-header {

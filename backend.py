@@ -628,61 +628,133 @@ def test_brevo_connection() -> tuple[bool, str, str | None]:
 # Brevo list helpers
 # =============================
 
-def add_to_brevo_list(email: str) -> dict:
+def add_to_brevo_contact(email: str, attributes: dict = None) -> dict:
+    """Enhanced function to add contact to Brevo with attributes"""
     if not AUTO_SYNC_TO_BREVO:
         return {"success": True, "message": "Brevo sync disabled"}
     if not contacts_api:
         return {"success": False, "error": "Brevo API not initialized"}
+    
     try:
-        create_contact = sib_api_v3_sdk.CreateContact(  # type: ignore
+        # Create contact with enhanced attributes
+        contact_attributes = {
+            'FNAME': attributes.get('first_name', '') if attributes else '',
+            'LNAME': attributes.get('last_name', '') if attributes else '',
+            'SOURCE': attributes.get('source', 'web') if attributes else 'web',
+            'DATE_ADDED': datetime.now().isoformat(),
+        }
+        
+        # Add any additional attributes
+        if attributes:
+            contact_attributes.update(attributes)
+        
+        create_contact = sib_api_v3_sdk.CreateContact(
             email=email,
             list_ids=[BREVO_LIST_ID],
+            attributes=contact_attributes,
             email_blacklisted=False,
             sms_blacklisted=False,
             update_enabled=True,
         )
-        contacts_api.create_contact(create_contact)
-        log_activity(f"Added {email} to Brevo list {BREVO_LIST_ID}", "success")
-        return {"success": True, "message": f"Added to Brevo list {BREVO_LIST_ID}"}
-    except ApiException as e:  # type: ignore
+        
+        result = contacts_api.create_contact(create_contact)
+        log_activity(f"✅ Added {email} to Brevo with ID: {getattr(result, 'id', 'unknown')}", "success")
+        return {"success": True, "message": f"Added to Brevo", "brevo_id": getattr(result, 'id', None)}
+        
+    except ApiException as e:
         error_msg = str(e)
         if "duplicate_parameter" in error_msg or "already exists" in error_msg.lower():
             try:
-                contacts_api.add_contact_to_list(  # type: ignore
+                # Contact exists, try to add to list
+                contacts_api.add_contact_to_list(
                     BREVO_LIST_ID,
-                    sib_api_v3_sdk.AddContactToList(emails=[email])  # type: ignore
+                    sib_api_v3_sdk.AddContactToList(emails=[email])
                 )
-                log_activity(f"Added existing contact {email} to Brevo list", "success")
-                return {"success": True, "message": "Added existing contact to list"}
+                log_activity(f"ℹ️ Contact {email} already exists in Brevo, added to list", "info")
+                return {"success": True, "message": "Contact already exists, added to list"}
             except Exception as e2:
-                log_activity(f"Error adding existing contact {email}: {str(e2)}", "danger")
+                log_activity(f"⚠️ Error adding existing contact {email} to list: {str(e2)}", "warning")
                 return {"success": True, "message": "Contact already in Brevo"}
         else:
-            log_activity(f"Brevo API Error for {email}: {error_msg}", "danger")
-            print(f"Brevo API Error: {error_msg}")
+            log_activity(f"❌ Brevo API Error for {email}: {error_msg}", "danger")
             return {"success": False, "error": error_msg}
     except Exception as e:
-        log_activity(f"Unexpected error adding {email} to Brevo: {str(e)}", "danger")
+        log_activity(f"❌ Unexpected error adding {email} to Brevo: {str(e)}", "danger")
         return {"success": False, "error": str(e)}
 
-def remove_from_brevo_list(email: str) -> dict:
+def remove_from_brevo_contact(email: str) -> dict:
+    """🔥 KEY FIX: Remove contact completely from Brevo (not just from list)"""
     if not AUTO_SYNC_TO_BREVO:
         return {"success": True, "message": "Brevo sync disabled"}
     if not contacts_api:
         return {"success": False, "error": "Brevo API not initialized"}
+    
     try:
-        contacts_api.remove_contact_from_list(  # type: ignore
-            BREVO_LIST_ID,
-            sib_api_v3_sdk.RemoveContactFromList(emails=[email])  # type: ignore
-        )
-        log_activity(f"Removed {email} from Brevo list {BREVO_LIST_ID}", "success")
-        return {"success": True, "message": f"Removed from Brevo list {BREVO_LIST_ID}"}
-    except ApiException as e:  # type: ignore
-        log_activity(f"Brevo API Error removing {email}: {str(e)}", "danger")
-        print(f"Brevo API Error: {e}")
-        return {"success": False, "error": str(e)}
+        # Method 1: Try to delete the contact completely
+        try:
+            contacts_api.delete_contact(email)
+            log_activity(f"✅ Completely removed {email} from Brevo contacts", "success")
+            return {"success": True, "message": f"Removed {email} from Brevo contacts"}
+        except ApiException as e:
+            if e.status == 404:
+                log_activity(f"ℹ️ Contact {email} not found in Brevo (already removed)", "info")
+                return {"success": True, "message": "Contact not found in Brevo (already removed)"}
+            else:
+                raise  # Re-raise if it's not a 404 error
+        
+    except ApiException as e:
+        # Fallback: Remove from list if delete failed
+        try:
+            contacts_api.remove_contact_from_list(
+                BREVO_LIST_ID,
+                sib_api_v3_sdk.RemoveContactFromList(emails=[email])
+            )
+            log_activity(f"⚠️ Could not delete {email} from Brevo, but removed from list", "warning")
+            return {"success": True, "message": f"Removed from list (contact still exists in Brevo)"}
+        except Exception as e2:
+            log_activity(f"❌ Failed to remove {email} from Brevo list: {str(e2)}", "danger")
+            return {"success": False, "error": f"Brevo removal failed: {str(e)}"}
     except Exception as e:
-        log_activity(f"Unexpected error removing {email}: {str(e)}", "danger")
+        log_activity(f"❌ Unexpected error removing {email}: {str(e)}", "danger")
+        return {"success": False, "error": str(e)}
+
+def bulk_sync_to_brevo(subscribers: list) -> dict:
+    """Bulk sync all subscribers to Brevo with rate limiting"""
+    if not AUTO_SYNC_TO_BREVO:
+        return {"success": False, "error": "Brevo sync disabled"}
+    if not contacts_api:
+        return {"success": False, "error": "Brevo API not initialized"}
+    
+    results = {"synced": 0, "errors": 0, "details": []}
+    
+    try:
+        import time
+        for subscriber in subscribers:
+            try:
+                email = subscriber.get('email') if isinstance(subscriber, dict) else subscriber
+                source = subscriber.get('source', 'unknown') if isinstance(subscriber, dict) else 'unknown'
+                
+                result = add_to_brevo_contact(email, {'source': source})
+                if result.get("success", False):
+                    results["synced"] += 1
+                else:
+                    results["errors"] += 1
+                    results["details"].append(f"{email}: {result.get('error', 'Unknown error')}")
+                
+                # Rate limiting - wait 100ms between requests
+                time.sleep(0.1)
+                
+            except Exception as e:
+                results["errors"] += 1
+                results["details"].append(f"{email}: {str(e)}")
+        
+        log_activity(f"Bulk Brevo sync completed: {results['synced']} synced, {results['errors']} errors", 
+                    "success" if results["errors"] == 0 else "warning")
+        
+        return {"success": True, **results}
+        
+    except Exception as e:
+        log_error(f"Bulk sync failed: {e}")
         return {"success": False, "error": str(e)}
 
 # =============================
@@ -754,33 +826,98 @@ def log_response_info(response):
 # =============================
 
 @app.route('/health', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health_check():
+    """Enhanced health check with Brevo sync status"""
     try:
         brevo_connected, brevo_status, brevo_email = test_brevo_connection()
-        
-        # Test database connection
         db_connected = get_db_connection() is not None
+        
+        # Test Brevo contact operations
+        brevo_ops_working = False
+        if brevo_connected and contacts_api:
+            try:
+                # Test with a dummy email to see if operations work
+                test_result = add_to_brevo_contact("test@example.com", {'test': True})
+                brevo_ops_working = test_result.get("success", False) or "already exists" in test_result.get("message", "")
+            except:
+                brevo_ops_working = False
         
         return jsonify({
             "status": "healthy",
             "subscribers_count": len(get_all_subscribers()),
-            "brevo_sync": AUTO_SYNC_TO_BREVO,
+            "brevo_sync_enabled": AUTO_SYNC_TO_BREVO,
             "brevo_status": "connected" if brevo_connected else brevo_status,
+            "brevo_operations_working": brevo_ops_working,
             "brevo_email": brevo_email,
             "brevo_list_id": BREVO_LIST_ID,
             "activities": len(get_activity_log(100)),
             "api_instances_initialized": (api_instance is not None and contacts_api is not None),
             "database_connected": db_connected,
+            "sync_functions": {
+                "add_contact": "add_to_brevo_contact",
+                "remove_contact": "remove_from_brevo_contact", 
+                "bulk_sync": "bulk_sync_to_brevo"
+            }
         })
     except Exception as e:
         error_msg = f"Health check error: {str(e)}"
-        print(f"Health check error: {traceback.format_exc()}")
+        log_error(error_msg)
         return jsonify({
             "status": "error",
             "error": error_msg,
             "brevo_status": "error",
             "database_connected": False,
         }), 500
+
+@app.route('/debug/brevo-test/<email>', methods=['POST'])
+def debug_brevo_test(email):
+    """Debug endpoint to test Brevo operations"""
+    try:
+        if not is_valid_email(email):
+            return jsonify({"error": "Invalid email"}), 400
+        
+        # Test add
+        add_result = add_to_brevo_contact(email, {'source': 'debug_test'})
+        
+        # Test remove  
+        remove_result = remove_from_brevo_contact(email)
+        
+        return jsonify({
+            "email": email,
+            "add_result": add_result,
+            "remove_result": remove_result,
+            "brevo_config": {
+                "api_key_set": bool(BREVO_API_KEY),
+                "auto_sync": AUTO_SYNC_TO_BREVO,
+                "list_id": BREVO_LIST_ID,
+                "contacts_api_ready": contacts_api is not None
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+
+@app.route('/debug/subscribers-sync', methods=['POST']) 
+def debug_subscribers_sync():
+    """Debug endpoint to sync a few test subscribers"""
+    try:
+        subscribers = get_all_subscribers()[:5]  # Test with first 5 only
+        
+        if not subscribers:
+            return jsonify({"message": "No subscribers to test"}), 200
+        
+        result = bulk_sync_to_brevo(subscribers)
+        
+        return jsonify({
+            "test_count": len(subscribers),
+            "result": result,
+            "test_emails": [sub['email'] for sub in subscribers]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/subscribers', methods=['GET'])
 def get_subscribers():
@@ -802,10 +939,13 @@ def get_subscribers():
 
 @app.route('/subscribe', methods=['POST'])
 def add_subscriber():
+    """Enhanced subscribe route with better Brevo sync"""
     try:
         data = request.json or {}
         email = str(data.get('email', '')).strip().lower()
         source = data.get('source', 'manual')
+        first_name = data.get('first_name', '')
+        last_name = data.get('last_name', '')
         
         if not email:
             return jsonify({"success": False, "error": "Email is required"}), 400
@@ -819,14 +959,21 @@ def add_subscriber():
         
         # Add to database
         if add_subscriber_to_db(email, source):
-            brevo_result = add_to_brevo_list(email)
+            # 🔥 ENHANCED: Add to Brevo with attributes
+            brevo_result = add_to_brevo_contact(email, {
+                'first_name': first_name,
+                'last_name': last_name,
+                'source': source,
+                'date_added': datetime.now().isoformat()
+            })
+            
             log_activity(f"New subscriber added: {email} (source: {source})", "success")
             
             return jsonify({
                 "success": True,
                 "message": "Subscriber added successfully",
                 "email": email,
-                "brevo_sync": brevo_result.get("success", False),
+                "brevo_synced": brevo_result.get("success", False),
                 "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
             })
         else:
@@ -834,12 +981,12 @@ def add_subscriber():
             
     except Exception as e:
         error_msg = f"Error adding subscriber: {str(e)}"
-        print(f"Add subscriber error: {traceback.format_exc()}")
-        log_activity(f"Failed to add subscriber: {error_msg}", "danger")
+        log_error(error_msg)
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/unsubscribe', methods=['POST'])
 def remove_subscriber():
+    """🔥 ENHANCED: Remove subscriber from both database AND Brevo"""
     try:
         data = request.json or {}
         email = str(data.get('email', '')).strip().lower()
@@ -854,14 +1001,16 @@ def remove_subscriber():
         
         # Remove from database
         if remove_subscriber_from_db(email):
-            brevo_result = remove_from_brevo_list(email)
-            log_activity(f"Subscriber removed: {email}", "danger")
+            # 🔥 KEY FIX: Remove from Brevo as well!
+            brevo_result = remove_from_brevo_contact(email)
+            
+            log_activity(f"Subscriber removed: {email}", "warning")
             
             return jsonify({
                 "success": True,
-                "message": "Subscriber removed",
+                "message": "Subscriber removed successfully",
                 "email": email,
-                "brevo_sync": brevo_result.get("success", False),
+                "brevo_removed": brevo_result.get("success", False),
                 "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
             })
         else:
@@ -869,8 +1018,7 @@ def remove_subscriber():
             
     except Exception as e:
         error_msg = f"Error removing subscriber: {str(e)}"
-        print(f"Remove subscriber error: {traceback.format_exc()}")
-        log_activity(f"Failed to remove subscriber: {error_msg}", "danger")
+        log_error(error_msg)
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/stats', methods=['GET'])
@@ -900,6 +1048,7 @@ def get_activity():
 
 @app.route('/bulk-import', methods=['POST'])
 def bulk_import():
+    """Enhanced bulk import with better Brevo sync"""
     try:
         data = request.json or {}
         emails = data.get('emails', [])
@@ -910,6 +1059,7 @@ def bulk_import():
         
         added = 0
         errors: list[str] = []
+        brevo_synced = 0
         existing_subscribers = get_all_subscribers()
         existing_emails = {sub['email'] for sub in existing_subscribers}
         
@@ -924,9 +1074,13 @@ def bulk_import():
                     continue
                 
                 if add_subscriber_to_db(email, source):
-                    brevo_result = add_to_brevo_list(email)
-                    if not brevo_result.get("success", False):
+                    # Add to Brevo
+                    brevo_result = add_to_brevo_contact(email, {'source': source})
+                    if brevo_result.get("success", False):
+                        brevo_synced += 1
+                    else:
                         errors.append(f"Brevo sync failed for {email}: {brevo_result.get('error', 'Unknown error')}")
+                    
                     added += 1
                     existing_emails.add(email)
                 else:
@@ -936,76 +1090,82 @@ def bulk_import():
                 errors.append(f"Error processing {email}: {str(e)}")
                 continue
         
-        log_activity(f"Bulk import: {added} subscribers added, {len(errors)} errors", "info")
+        log_activity(f"Bulk import: {added} subscribers added, {brevo_synced} synced to Brevo, {len(errors)} errors", "info")
         
         return jsonify({
             "success": True,
             "added": added,
+            "brevo_synced": brevo_synced,
             "errors": errors,
             "total_processed": len(emails),
         })
         
     except Exception as e:
         error_msg = f"Error in bulk import: {str(e)}"
-        print(f"Bulk import error: {traceback.format_exc()}")
-        log_activity(f"Bulk import failed: {error_msg}", "danger")
+        log_error(error_msg)
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/sync-brevo', methods=['POST'])
 def manual_brevo_sync():
+    """Enhanced manual Brevo sync with better feedback"""
     try:
         if not AUTO_SYNC_TO_BREVO:
             return jsonify({"success": False, "error": "Brevo sync is disabled"}), 400
         if not contacts_api:
             return jsonify({"success": False, "error": "Brevo API not initialized"}), 500
         
+        print("🔄 Starting manual Brevo sync...")
+        log_activity("Starting manual Brevo sync", "info")
+        
         subscribers = get_all_subscribers()
-        success_count = 0
-        error_count = 0
-        errors: list[str] = []
+        if not subscribers:
+            return jsonify({"success": True, "message": "No subscribers to sync", "synced": 0}), 200
         
-        for subscriber in subscribers:
-            try:
-                email = subscriber['email']
-                result = add_to_brevo_list(email)
-                if result.get("success", False):
-                    success_count += 1
-                else:
-                    error_count += 1
-                    errors.append(f"{email}: {result.get('error', 'Unknown error')}")
-            except Exception as e:
-                error_count += 1
-                errors.append(f"{email}: {str(e)}")
+        # Use the enhanced bulk sync function
+        result = bulk_sync_to_brevo(subscribers)
         
-        log_activity(f"Manual Brevo sync: {success_count} success, {error_count} errors", "info")
-        
-        return jsonify({
-            "success": True,
-            "synced": success_count,
-            "errors": error_count,
-            "error_details": errors,
-        })
+        if result.get("success", False):
+            log_activity(f"Manual Brevo sync completed: {result['synced']} synced, {result['errors']} errors", 
+                        "success" if result["errors"] == 0 else "warning")
+            
+            return jsonify({
+                "success": True,
+                "synced": result["synced"],
+                "errors": result["errors"],
+                "total": len(subscribers),
+                "error_details": result["details"][:10],  # Limit error details
+                "message": f"Sync completed: {result['synced']}/{len(subscribers)} successful"
+            })
+        else:
+            return jsonify({"success": False, "error": result.get("error", "Sync failed")}), 500
         
     except Exception as e:
         error_msg = f"Error in manual sync: {str(e)}"
-        print(f"Manual sync error: {traceback.format_exc()}")
-        log_activity(f"Manual sync failed: {error_msg}", "danger")
+        log_error(error_msg)
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/clear-data', methods=['POST'])
 def clear_all_data():
+    """🔥 ENHANCED: Clear data from both database AND Brevo"""
     try:
         data = request.json or {}
         confirmation = data.get('confirmation', '')
+        clear_brevo = data.get('clear_brevo', False)  # Optional flag
+        
         if confirmation != 'DELETE':
             return jsonify({"success": False, "error": "Invalid confirmation"}), 400
+        
+        # Get all subscribers before deleting
+        subscribers = get_all_subscribers()
         
         # Clear database tables
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
+            cursor.execute("DELETE FROM event_registrations")  # Clear registrations first (foreign key)
             cursor.execute("DELETE FROM subscribers")
             cursor.execute("DELETE FROM activity_log")
+            cursor.execute("DELETE FROM events")  # Clear events if needed
             count = cursor.rowcount
             conn.commit()
             cursor.close()
@@ -1013,18 +1173,48 @@ def clear_all_data():
         else:
             return jsonify({"success": False, "error": "Database connection failed"}), 500
         
-        log_activity(f"ALL DATA CLEARED - database tables emptied", "danger")
+        brevo_cleared = 0
+        
+        # Optionally clear from Brevo (be very careful with this!)
+        if clear_brevo and AUTO_SYNC_TO_BREVO and contacts_api:
+            print("⚠️ CLEARING BREVO CONTACTS - This is irreversible!")
+            log_activity("Starting Brevo contact deletion - IRREVERSIBLE!", "danger")
+            
+            import time
+            for subscriber in subscribers:
+                try:
+                    email = subscriber['email']
+                    result = remove_from_brevo_contact(email)
+                    if result.get("success", False):
+                        brevo_cleared += 1
+                    time.sleep(0.1)  # Rate limiting
+                except Exception as e:
+                    log_error(f"Error clearing {email} from Brevo: {e}")
+        
+        log_activity(f"ALL DATA CLEARED - database: {len(subscribers)} subscribers, Brevo: {brevo_cleared} contacts", "danger")
         
         return jsonify({
             "success": True,
-            "message": f"Cleared all data from database",
-            "note": "Brevo data not affected - manual cleanup required",
+            "message": f"Cleared {len(subscribers)} subscribers from database" + 
+                      (f" and {brevo_cleared} from Brevo" if clear_brevo else ""),
+            "database_cleared": len(subscribers),
+            "brevo_cleared": brevo_cleared,
+            "note": "Database cleared. Brevo contacts " + ("also cleared" if clear_brevo else "not affected")
         })
+        
     except Exception as e:
         error_msg = f"Error clearing data: {str(e)}"
-        print(f"Clear data error: {traceback.format_exc()}")
-        log_activity(f"Failed to clear data: {error_msg}", "danger")
+        log_error(error_msg)
         return jsonify({"success": False, "error": error_msg}), 500
+
+def add_to_brevo_list(email: str) -> dict:
+    """Wrapper for backward compatibility - calls the enhanced function"""
+    return add_to_brevo_contact(email, {'source': 'legacy'})
+
+def remove_from_brevo_list(email: str) -> dict:
+    """Wrapper for backward compatibility - calls the enhanced function"""
+    return remove_from_brevo_contact(email)
+
 
 # Continue with remaining routes...
 @app.route('/send-campaign', methods=['POST'])

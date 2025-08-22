@@ -1457,20 +1457,20 @@
                     <input type="text" class="form-input" id="gameTitle" placeholder="e.g Valorant, Fortnite">
                   </div>  
                 </div>
-
+                
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                   <div class="form-group">
                     <label class="form-label">Start Date & Time*</label>
                     <input type="datetime-local" class="form-input" id="eventDateTime" required>
                   </div>
                   
-                  <div class="form-group"></div>
-                    <label class="form-label">End Date & Time*</label>
+                  <div class="form-group">
+                    <label class="form-label">End Date & Time</label>
                     <input type="datetime-local" class="form-input" id="eventEndTime">
                   </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
                   <div class="form-group">
                     <label class="form-label">Capacity</label>
                     <input type="number" class="form-input" id="eventCapacity" min="0" placeholder="0 (Unlimited)">
@@ -1478,16 +1478,16 @@
                   
                   <div class="form-group">
                     <label class="form-label">Entry Fee (£)</label>
-                    <input type="text" class="form-input" id="eventFee" min="0" step="0.01" placeholder="0.00 (Free)">
-                  </div>  
-
+                    <input type="number" class="form-input" id="eventFee" min="0" step="0.01" placeholder="0.00 (Free)">
+                  </div>
+                  
                   <div class="form-group">
                     <label class="form-label">Status</label>
                     <select class="form-select" id="eventStatus">
                       <option value="draft">Upcoming</option>
                       <option value="published">Completed</option>
                     </select>
-                  </div>    
+                  </div>
                 </div>
 
                 <div class="form-group">
@@ -1619,7 +1619,34 @@
     // Configuration
     const API_BASE = 'https://sidequest-newsletter-production.up.railway.app';
     
+    const ANALYTICS_ENABLED = false;
 
+    // Override loadAnalytics to prevent crashes
+    async function loadAnalytics() {
+      if (!ANALYTICS_ENABLED) {
+        console.log('📊 Analytics temporarily disabled');
+        
+        // Set default values to prevent crashes
+        document.getElementById('growthRate').textContent = '+0%';
+        document.getElementById('conversionRate').textContent = '0%';
+        document.getElementById('engagementRate').textContent = '0%';
+        document.getElementById('avgRevenue').textContent = '£0';
+        document.getElementById('attendanceRate').textContent = '0%';
+        document.getElementById('capacityUtil').textContent = '0%';
+        
+        // Show message in chart containers
+        const chartContainers = document.querySelectorAll('.chart-container canvas');
+        chartContainers.forEach(canvas => {
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#aaa';
+          ctx.font = '14px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('Analytics being updated...', canvas.width / 2, canvas.height / 2);
+        });
+        
+        return;
+      }
+    }   
     let calendar;
 
     // Initialize FullCalendar
@@ -3644,37 +3671,42 @@
       loadAnalytics();
     }
 
+    function getDefaultKPIs() {
+      return {
+        growth_rate: 0,
+        event_conversion: 0,
+        engagement_rate: 0,
+        avg_revenue: 0,
+        attendance_rate: 0,
+        capacity_utilization: 0
+      };
+    }
 
+    function setAnalyticsLoading(loading) {
+      const kpiCards = document.querySelectorAll('.kpi-value');
+      kpiCards.forEach(card => {
+        if (loading) {
+          card.textContent = '...';
+        }
+      });
+    }
 
-
-    // Enhanced analytics functions
-    async function loadAnalytics() {
-      try {
-        console.log('🔄 Loading analytics data...');
-        
-        // Load all analytics data concurrently
-        const [kpisData, growthData, performanceData, revenueData, insightsData] = await Promise.all([
-          loadKPIs(),
-          loadGrowthData(),
-          loadPerformanceData(), 
-          loadRevenueData(),
-          loadInsightsData()
-        ]);
-        
-        // Update KPIs
-        updateKPICards(kpisData);
-        
-        // Update charts
-        updateAnalyticsCharts(growthData, performanceData, revenueData);
-        
-        // Update insights
-        updateInsightsSections(insightsData);
-        
-        console.log('✅ Analytics loaded successfully');
-        
-      } catch (error) {
-        console.error('❌ Error loading analytics:', error);
-      }
+    function showAnalyticsError() {
+      const kpiCards = document.querySelectorAll('.kpi-value');
+      kpiCards.forEach(card => {
+        card.textContent = 'N/A';
+      });
+      
+      // Show error message in charts
+      const chartContainers = document.querySelectorAll('.chart-container canvas');
+      chartContainers.forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ff6b35';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Analytics temporarily unavailable', canvas.width / 2, canvas.height / 2);
+      });
     }
 
     // Add these functions to your dashboard JavaScript:

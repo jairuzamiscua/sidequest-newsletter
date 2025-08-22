@@ -1796,7 +1796,7 @@
       showSuccess('💾 QR code downloaded!');
     }
 
-    // Create new event
+    // Fixed handleCreateEvent function
     async function handleCreateEvent(e) {
       e.preventDefault();
       
@@ -1820,8 +1820,9 @@
         };
 
         let response;
+        const isEditing = currentEditingEventId !== null; // Fix: Check if we're editing
         
-        if (currentEditingEventId) {
+        if (isEditing) {
           // Update existing event
           console.log('Updating event:', currentEditingEventId);
           response = await fetch(`${API_BASE}/api/events/${currentEditingEventId}`, {
@@ -1842,7 +1843,7 @@
         const data = await response.json();
         
         if (data.success) {
-          const action = currentEditingEventId ? 'updated' : 'created';
+          const action = isEditing ? 'updated' : 'created'; // Fix: Use isEditing variable
           showSuccess(`Event ${action} successfully!`);
           
           // Reset edit state and form
@@ -1852,17 +1853,18 @@
           switchEventView('list');
           
           // If published, offer to send announcement (only for new events)
-          if (!currentEditingEventId && eventData.status === 'published') {
+          if (!isEditing && eventData.status === 'published') {
             if (confirm('Would you like to send an announcement email to all subscribers?')) {
               sendEventAnnouncement(data.event_id);
             }
           }
         } else {
-          alert('Error: ' + (data.error || `Failed to ${currentEditingEventId ? 'update' : 'create'} event`));
+          alert('Error: ' + (data.error || `Failed to ${isEditing ? 'update' : 'create'} event`));
         }
       } catch (error) {
-        console.error(`Error ${currentEditingEventId ? 'updating' : 'creating'} event:`, error);
-        alert(`Failed to ${currentEditingEventId ? 'update' : 'create'} event`);
+        const isEditing = currentEditingEventId !== null;
+        console.error(`Error ${isEditing ? 'updating' : 'creating'} event:`, error);
+        alert(`Failed to ${isEditing ? 'update' : 'create'} event`);
       } finally {
         e.target.dataset.submitting = 'false';
       }

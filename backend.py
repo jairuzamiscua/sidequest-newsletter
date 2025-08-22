@@ -23,9 +23,9 @@ from collections import defaultdict
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string
 from flask_cors import CORS
 
-# Add this right after you create the Flask app
+# SINGLE APP CREATION - FIXED!
 app = Flask(__name__, static_folder="static")
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key-change-this-in-production')  # Add this line!
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'fallback-secret-key-change-in-production')
 CORS(app)
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest1234')  # Change this!
@@ -34,8 +34,6 @@ ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest1234')  # Change thi
 # --- CONFIG & GLOBALS FIRST ---
 # =============================
 
-app = Flask(__name__, static_folder="static")
-CORS(app)
 
 # ---- Brevo (Sendinblue) SDK ----
 try:
@@ -441,13 +439,13 @@ def admin_login():
     except Exception as e:
         print(f"Error in admin_login: {e}")
         print(f"Traceback: {traceback.format_exc()}")
-        return f"Login error: {str(e)}", 500)
+        return f"Login error: {str(e)}", 500
 
 @app.route('/admin/logout')
 def admin_logout():
     """Admin logout"""
     session.pop('admin_authenticated', None)
-    return redirect('/admin/login')
+    return redirect('/admin/login'
 
 # =============================
 # Database Helper Functions

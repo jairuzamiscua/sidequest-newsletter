@@ -730,8 +730,7 @@
 
     .event-card * {
       position: static !important;
-    }  
-
+    }
     
     .event-card:hover {
       transform: translateY(-3px); /* Only apply transform on hover */
@@ -1596,18 +1595,6 @@
         grid-template-columns: 1fr;
       }
     }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    .form-actions {
-      display: flex;
-      gap: 12px;
-    }
-
  </style>
 </head>
 <body>
@@ -1939,7 +1926,7 @@
               <button class="event-nav-btn" data-view="stats">📊 Statistics</button>
             </div>
 
-            <!-- Events List View -->
+            <!--Events List View-->
             <div class="event-view active" id="event-list-view">
               <div class="card-header">
                 <h3 class="card-title">Upcoming Events</h3>
@@ -1965,7 +1952,7 @@
               </div>
             </div> 
 
-            <!-- Calendar View -->
+            <!-- Replace the calendar view section -->
             <div class="event-view" id="event-calendar-view">
               <div class="card-header">
                 <h3 class="card-title">Event Calendar</h3>
@@ -1988,10 +1975,10 @@
                   <input type="text" class="form-input" id="eventTitle" placeholder="e.g Valorant Friday Night Tournament">
                 </div>
                 
-                <div class="form-row">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                   <div class="form-group">
                     <label class="form-label">Event Type*</label>
-                    <select class="form-select" id="eventType" required>
+                    <select class=""form-select" id="eventType" required>
                       <option value="">Select Type*</option>
                       <option value="tournament">Tournament</option>
                       <option value="game_night">Game Night</option>
@@ -2006,19 +1993,19 @@
                   </div>  
                 </div>
 
-                <div class="form-row">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                   <div class="form-group">
                     <label class="form-label">Start Date & Time*</label>
                     <input type="datetime-local" class="form-input" id="eventDateTime" required>
                   </div>
                   
-                  <div class="form-group">
+                  <div class="form-group>
                     <label class="form-label">End Date & Time*</label>
                     <input type="datetime-local" class="form-input" id="eventEndTime">
                   </div>
                 </div>
 
-                <div class="form-row">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                   <div class="form-group">
                     <label class="form-label">Capacity</label>
                     <input type="number" class="form-input" id="eventCapacity" min="0" placeholder="0 (Unlimited)">
@@ -2053,20 +2040,20 @@
                   <input type="text" class="form-input" id="eventRequirements" placeholder="e.g., Bring your own controller">
                 </div>
 
-                <div class="form-actions">
+                <div style="display: flex; gap: 12px;">
                   <button type="submit" class="btn btn-primary">🎮 Create Event</button>
                   <button type="button" class="btn btn-secondary" onclick="resetEventForm()">Clear Form</button>
                 </div>
               </form>
             </div>
-
+            
             <!-- Event Statistics View -->
             <div class="event-view" id="event-stats-view">
               <div class="card-header">
                 <h3 class="card-title">Event Statistics</h3>
               </div>
               
-              <div class="stats-grid" style="margin-top: 30px;">
+              <div class="stats-grid" style ="margin-top: 30px;">
                 <div class="stat-card primary">
                   <div class="stat-value" id="totalEvents">-</div>
                   <div class="stat-label">Total Events</div>
@@ -2077,11 +2064,11 @@
                 </div>
                 <div class="stat-card warning">
                   <div class="stat-value" id="totalEventRegistrations">-</div>
-                  <div class="stat-label">Total Registrations</div>
+                  <div class="stat-label>Total Registrations</div>
                 </div>
                 <div class="stat-card info">
                   <div class="stat-value" id="avgCapacityFilled">-%</div>
-                  <div class="stat-label">Avg Capacity Filled</div> 
+                  <div class="stat-label">Avg Capacity Fillled</div> 
                 </div>
               </div>
               
@@ -2092,16 +2079,17 @@
                 <p class="text-muted text-center">Loading Statistics...</p>
               </div>
             </div>
-          </div>
-
-          <!-- Event Modal -->
+          </div> 
           <div id="eventModal" class="modal" style="display: none;">
-            <div class="modal-content">
-              <span class="modal-close" onclick="closeEventModal()">&times;</span>
-              <h2 id="modalEventTitle"></h2>
-              <div id="modalEventContent"></div>
+             <div class="modal-content">
+                <span class="modal-close" onclick="closeEventModal()">&times;</span>
+                <h2 id="modalEventTitle"></h2>
+                <div id="modalEventContent"></div>
+              </div>
             </div>
-          </div>
+          </div>    
+        </div>
+      </div>  
 
       <!-- Sidebar -->
       <div class="sidebar">

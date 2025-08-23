@@ -347,21 +347,6 @@
       background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
       box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
     }
-
-    /* Add a subtle pattern to event cards */
-      .event-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 100px;
-      height: 100px;
-      background: radial-gradient(circle, rgba(255, 215, 0, 0.05) 0%, transparent 70%);
-      border-radius: 50%;
-      transform: translate(30px, -30px);
-      pointer-events: none;
-      z-index: -1; /* MOVE behind the card content */
-    }
     
     /* Subscriber List */
     .subscriber-list {
@@ -722,12 +707,10 @@
       display: block;
     }
     
-    /* Main events container */
-      .events-container {
-      display: grid;
-      gap: 30px; /* Increased gap to prevent overlap */
+    .events-container {
+      display: block; /* Changed from grid to block */
       margin-top: 20px;
-      isolation: isolate; /* KEY FIX: Creates stacking context */
+      width: 100%;
     }
 
   
@@ -736,20 +719,28 @@
       border-radius: 15px;
       padding: 25px;
       border-left: 4px solid #FFD700;
-      transition: all 0.3s ease;
       cursor: pointer;
       box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      position: relative;
-      overflow: visible; /* CHANGED from hidden to visible */
-      z-index: 1; /* BASE z-index */
-      margin-bottom: 10px; /* ADD explicit margin */
+      
+      /* CRITICAL: Clear separation */
+      margin-bottom: 30px; /* Force space between cards */
+      display: block; /* Ensure block layout */
+      width: 100%; /* Full width */
+      clear: both; /* Clear any floats */
+      
+      /* Remove problematic properties */
+      position: static; /* Remove relative positioning */
+      transform: none; /* Remove transforms initially */
+      z-index: auto; /* Auto z-index */
+      
+      transition: all 0.3s ease;
     }
+   
 
     
     .event-card:hover {
-      transform: translateY(-3px);
+      transform: translateY(-3px); /* Only apply transform on hover */
       box-shadow: 0 12px 30px rgba(255, 215, 0, 0.15);
-      z-index: 5; /* HIGHER z-index on hover */
     }
 
     /* Event type specific colors */
@@ -785,17 +776,17 @@
       background: radial-gradient(circle, rgba(255, 105, 180, 0.05) 0%, transparent 70%);
     }
 
-    .event-header {
+   .event-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 20px; /* Increased spacing */
+      margin-bottom: 20px;
       padding-bottom: 15px;
       border-bottom: 1px solid rgba(255, 215, 0, 0.2);
     }
 
-   .event-title {
-      font-size: 1.4rem; /* Slightly larger */
+    .event-title {
+      font-size: 1.4rem;
       font-weight: 700;
       color: #FFD700;
       margin: 0;

@@ -349,7 +349,7 @@
     }
 
     /* Add a subtle pattern to event cards */
-    .event-card::before {
+      .event-card::before {
       content: '';
       position: absolute;
       top: 0;
@@ -360,6 +360,7 @@
       border-radius: 50%;
       transform: translate(30px, -30px);
       pointer-events: none;
+      z-index: -1; /* MOVE behind the card content */
     }
     
     /* Subscriber List */
@@ -722,28 +723,33 @@
     }
     
     /* Main events container */
-    .events-container {
+      .events-container {
       display: grid;
-      gap: 25px; /* Increased from 20px for better breathing room */
+      gap: 30px; /* Increased gap to prevent overlap */
       margin-top: 20px;
+      isolation: isolate; /* KEY FIX: Creates stacking context */
     }
 
-   .event-card {
+  
+    .event-card {
       background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px; /* More rounded corners */
-      padding: 25px; /* Increased from 20px */
+      border-radius: 15px;
+      padding: 25px;
       border-left: 4px solid #FFD700;
       transition: all 0.3s ease;
       cursor: pointer;
       box-shadow: 0 4px 15px rgba(0,0,0,0.2);
       position: relative;
-      overflow: hidden;
+      overflow: visible; /* CHANGED from hidden to visible */
+      z-index: 1; /* BASE z-index */
+      margin-bottom: 10px; /* ADD explicit margin */
     }
 
     
     .event-card:hover {
-      transform: translateY(-3px); /* Slightly more lift */
+      transform: translateY(-3px);
       box-shadow: 0 12px 30px rgba(255, 215, 0, 0.15);
+      z-index: 5; /* HIGHER z-index on hover */
     }
 
     /* Event type specific colors */

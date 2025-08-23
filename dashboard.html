@@ -4407,6 +4407,81 @@
       }
     }
 
+    // Render insights
+    function renderInsights(insights) {
+      const container = document.getElementById('aiInsights');
+      if (!container) return;
+      
+      if (insights.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No insights available yet. Check back as your data grows!</p>';
+        return;
+      }
+      
+      container.innerHTML = insights.map(insight => `
+        <div class="insight-card ${insight.type}" onclick="executeInsightAction('${insight.action}')">
+          <div class="insight-header">
+            <span class="insight-icon">${insight.icon}</span>
+            <span class="insight-title">${insight.title}</span>
+          </div>
+          <div class="insight-description">${insight.description}</div>
+          <div class="insight-action">${insight.action} →</div>
+        </div>
+      `).join('');
+    }
+
+    // Performance summary
+    function updatePerformanceSummary(kpis) {
+      try {
+        const container = document.getElementById('performanceSummary');
+        if (!container) return;
+        
+        const subscriber = kpis.subscribers || {};
+        const events = kpis.events || {};
+        const engagement = kpis.engagement || {};
+        const revenue = kpis.revenue || {};
+        
+        const metrics = [
+          {
+            label: 'Growth Rate',
+            value: `${subscriber.growth_rate || 0}%`,
+            trend: subscriber.growth_rate > 0 ? 'up' : subscriber.growth_rate < 0 ? 'down' : 'neutral',
+            icon: subscriber.growth_rate > 0 ? '↗️' : subscriber.growth_rate < 0 ? '↘️' : '➡️'
+          },
+          {
+            label: 'Event Participation',
+            value: `${engagement.engagement_rate || 0}%`,
+            trend: engagement.engagement_rate > 25 ? 'up' : engagement.engagement_rate < 15 ? 'down' : 'neutral',
+            icon: engagement.engagement_rate > 25 ? '🎯' : '👥'
+          },
+          {
+            label: 'Avg Capacity',
+            value: `${events.avg_capacity_utilization || 0}%`,
+            trend: events.avg_capacity_utilization > 70 ? 'up' : events.avg_capacity_utilization < 40 ? 'down' : 'neutral',
+            icon: events.avg_capacity_utilization > 70 ? '🔥' : '📊'
+          },
+          {
+            label: 'Revenue/Event',
+            value: `£${(revenue.avg_per_event || 0).toFixed(2)}`,
+            trend: revenue.avg_per_event > 10 ? 'up' : revenue.avg_per_event < 5 ? 'down' : 'neutral',
+            icon: '💰'
+          }
+        ];
+        
+        container.innerHTML = metrics.map(metric => `
+          <div class="performance-metric">
+            <span class="metric-label">${metric.icon} ${metric.label}</span>
+            <div>
+              <span class="metric-value">${metric.value}</span>
+              <span class="metric-trend trend-${metric.trend}"></span>
+            </div>
+          </div>
+        `).join('');
+        
+      } catch (error) {
+        console.error('Error updating performance summary:', error);
+      }
+    }
+
     // Update subscriber growth chart
     function updateSubscriberGrowthChart(data) {
       try {

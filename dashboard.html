@@ -2412,14 +2412,119 @@
       }
     }
 
+    // Create event card as DOM element (not HTML string)
+    function createEventCardElement(event) {
+      const card = document.createElement('div');
+      card.className = `event-card ${event.type || ''}`;
+      card.onclick = () => showEventDetails(event.id);
+      
+      // Format date and time
+      const eventDate = new Date(event.start_time);
+      const dateStr = eventDate.toLocaleDateString('en-GB', { 
+        weekday: 'short', 
+        day: 'numeric', 
+        month: 'short' 
+      });
+      const timeStr = eventDate.toLocaleTimeString('en-GB', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      // Calculate capacity
+      const registrations = event.registrations || 0;
+      const capacity = event.capacity || 0;
+      const capacityText = capacity > 0 ? `${registrations}/${capacity}` : `${registrations} registered`;
+      const capacityPercent = capacity > 0 ? (registrations / capacity) * 100 : 0;
+      
+      // Build the card content
+      card.innerHTML = `
+        <div class="event-header">
+          <div>
+            <h3 class="event-title">${escapeHtml(event.title || 'Untitled Event')}</h3>
+            ${event.game_title ? `<div class="event-game-subtitle">${escapeHtml(event.game_title)}</div>` : ''}
+          </div>
+          <span class="event-badge badge-${event.type || 'special'}">${(event.type || 'special').replace('_', ' ')}</span>
+        </div>
+        
+        <div class="event-details">
+          <div class="event-detail">
+            <span class="event-detail-icon">📅</span>
+            ${dateStr}
+          </div>
+          <div class="event-detail">
+            <span class="event-detail-icon">🕒</span>
+            ${timeStr}
+          </div>
+          <div class="event-detail">
+            <span class="event-detail-icon">👥</span>
+            ${capacityText}
+          </div>
+          ${event.entry_fee > 0 ? `
+            <div class="event-detail">
+              <span class="event-detail-icon">💰</span>
+              £${parseFloat(event.entry_fee).toFixed(2)}
+            </div>
+          ` : ''}
+        </div>
+        
+        ${capacity > 0 ? `
+          <div class="capacity-bar">
+            <div class="capacity-fill" style="width: ${Math.min(capacityPercent, 100)}%"></div>
+            <div class="capacity-text">${Math.round(capacityPercent)}% Full</div>
+          </div>
+        ` : ''}
+        
+        <div class="event-actions">
+          <button class="btn btn-primary" onclick="quickRegister(${event.id}); event.stopPropagation();">
+            QUICK REGISTER
+          </button>
+          <button class="btn btn-secondary" onclick="editEvent(${event.id}); event.stopPropagation();">
+            EDIT EVENT
+          </button>
+          <button class="btn btn-success" onclick="viewAttendees(${event.id}); event.stopPropagation();">
+            VIEW ATTENDEES
+          </button>
+          <button class="btn btn-warning" onclick="sendEventMarketing(${event.id}); event.stopPropagation();">
+            📊 MARKETING
+          </button>
+        </div>
+      `;
+      
+      return card;
+    }
+
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    
+
     // Render events list
-    function renderEventsList(events) {
-      const container = document.getElementById('eventsList');
+   function renderEventsList(events) {
+      const listContainer = document.getElementById('eventsList');
       
       if (!events || events.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center">No upcoming events</p>';
+        listContainer.innerHTML = `
+          <div class="empty-state">
+            <h3>No events found</h3>
+            <p>No upcoming events match your current filter criteria.</p>
+          </div>
+        `;
         return;
       }
+
+      // CRITICAL: Clear container completely first
+      listContainer.innerHTML = '';
+      
+      // Create each event as a separate DOM element (not HTML string)
+      events.forEach(event => {
+        const eventCard = createEventCardElement(event);
+        listContainer.appendChild(eventCard); // Append as siblings
+      });
+    
 
       container.innerHTML = events.map(event => {
         const eventDate = new Date(event.date_time);

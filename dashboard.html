@@ -3338,18 +3338,6 @@
     let activityLog = [];
     let currentStats = {};
     let growthChart = null;
-    let currentChartView = 'subscribers';
-
-    function toggleChartView(view) {
-      currentChartView = view;
-
-      // update active button UI
-      document.querySelectorAll('.chart-toggle-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.chart === view);
-      });
-
-      refreshAnalytics(); // reload/re-render with new chart type
-    }
     
     // Initialize dashboard
     document.addEventListener('DOMContentLoaded', function() {
@@ -4325,66 +4313,16 @@
 
     
 
-    function updateMainGrowthChart(data) {
-      const ctx = document.getElementById('mainGrowthChart');
-      if (!ctx) {
-        console.error("Canvas #mainGrowthChart not found");
-        return;
+    function updateAnalyticsCharts(trends) {
+      try {
+        updateMainGrowthChart(trends); // ← New function name
+        // Remove the old function calls:
+        // updateSubscriberGrowthChart(trends.subscriber_growth || []);
+        // updateRegistrationTrendChart(trends.registration_trend || []);
+      } catch (error) {
+        console.error('Error updating charts:', error);
       }
-
-      // pick the dataset based on current view
-      let chartData;
-      if (currentChartView === 'subscribers') {
-        chartData = data.subscribers;
-      } else {
-        chartData = data.registrations;
-      }
-
-      // destroy old chart if it exists
-      if (growthChart) {
-        growthChart.destroy();
-      }
-
-      growthChart = new Chart(ctx.getContext('2d'), {
-        type: 'line',
-        data: {
-          labels: chartData.labels,
-          datasets: [{
-            label: currentChartView,
-            data: chartData.values,
-            borderColor: '#FFD700',
-            backgroundColor: 'rgba(255, 215, 0, 0.2)',
-            tension: 0.3,
-            fill: true
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              labels: { color: '#fff' }
-            }
-          },
-          scales: {
-            x: { ticks: { color: '#aaa' } },
-            y: { ticks: { color: '#aaa' } }
-          }
-        }
-      });
     }
-
-    const dummyData = {
-      subscribers: {
-        labels: ["Week 1", "Week 2", "Week 3"],
-        values: [10, 20, 30]
-      },
-      registrations: {
-        labels: ["Week 1", "Week 2", "Week 3"],
-        values: [5, 15, 25]
-      }
-    };
-
-    updateMainGrowthChart(dummyData);
 
     // Export analytics report
     async function exportAnalyticsReport() {

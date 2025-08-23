@@ -1252,26 +1252,6 @@
       </div>
     </div>
 
-    <!-- Stats Grid -->
-    <div class="stats-grid">
-      <div class="stat-card primary">
-        <div class="stat-value" id="totalSubscribers">-</div>
-        <div class="stat-label">Total Subscribers</div>
-      </div>
-      <div class="stat-card success">
-        <div class="stat-value" id="todaySignups">-</div>
-        <div class="stat-label">Today's Signups</div>
-      </div>
-      <div class="stat-card warning">
-        <div class="stat-value" id="thisWeekSignups">-</div>
-        <div class="stat-label">This Week</div>
-      </div>
-      <div class="stat-card info">
-        <div class="stat-value" id="brevoSyncStatus">⏳</div>
-        <div class="stat-label">Brevo Sync</div>
-      </div>
-    </div>
-
     <!-- Main Dashboard -->
     <div class="dashboard-grid">
       <!-- Main Content -->
@@ -3978,7 +3958,7 @@
         console.log('🔍 DEBUG: subscriberKPIs.total:', subscriberKPIs.total);
         console.log('🔍 DEBUG: totalSubscribers element:', document.getElementById('totalSubscribers'));
         
-        
+        document.getElementById('analyticsSubscribers').textContent = subscriberKPIs.total || 0;
         document.getElementById('newSubscribers').textContent = subscriberKPIs.new_this_period || 0;
         document.getElementById('weeklyGrowth').textContent = subscriberKPIs.weekly_growth || 0;
         

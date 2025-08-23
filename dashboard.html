@@ -708,23 +708,29 @@
     }
     
     .events-container {
-      display: block; /* Changed from grid to block */
+      display: block;
       margin-top: 20px;
       width: 100%;
     }
 
   
-    .event-card {
-      border: 3px solid red !important; /* You'll see red boxes */
-      margin-bottom: 50px !important; /* Force huge gaps */
-      position: static !important;
-      transform: none !important;
+   .event-card {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      border-radius: 15px;
+      padding: 25px;
+      border-left: 4px solid #FFD700;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      margin-bottom: 25px; /* Good spacing between cards */
+      display: block;
+      width: 100%;
+      transition: all 0.3s ease;
+      position: relative; /* Add this back for proper layout */
     }
 
     .event-card * {
-      position: static !important; /* Force all children to be static */
-    }
-   
+      position: static !important;
+    }  
 
     
     .event-card:hover {

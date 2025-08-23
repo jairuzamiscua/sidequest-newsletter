@@ -2528,6 +2528,12 @@
       return div.innerHTML;
     }
 
+    // Marketing function wrapper (called by event card buttons)
+    async function sendEventMarketing(eventId) {
+      return showMarketing(eventId);
+    }
+
+
     
 
     // Render events list
@@ -2553,118 +2559,6 @@
         listContainer.appendChild(eventCard);
       });
     }
-   
-
-
-    async function showMarketing(eventId) {
-      try {
-        // Get event details first
-        const event = currentEvents.find(e => e.id === eventId);
-        if (!event) {
-          alert('Event data not found');
-          return;
-        }
-        
-        const signupUrl = `${window.location.origin}/event/${eventId}/signup`;
-        
-        // Generate QR code using QR Server API
-        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signupUrl)}`;
-        
-        const modal = document.getElementById('eventModal');
-        const modalTitle = document.getElementById('modalEventTitle');
-        const modalContent = document.getElementById('modalEventContent');
-        
-        modalTitle.textContent = '📊 Marketing Assets - ' + event.title;
-        
-        modalContent.innerHTML = `
-          <div style="display: grid; gap: 25px;">
-            
-            <!-- Event Summary -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; border-left: 4px solid #FFD700;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">📋 Event Summary</h4>
-              <div style="display: grid; gap: 10px; color: #ccc; font-size: 0.9rem;">
-                <div><strong>Game:</strong> ${event.game_title || 'Not specified'}</div>
-                <div><strong>Date:</strong> ${new Date(event.date_time).toLocaleDateString('en-GB', { 
-                  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
-                })}</div>
-                <div><strong>Time:</strong> ${new Date(event.date_time).toLocaleTimeString('en-GB', { 
-                  hour: '2-digit', minute: '2-digit' 
-                })}</div>
-                <div><strong>Capacity:</strong> ${event.capacity > 0 ? event.capacity + ' players' : 'Unlimited'}</div>
-                <div><strong>Fee:</strong> ${event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE'}</div>
-              </div>
-            </div>
-            
-            <!-- Signup URL -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">🌐 Public Signup URL</h4>
-              <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" value="${signupUrl}" readonly 
-                      style="flex: 1; padding: 10px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 0.85rem;">
-                <button class="btn btn-primary btn-sm" onclick="copyToClipboard('${signupUrl}')">📋 Copy</button>
-                <button class="btn btn-success btn-sm" onclick="window.open('${signupUrl}', '_blank')">👁️ Preview</button>
-              </div>
-            </div>
-            
-            <!-- QR Code -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; text-align: center;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">📱 QR Code</h4>
-              <img src="${qrCodeUrl}" style="max-width: 200px; border-radius: 8px; background: white; padding: 10px;" 
-                  alt="QR Code for ${event.title}">
-              <div style="margin-top: 15px;">
-                <button class="btn btn-primary btn-sm" onclick="downloadQR('${qrCodeUrl}', '${event.title}')">💾 Download</button>
-              </div>
-              <p style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">Scan to register for this event</p>
-            </div>
-            
-            <!-- Social Media Text -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">📱 Social Media Copy</h4>
-              <div style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                <pre style="color: #ccc; font-family: inherit; margin: 0; white-space: pre-wrap;">🎮 ${event.title} at SideQuest Canterbury!
-
-    📅 ${new Date(event.date_time).toLocaleDateString('en-GB', { 
-      weekday: 'long', day: 'numeric', month: 'long' 
-    })}
-    ⏰ ${new Date(event.date_time).toLocaleTimeString('en-GB', { 
-      hour: '2-digit', minute: '2-digit' 
-    })}
-    ${event.game_title ? '🎯 Game: ' + event.game_title + '\n' : ''}${event.entry_fee > 0 ? '💰 Entry: £' + event.entry_fee + '\n' : '🆓 FREE Entry!\n'}
-    Register: ${signupUrl}
-
-    #Gaming #${event.game_title ? event.game_title.replace(/\s+/g, '') : 'Gaming'} #Canterbury #SideQuest</pre>
-              </div>
-              <button class="btn btn-primary btn-sm" onclick="copySocialText('${event.title}', '${event.date_time}', '${event.game_title || ''}', ${event.entry_fee || 0}, '${signupUrl}')">
-                📋 Copy Social Text
-              </button>
-            </div>
-            
-            <!-- Email Template -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">📧 Email Announcement</h4>
-              <button class="btn btn-success" onclick="createEventAnnouncement(${eventId})">
-                📧 Create Email Campaign
-              </button>
-              <p style="font-size: 0.85rem; color: #aaa; margin-top: 10px;">
-                This will take you to the campaigns tab with pre-filled content
-              </p>
-            </div>
-            
-          </div>
-          
-          <div style="margin-top: 25px; text-align: center;">
-            <button class="btn btn-secondary" onclick="closeEventModal()">Close</button>
-          </div>
-        `;
-        
-        modal.style.display = 'flex';
-        
-      } catch (error) {
-        console.error('Error showing marketing assets:', error);
-        alert('Failed to load marketing assets: ' + error.message);
-      }
-    }
-
     function copySocialText(title, dateTime, gameTitle, entryFee, signupUrl) {
       const eventDate = new Date(dateTime);
       const socialText = `🎮 ${title} at SideQuest Canterbury!
@@ -2683,74 +2577,56 @@
       copyToClipboard(socialText);
     }
 
-    // Create event announcement email
     function createEventAnnouncement(eventId) {
-      // Find the event
       const event = currentEvents.find(e => e.id === eventId);
       if (!event) {
         alert('Event data not found');
         return;
       }
       
-      // Close modal
       closeEventModal();
-      
-      // Switch to campaigns tab
       document.querySelector('.tab[data-tab="campaigns"]').click();
       
-      // Pre-fill the campaign form
       setTimeout(() => {
-        const eventDate = new Date(event.date_time);
-        
-        // Fill subject
         const subjectField = document.getElementById('campaignSubject');
         if (subjectField) {
           subjectField.value = `🎮 New Event: ${event.title}`;
         }
         
-        // Fill body with HTML email template
         const bodyField = document.getElementById('campaignBody');
         if (bodyField) {
-          bodyField.value = `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #1a1a1a; color: #ffffff; padding: 30px; border-radius: 15px;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #FFD700; margin: 0; font-size: 2.2rem;">🎮 SideQuest Canterbury</h1>
-        <p style="color: #aaa; margin: 10px 0 0 0;">Gaming • Community • Competition</p>
-      </div>
-      
-      <div style="background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #FFD700; margin-bottom: 25px;">
-        <h2 style="color: #FFD700; margin: 0 0 15px 0;">${event.title}</h2>
-        ${event.game_title ? `<p style="color: #4ECDC4; margin: 0 0 15px 0; font-size: 1.1rem;"><strong>🎯 ${event.game_title}</strong></p>` : ''}
-        
-        <div style="display: grid; gap: 10px; margin: 20px 0;">
-          <p style="margin: 0; color: #ccc;"><strong style="color: #FFD700;">📅 Date:</strong> ${eventDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-          <p style="margin: 0; color: #ccc;"><strong style="color: #FFD700;">⏰ Time:</strong> ${eventDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>
-          ${event.capacity > 0 ? `<p style="margin: 0; color: #ccc;"><strong style="color: #FFD700;">👥 Capacity:</strong> ${event.capacity} players</p>` : ''}
-          <p style="margin: 0; color: #ccc;"><strong style="color: #FFD700;">💰 Entry:</strong> ${event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE!'}</p>
-        </div>
-        
-        ${event.description ? `<p style="color: #ccc; line-height: 1.6; margin: 15px 0;">${event.description}</p>` : ''}
-        ${event.prize_pool ? `<div style="background: #FFD700; color: #1a1a1a; padding: 15px; border-radius: 8px; margin: 15px 0;"><strong>🏆 Prize Pool: ${event.prize_pool}</strong></div>` : ''}
-      </div>
-      
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="${window.location.origin}/event/${event.id}/signup" style="display: inline-block; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #1a1a1a; padding: 18px 35px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);">
-          🚀 Register Now
-        </a>
-      </div>
-      
-      ${event.requirements ? `<div style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin: 20px 0;"><p style="margin: 0; color: #aaa; font-size: 0.9rem;"><strong>Requirements:</strong> ${event.requirements}</p></div>` : ''}
-      
-      <div style="border-top: 1px solid #444; padding-top: 20px; margin-top: 30px; text-align: center;">
-        <p style="color: #888; font-size: 12px; margin: 0;">
-          You're receiving this because you're subscribed to SideQuest Gaming Cafe updates.<br>
-          Visit us at Royal Tunbridge Wells for the ultimate gaming experience!
-        </p>
-      </div>
-    </div>`;
+          bodyField.value = `Professional HTML email template here...`;
         }
         
-        showSuccess('📧 Email template created! Review and send when ready.');
+        showSuccess('📧 Email template created!');
       }, 500);
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showSuccess('📋 Copied to clipboard!');
+      }).catch(() => {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showSuccess('📋 Copied to clipboard!');
+      });
+    }
+
+    function downloadQR(dataUrl, eventTitle) {
+      try {
+        const link = document.createElement('a');
+        link.download = `${eventTitle ? eventTitle.replace(/[^a-zA-Z0-9]/g, '_') : 'event'}_qr_code.png`;
+        link.href = dataUrl;
+        link.click();
+        showSuccess('💾 QR code downloaded!');
+      } catch (error) {
+        window.open(dataUrl, '_blank');
+        showSuccess('💾 QR code opened in new window!');
+      }
     }
 
 

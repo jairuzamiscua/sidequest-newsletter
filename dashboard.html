@@ -1346,7 +1346,7 @@
                   <span class="kpi-trend" id="subscriberTrend">+0%</span>
                 </div>
                 <div class="kpi-main">
-                  <div class="kpi-value" id="totalSubscribers">-</div>
+                  <div class="kpi-value" id="analyticsSubscribers">-</div>
                   <div class="kpi-label">Total Subscribers</div>
                 </div>
                 <div class="kpi-details">
@@ -3978,7 +3978,7 @@
         console.log('🔍 DEBUG: subscriberKPIs.total:', subscriberKPIs.total);
         console.log('🔍 DEBUG: totalSubscribers element:', document.getElementById('totalSubscribers'));
         
-        document.getElementById('totalSubscribers').textContent = subscriberKPIs.total || 0;
+        document.getElementById('analyticsSubscribers').textContent = subscriberKPIs.total || 0;
         document.getElementById('newSubscribers').textContent = subscriberKPIs.new_this_period || 0;
         document.getElementById('weeklyGrowth').textContent = subscriberKPIs.weekly_growth || 0;
         

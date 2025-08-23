@@ -4313,11 +4313,12 @@
 
     
 
-    // Update charts
     function updateAnalyticsCharts(trends) {
       try {
-        updateMainGrowthChart(trends);
-        // Remove the old updateRegistrationTrendChart call since we're using one combined chart now
+        updateMainGrowthChart(trends); // ← New function name
+        // Remove the old function calls:
+        // updateSubscriberGrowthChart(trends.subscriber_growth || []);
+        // updateRegistrationTrendChart(trends.registration_trend || []);
       } catch (error) {
         console.error('Error updating charts:', error);
       }

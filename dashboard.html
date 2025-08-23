@@ -313,6 +313,54 @@
       padding: 10px 20px;
       font-size: 12px;
     }
+
+    .event-actions .btn {
+      padding: 12px 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 10px;
+      transition: all 0.3s ease;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .event-actions .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .event-actions .btn-primary {
+      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+      box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+    }
+
+    .event-actions .btn-success {
+      background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+      box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+    }
+
+    .event-actions .btn-secondary {
+      background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+      box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+    }
+
+    .event-actions .btn-warning {
+      background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    }
+
+    /* Add a subtle pattern to event cards */
+    .event-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100px;
+      height: 100px;
+      background: radial-gradient(circle, rgba(255, 215, 0, 0.05) 0%, transparent 70%);
+      border-radius: 50%;
+      transform: translate(30px, -30px);
+      pointer-events: none;
+    }
     
     /* Subscriber List */
     .subscriber-list {
@@ -526,6 +574,71 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+      .event-card {
+        padding: 20px;
+      }
+      
+      .event-details {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
+      
+      .event-actions {
+        grid-template-columns: 1fr;
+      }
+      
+      .event-actions.four-buttons {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, 1fr);
+      }
+    }
+
+    .events-container .empty-state h3 {
+      color: #FFD700;
+      margin-bottom: 15px;
+    }
+
+    /* Event filter dropdown improvements */
+    #eventTypeFilter {
+      min-width: 160px;
+      padding: 10px 15px;
+      border-radius: 10px;
+      background: #2a2a2a;
+      border: 2px solid #444;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    #eventTypeFilter:focus {
+      border-color: #FFD700;
+      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+    }
+    
+
+    /* Empty state styling */
+    .events-container .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #aaaaaa;
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      border-radius: 15px;
+      border: 2px dashed #444;
+    }
+
+
+    /* Loading state improvements */
+    .events-container .loading-placeholder {
+      text-align: center;
+      padding: 60px 20px;
+      color: #aaaaaa;
+    }
+
+    .events-container .spinner {
+      margin: 0 auto 20px;
+    }
     
     /* Responsive */
     @media (max-width: 768px) {
@@ -608,50 +721,97 @@
       display: block;
     }
     
+    /* Main events container */
     .events-container {
       display: grid;
-      gap: 20px;
+      gap: 25px; /* Increased from 20px for better breathing room */
+      margin-top: 20px;
     }
 
-    event-card {
+   .event-card {
       background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 15px; /* More rounded corners */
+      padding: 25px; /* Increased from 20px */
       border-left: 4px solid #FFD700;
       transition: all 0.3s ease;
       cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      position: relative;
+      overflow: hidden;
     }
 
     
     .event-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
+      transform: translateY(-3px); /* Slightly more lift */
+      box-shadow: 0 12px 30px rgba(255, 215, 0, 0.15);
     }
 
-    .event-card.tournament { border-left-color: #FF6B35; }
-    .event-card.game_night { border-left-color: #4ECDC4; }
-    .event-card.special { border-left-color: #FFD700; }
-    .event-card.birthday { border-left-color: #FF69B4; }
+    /* Event type specific colors */
+    .event-card.tournament {
+      border-left-color: #FF6B35;
+    }
+
+    .event-card.tournament::before {
+      background: radial-gradient(circle, rgba(255, 107, 53, 0.05) 0%, transparent 70%);
+    }
+
+    .event-card.game_night {
+      border-left-color: #4ECDC4;
+    }
+
+    .event-card.game_night::before {
+      background: radial-gradient(circle, rgba(78, 205, 196, 0.05) 0%, transparent 70%);
+    }
+
+    .event-card.special {
+      border-left-color: #8B5CF6;
+    }
+
+    .event-card.special::before {
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+    }
+
+    .event-card.birthday {
+      border-left-color: #FF69B4;
+    }
+
+    .event-card.birthday::before {
+      background: radial-gradient(circle, rgba(255, 105, 180, 0.05) 0%, transparent 70%);
+    }
 
     .event-header {
       display: flex;
       justify-content: space-between;
-      align-items: start;
-      margin-bottom: 15px;
+      align-items: flex-start;
+      margin-bottom: 20px; /* Increased spacing */
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
     }
 
-    .event-title {
-      font-size: 1.3rem;
+   .event-title {
+      font-size: 1.4rem; /* Slightly larger */
       font-weight: 700;
       color: #FFD700;
+      margin: 0;
+      line-height: 1.3;
+    }
+
+    .event-game-subtitle {
+      font-size: 1rem;
+      color: #aaaaaa;
+      margin-top: 5px;
+      font-weight: 500;
     }
 
     .event-badge {
-      padding: 5px 12px;
+      padding: 8px 16px; /* More generous padding */
       border-radius: 20px;
       font-size: 0.8rem;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
 
     .badge-tournament { background: #FF6B35; color: white; }
@@ -661,44 +821,57 @@
 
     .event-details {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
-      margin-bottom: 15px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 20px; /* Increased gap */
+      margin-bottom: 20px;
+      padding: 15px 0;
     }
 
     .event-detail {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       color: #cccccc;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
+      font-weight: 500;
     }
 
     .event-detail-icon {
       color: #FFD700;
-      font-size: 1.1rem;
+      font-size: 1.2rem;
+      width: 20px; /* Fixed width for alignment */
+      text-align: center;
     }
 
     .event-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 15px;
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* Two columns */
+      gap: 12px;
+      margin-top: 20px;
     }
 
+    .event-actions.four-buttons {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+    }
+
+    /* Capacity bar improvements */
     .capacity-bar {
       width: 100%;
-      height: 25px;
+      height: 28px; /* Slightly taller */
       background: #1a1a1a;
-      border-radius: 12px;
+      border-radius: 15px;
       overflow: hidden;
-      margin-top: 10px;
+      margin: 15px 0 20px 0;
       position: relative;
+      border: 2px solid #333;
     }
 
-    .capacity-fill {
+   .capacity-fill {
       height: 100%;
       background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
       transition: width 0.3s ease;
+      border-radius: 12px;
     }
 
     .capacity-text {
@@ -707,9 +880,10 @@
       left: 50%;
       transform: translate(-50%, -50%);
       color: white;
-      font-weight: 600;
-      font-size: 0.85rem;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+      z-index: 2;
     }
 
     /* Modal Styles */

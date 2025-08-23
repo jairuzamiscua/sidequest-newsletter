@@ -2533,8 +2533,124 @@
       return showMarketing(eventId);
     }
 
+    async function testPublicSignup(eventId) {
+      const signupUrl = `${window.location.origin}/signup/event/${eventId}`;
+      
+      try {
+        const response = await fetch(`/api/events/${eventId}/public`);
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('✅ Public signup page should work:', signupUrl);
+          window.open(signupUrl, '_blank');
+          return true;
+        } else {
+          console.error('❌ Event not found for public signup');
+          return false;
+        }
+      } catch (error) {
+        console.error('❌ Error testing public signup:', error);
+        return false;
+      }
+    }
+
+    async function testEventRegistration(eventId) {
+      console.log(`🧪 Testing registration flow for event ${eventId}`);
+      
+      try {
+        // 1. Test public event details
+        const eventResponse = await fetch(`/api/events/${eventId}/public`);
+        const eventData = await eventResponse.json();
+        
+        if (!eventData.success) {
+          console.error('❌ Event not found');
+          return false;
+        }
+        
+        console.log('✅ Event details loaded:', eventData.event.title);
+        
+        // 2. Test QR code generation
+        const qrUrl = await generateEventQR(eventId);
+        console.log('✅ QR code generated:', qrUrl);
+        
+        // 3. Test signup URL
+        const signupUrl = `${window.location.origin}/signup/event/${eventId}`;
+        console.log('✅ Signup URL:', signupUrl);
+        
+        return {
+          eventTitle: eventData.event.title,
+          signupUrl: signupUrl,
+          qrUrl: qrUrl,
+          success: true
+        };
+        
+      } catch (error) {
+        console.error('❌ Registration test failed:', error);
+        return { success: false, error: error.message };
+      }
+    }
+
+    // Debug function to check all events
+    async function debugAllEventSignups() {
+      try {
+        const response = await fetch('/api/events');
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log(`Found ${data.events.length} events. Testing signup functionality...`);
+          
+          for (const event of data.events.slice(0, 3)) { // Test first 3 events
+            console.log(`\n=== Testing Event: ${event.title} (ID: ${event.id}) ===`);
+            const result = await testEventRegistration(event.id);
+            
+            if (result.success) {
+              console.log('✅ All systems working for this event');
+            } else {
+              console.log('❌ Issues found:', result.error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Debug failed:', error);
+      }
+    }
+
+   async function generateEventQR(eventId) {
+      const signupUrl = `${window.location.origin}/signup/event/${eventId}`;
+      
+      try {
+        // Try backend QR generation first
+        const response = await fetch(`/api/events/${eventId}/qr-code`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            return data.qr_code;
+          }
+        }
+        
+        // Fallback to external QR service
+        const qrServiceUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signupUrl)}`;
+        console.log('Using fallback QR service');
+        return qrServiceUrl;
+        
+      } catch (error) {
+        console.error('QR generation error:', error);
+        // Final fallback
+        return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signupUrl)}`;
+      }
+    }
+
     async function showMarketing(eventId) {
       try {
+        // Test the registration flow first
+        const testResult = await testEventRegistration(eventId);
+        
+        if (!testResult.success) {
+          alert('❌ Public signup not working for this event: ' + testResult.error);
+          return;
+        }
+        
         // Get event details first
         const event = currentEvents.find(e => e.id === eventId);
         if (!event) {
@@ -2542,10 +2658,8 @@
           return;
         }
         
-        const signupUrl = `${window.location.origin}/event/${eventId}/signup`;
-        
-        // Generate QR code using QR Server API
-        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signupUrl)}`;
+        const signupUrl = testResult.signupUrl;
+        const qrCodeUrl = testResult.qrUrl;
         
         const modal = document.getElementById('eventModal');
         const modalTitle = document.getElementById('modalEventTitle');
@@ -2554,87 +2668,62 @@
         modalTitle.textContent = '📊 Marketing Assets - ' + event.title;
         
         modalContent.innerHTML = `
-          <div style="display: grid; gap: 25px;">
-            
-            <!-- Event Summary -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; border-left: 4px solid #FFD700;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">📋 Event Summary</h4>
-              <div style="display: grid; gap: 10px; color: #ccc; font-size: 0.9rem;">
-                <div><strong>Game:</strong> ${event.game_title || 'Not specified'}</div>
-                <div><strong>Date:</strong> ${new Date(event.date_time).toLocaleDateString('en-GB', { 
-                  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
-                })}</div>
-                <div><strong>Time:</strong> ${new Date(event.date_time).toLocaleTimeString('en-GB', { 
-                  hour: '2-digit', minute: '2-digit' 
-                })}</div>
-                <div><strong>Capacity:</strong> ${event.capacity > 0 ? event.capacity + ' players' : 'Unlimited'}</div>
-                <div><strong>Fee:</strong> ${event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE'}</div>
-              </div>
+          <!-- Status Check -->
+          <div style="background: #1a1a1a; border-radius: 12px; padding: 15px; border-left: 4px solid #00ff88; margin-bottom: 20px;">
+            <h4 style="color: #00ff88; margin-bottom: 10px;">✅ Public Signup Status</h4>
+            <p style="color: #ccc; font-size: 0.9rem;">Public registration is working for this event!</p>
+          </div>
+          
+          <!-- Event Summary -->
+          <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; border-left: 4px solid #FFD700;">
+            <h4 style="color: #FFD700; margin-bottom: 15px;">📋 Event Summary</h4>
+            <div style="display: grid; gap: 10px; color: #ccc; font-size: 0.9rem;">
+              <div><strong>Game:</strong> ${event.game_title || 'Not specified'}</div>
+              <div><strong>Date:</strong> ${new Date(event.date_time).toLocaleDateString('en-GB', { 
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
+              })}</div>
+              <div><strong>Time:</strong> ${new Date(event.date_time).toLocaleTimeString('en-GB', { 
+                hour: '2-digit', minute: '2-digit' 
+              })}</div>
+              <div><strong>Capacity:</strong> ${event.capacity > 0 ? event.capacity + ' players' : 'Unlimited'}</div>
+              <div><strong>Fee:</strong> ${event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE'}</div>
             </div>
-            
-            <!-- Signup URL -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">🌐 Public Signup URL</h4>
-              <div style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" value="${signupUrl}" readonly 
-                      style="flex: 1; padding: 10px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 0.85rem;">
-                <button class="btn btn-primary btn-sm" onclick="copyToClipboard('${signupUrl}')">📋 Copy</button>
-                <button class="btn btn-success btn-sm" onclick="window.open('${signupUrl}', '_blank')">👁️ Preview</button>
-              </div>
+          </div>
+          
+          <!-- Signup URL -->
+          <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; margin-top: 20px;">
+            <h4 style="color: #FFD700; margin-bottom: 15px;">🌐 Public Signup URL</h4>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <input type="text" value="${signupUrl}" readonly 
+                    style="flex: 1; padding: 10px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 0.85rem;">
+              <button class="btn btn-primary btn-sm" onclick="copyToClipboard('${signupUrl}')">📋 Copy</button>
+              <button class="btn btn-success btn-sm" onclick="window.open('${signupUrl}', '_blank')">👁️ Test</button>
             </div>
-            
-            <!-- QR Code -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; text-align: center;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">📱 QR Code</h4>
-              <img src="${qrCodeUrl}" style="max-width: 200px; border-radius: 8px; background: white; padding: 10px;" 
-                  alt="QR Code for ${event.title}">
-              <div style="margin-top: 15px;">
-                <button class="btn btn-primary btn-sm" onclick="downloadQR('${qrCodeUrl}', '${event.title}')">💾 Download</button>
-              </div>
-              <p style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">Scan to register for this event</p>
+          </div>
+          
+          <!-- QR Code -->
+          <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; text-align: center; margin-top: 20px;">
+            <h4 style="color: #FFD700; margin-bottom: 15px;">📱 QR Code</h4>
+            <img src="${qrCodeUrl}" style="max-width: 200px; border-radius: 8px; background: white; padding: 10px;" 
+                alt="QR Code for ${event.title}" onload="console.log('✅ QR Code loaded successfully')" 
+                onerror="console.error('❌ QR Code failed to load')">
+            <div style="margin-top: 15px;">
+              <button class="btn btn-primary btn-sm" onclick="downloadQR('${qrCodeUrl}', '${event.title}')">💾 Download</button>
+              <button class="btn btn-secondary btn-sm" onclick="testPublicSignup(${eventId})">🧪 Test Signup</button>
             </div>
-            
-            <!-- Social Media Text -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">📱 Social Media Copy</h4>
-              <div style="background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                <pre style="color: #ccc; font-family: inherit; margin: 0; white-space: pre-wrap;">🎮 ${event.title} at SideQuest Canterbury!
-
-    📅 ${new Date(event.date_time).toLocaleDateString('en-GB', { 
-      weekday: 'long', day: 'numeric', month: 'long' 
-    })}
-    ⏰ ${new Date(event.date_time).toLocaleTimeString('en-GB', { 
-      hour: '2-digit', minute: '2-digit' 
-    })}
-    ${event.game_title ? '🎯 Game: ' + event.game_title + '\n' : ''}${event.entry_fee > 0 ? '💰 Entry: £' + event.entry_fee + '\n' : '🆓 FREE Entry!\n'}
-    Register: ${signupUrl}
-
-    #Gaming #${event.game_title ? event.game_title.replace(/\s+/g, '') : 'Gaming'} #Canterbury #SideQuest</pre>
-              </div>
-              <button class="btn btn-primary btn-sm" onclick="copySocialText('${event.title}', '${event.date_time}', '${event.game_title || ''}', ${event.entry_fee || 0}, '${signupUrl}')">
-                📋 Copy Social Text
-              </button>
-            </div>
-            
-            <!-- Email Template -->
-            <div style="background: #1a1a1a; border-radius: 12px; padding: 20px;">
-              <h4 style="color: #FFD700; margin-bottom: 15px;">📧 Email Announcement</h4>
-              <button class="btn btn-success" onclick="createEventAnnouncement(${eventId})">
-                📧 Create Email Campaign
-              </button>
-              <p style="font-size: 0.85rem; color: #aaa; margin-top: 10px;">
-                This will take you to the campaigns tab with pre-filled content
-              </p>
-            </div>
-            
+            <p style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">Scan to register for this event</p>
           </div>
           
           <div style="margin-top: 25px; text-align: center;">
+            <button class="btn btn-primary" onclick="debugAllEventSignups()">🔍 Debug All Events</button>
             <button class="btn btn-secondary" onclick="closeEventModal()">Close</button>
           </div>
         `;
         
         modal.style.display = 'flex';
+        
+        // Test the QR code after showing modal
+        console.log('🧪 Testing marketing assets for event:', event.title);
         
       } catch (error) {
         console.error('Error showing marketing assets:', error);

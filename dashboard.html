@@ -721,17 +721,25 @@
       border-left: 4px solid #FFD700;
       cursor: pointer;
       box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      margin-bottom: 25px; /* Good spacing between cards */
+      margin-bottom: 30px;
       display: block;
       width: 100%;
       transition: all 0.3s ease;
-      position: relative; /* Add this back for proper layout */
+      position: static;
+      clear: both;
+      overflow: visible;
+      z-index: 1;
     }
 
+   
     .event-card * {
       position: static !important;
+      z-index: auto !important;
     }
-
+   
+   .event-card:last-child {
+      margin-bottom: 0;
+    }
     
     .event-card:hover {
       transform: translateY(-3px); /* Only apply transform on hover */

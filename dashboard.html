@@ -4311,6 +4311,8 @@
       }
     }
 
+    
+
     // Update charts
     function updateAnalyticsCharts(trends) {
       try {
@@ -4318,6 +4320,90 @@
         updateRegistrationTrendChart(trends.registration_trend || []);
       } catch (error) {
         console.error('Error updating charts:', error);
+      }
+    }
+
+    // Generate AI insights
+    function updateInsights(kpis) {
+      try {
+        const insights = [];
+        const subscriber = kpis.subscribers || {};
+        const events = kpis.events || {};
+        const engagement = kpis.engagement || {};
+        const revenue = kpis.revenue || {};
+        
+        // Growth insights
+        if (subscriber.growth_rate > 50) {
+          insights.push({
+            type: 'success',
+            icon: '🚀',
+            title: 'Explosive Growth!',
+            description: `Your subscriber base is growing ${subscriber.growth_rate}% faster than the previous period. Consider scaling your event capacity.`,
+            action: 'Plan more events'
+          });
+        } else if (subscriber.growth_rate < 0) {
+          insights.push({
+            type: 'warning',
+            icon: '⚠️',
+            title: 'Growth Slowdown',
+            description: 'Subscriber growth has declined. Consider running a promotional campaign or special event.',
+            action: 'Launch growth campaign'
+          });
+        }
+        
+        // Engagement insights
+        if (engagement.engagement_rate > 40) {
+          insights.push({
+            type: 'success',
+            icon: '🎯',
+            title: 'High Engagement',
+            description: `${engagement.engagement_rate}% of subscribers are actively participating in events. Your community is highly engaged!`,
+            action: 'Maintain momentum'
+          });
+        } else if (engagement.engagement_rate < 15) {
+          insights.push({
+            type: 'opportunity',
+            icon: '💡',
+            title: 'Engagement Opportunity',
+            description: 'Only a small portion of subscribers are attending events. Try diversifying event types or sending targeted invitations.',
+            action: 'Boost engagement'
+          });
+        }
+        
+        // Revenue insights
+        if (revenue.paid_events === 0) {
+          insights.push({
+            type: 'opportunity',
+            icon: '💰',
+            title: 'Revenue Opportunity',
+            description: 'All events are currently free. Consider introducing premium events or workshops to generate revenue.',
+            action: 'Create paid events'
+          });
+        } else if (revenue.avg_per_event > 15) {
+          insights.push({
+            type: 'success',
+            icon: '💎',
+            title: 'Strong Revenue per Event',
+            description: `Averaging £${revenue.avg_per_event.toFixed(2)} per event shows healthy monetization.`,
+            action: 'Scale successful events'
+          });
+        }
+        
+        // Capacity insights
+        if (events.avg_capacity_utilization > 90) {
+          insights.push({
+            type: 'warning',
+            icon: '📈',
+            title: 'High Demand',
+            description: 'Events are consistently at capacity. Consider increasing venue size or adding more sessions.',
+            action: 'Expand capacity'
+          });
+        }
+        
+        renderInsights(insights);
+        
+      } catch (error) {
+        console.error('Error updating insights:', error);
       }
     }
 

@@ -33,6 +33,13 @@ ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest1234')  # Change thi
 # --- CONFIG & GLOBALS FIRST ---
 # =============================
 
+try:
+    import qrcode
+    QR_CODE_AVAILABLE = True
+    print("✅ QR code library available")
+except ImportError:
+    QR_CODE_AVAILABLE = False
+    print("⚠️ QR code library not available - using external service fallback")
 
 # ---- Brevo (Sendinblue) SDK ----
 try:
@@ -3058,35 +3065,87 @@ def get_analytics_kpis():
         log_error(f"Error getting analytics KPIs: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
- # Add this route anywhere in your backend.py
 @app.route('/api/events/<int:event_id>/qr-code')
 def get_event_qr_code(event_id):
-    """Generate QR code for event signup"""
+    """Generate QR code for event signup with fallback"""
     try:
+        # Get the signup URL
         signup_url = f"{request.scheme}://{request.host}/signup/event/{event_id}"
         
-        # Generate QR code
-        qr = qrcode.QRCode(version=1, box_size=10, border=4)
-        qr.add_data(signup_url)
-        qr.make(fit=True)
+        if QR_CODE_AVAILABLE:
+            try:
+                # Generate QR code using local library
+                qr = qrcode.QRCode(version=1, box_size=10, border=4)
+                qr.add_data(signup_url)
+                qr.make(fit=True)
+                
+                # Create image
+                img = qr.make_image(fill_color="black", back_color="white")
+                
+                # Convert to base64
+                buffered = io.BytesIO()
+                img.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+                
+                return jsonify({
+                    "success": True,
+                    "qr_code": f"data:image/png;base64,{img_str}",
+                    "signup_url": signup_url,
+                    "method": "local_generation"
+                })
+                
+            except Exception as e:
+                log_error(f"Local QR generation failed: {e}")
+                # Fall through to external service
         
-        # Create image
-        img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Convert to base64
-        buffered = io.BytesIO()
-        img.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode()
+        # Fallback to external QR service
+        external_qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={quote(signup_url)}"
         
         return jsonify({
             "success": True,
-            "qr_code": f"data:image/png;base64,{img_str}",
-            "signup_url": signup_url
+            "qr_code": external_qr_url,
+            "signup_url": signup_url,
+            "method": "external_service"
         })
         
     except Exception as e:
-        log_error(f"Error generating QR code: {e}")
-        return jsonify({"success": False, "error": "Failed to generate QR code"}), 500 
+        log_error(f"Error generating QR code for event {event_id}: {e}")
+        return jsonify({"success": False, "error": "Failed to generate QR code"}), 500
+
+@app.route('/test/event-signup/<int:event_id>')
+def test_event_signup(event_id):
+    """Test endpoint to verify event signup functionality"""
+    try:
+        # Check if event exists
+        event_check = execute_query_one("SELECT id, title, status FROM events WHERE id = %s", (event_id,))
+        if not event_check:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        signup_url = f"{request.scheme}://{request.host}/signup/event/{event_id}"
+        public_api_url = f"{request.scheme}://{request.host}/api/events/{event_id}/public"
+        qr_api_url = f"{request.scheme}://{request.host}/api/events/{event_id}/qr-code"
+        
+        return jsonify({
+            "success": True,
+            "event_id": event_id,
+            "event_title": event_check['title'],
+            "event_status": event_check['status'],
+            "urls": {
+                "signup_page": signup_url,
+                "public_api": public_api_url, 
+                "qr_code_api": qr_api_url
+            },
+            "qr_library_available": QR_CODE_AVAILABLE,
+            "next_steps": [
+                f"1. Visit {signup_url} to test signup page",
+                f"2. Visit {public_api_url} to test API",
+                f"3. Visit {qr_api_url} to test QR generation"
+            ]
+        })
+        
+    except Exception as e:
+        log_error(f"Error in test endpoint: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/analytics/subscriber-data', methods=['GET'])
 def get_subscriber_analytics():

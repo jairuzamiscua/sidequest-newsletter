@@ -2887,11 +2887,12 @@ def get_analytics_kpis():
         # Core subscriber KPIs
         subscriber_kpis = execute_query_one(f"""
             SELECT 
-                COUNT(*) as total_subscribers,
-                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '{days} days' THEN 1 END) as new_subscribers,
-                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as weekly_growth,
-                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '1 day' THEN 1 END) as daily_growth
+                COUNT(*)::integer as total_subscribers,
+                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '{days} days' THEN 1 END)::integer as new_subscribers,
+                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END)::integer as weekly_growth,
+                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '1 day' THEN 1 END)::integer as daily_growth
             FROM subscribers
+            WHERE status = 'active' OR status IS NULL
         """)
         
         # Event performance KPIs

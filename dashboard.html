@@ -4316,12 +4316,130 @@
     // Update charts
     function updateAnalyticsCharts(trends) {
       try {
-        updateSubscriberGrowthChart(trends.subscriber_growth || []);
-        updateRegistrationTrendChart(trends.registration_trend || []);
+        updateMainGrowthChart(trends);
+        // Remove the old updateRegistrationTrendChart call since we're using one combined chart now
       } catch (error) {
         console.error('Error updating charts:', error);
       }
     }
+
+    // Export analytics report
+    async function exportAnalyticsReport() {
+      try {
+        const timeRange = document.getElementById('analyticsTimeRange')?.value || 30;
+        showSuccess('📊 Generating analytics report...');
+        
+        // Get current analytics data
+        const response = await fetch(`${API_BASE}/api/analytics/kpis?days=${timeRange}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to fetch analytics data');
+        }
+        
+        // Create CSV content
+        const timestamp = new Date().toISOString().split('T')[0];
+        let csvContent = `SideQuest Analytics Report - ${timestamp}\n\n`;
+        
+        csvContent += `SUBSCRIBER METRICS (Last ${timeRange} days)\n`;
+        csvContent += `Total Subscribers,${data.kpis.subscribers.total}\n`;
+        csvContent += `New Subscribers,${data.kpis.subscribers.new_this_period}\n`;
+        csvContent += `Weekly Growth,${data.kpis.subscribers.weekly_growth}\n`;
+        csvContent += `Growth Rate,${data.kpis.subscribers.growth_rate}%\n\n`;
+        
+        csvContent += `EVENT METRICS\n`;
+        csvContent += `Total Events,${data.kpis.events.total}\n`;
+        csvContent += `Upcoming Events,${data.kpis.events.upcoming}\n`;
+        csvContent += `Total Registrations,${data.kpis.events.total_registrations}\n`;
+        csvContent += `Avg Capacity Utilization,${data.kpis.events.avg_capacity_utilization}%\n\n`;
+        
+        csvContent += `REVENUE METRICS\n`;
+        csvContent += `Total Revenue,£${data.kpis.revenue.total}\n`;
+        csvContent += `Paid Events,${data.kpis.revenue.paid_events}\n`;
+        csvContent += `Avg Revenue per Event,£${data.kpis.revenue.avg_per_event}\n\n`;
+        
+        csvContent += `ENGAGEMENT METRICS\n`;
+        csvContent += `Engagement Rate,${data.kpis.engagement.engagement_rate}%\n`;
+        csvContent += `Active Subscribers,${data.kpis.engagement.engaged_subscribers}\n`;
+        csvContent += `Attendance Rate,${data.kpis.engagement.attendance_rate}%\n`;
+        
+        // Download the report
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sidequest_analytics_${timestamp}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        showSuccess('📊 Analytics report downloaded!');
+        
+      } catch (error) {
+        console.error('Error exporting analytics report:', error);
+        alert('Failed to export analytics report: ' + error.message);
+      }
+    }
+
+    // Event mix optimization suggestions
+    function optimizeEventMix() {
+      const suggestions = [
+        "🎯 Your tournaments have high engagement - consider adding more competitive events",
+        "🎮 Game nights are popular - try themed nights (retro, indie, etc.)",
+        "💡 Consider adding beginner-friendly events to attract new participants", 
+        "🏆 Premium tournaments could increase revenue while maintaining engagement",
+        "📅 Weekly recurring events could boost regular attendance"
+      ];
+      
+      const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
+      alert("💡 Recommendation:\n\n" + randomSuggestion);
+    }
+
+    // Insight action execution
+    function executeInsightAction(action) {
+      const actions = {
+        'Plan more events': () => {
+          document.querySelector('.tab[data-tab="events"]').click();
+          setTimeout(() => switchEventView('create'), 500);
+        },
+        'Launch growth campaign': () => {
+          document.querySelector('.tab[data-tab="campaigns"]').click();
+        },
+        'Boost engagement': () => {
+          alert('💡 Try these engagement boosters:\n\n• Send personalized event invitations\n• Create member-exclusive events\n• Add loyalty rewards\n• Host community challenges');
+        },
+        'Create paid events': () => {
+          document.querySelector('.tab[data-tab="events"]').click();
+          setTimeout(() => {
+            switchEventView('create');
+            setTimeout(() => {
+              const feeInput = document.getElementById('eventFee');
+              if (feeInput) {
+                feeInput.focus();
+                feeInput.value = '10.00';
+              }
+            }, 1000);
+          }, 500);
+        },
+        'Scale successful events': () => {
+          alert('💰 Revenue optimization ideas:\n\n• Increase capacity for popular events\n• Create tiered pricing (VIP, Standard)\n• Add merchandise sales\n• Offer event packages');
+        },
+        'Expand capacity': () => {
+          alert('📈 Capacity expansion options:\n\n• Book larger venues\n• Add multiple sessions\n• Create waiting lists\n• Live stream popular events');
+        },
+        'Maintain momentum': () => {
+          alert('🚀 Keep the momentum:\n\n• Regular communication with community\n• Consistent event schedule\n• Member feedback surveys\n• Referral incentives');
+        }
+      };
+      
+      if (actions[action]) {
+        actions[action]();
+      } else {
+        alert('💡 Action: ' + action);
+      }
+    }
+
 
     // Generate AI insights
     function updateInsights(kpis) {

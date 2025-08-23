@@ -4302,9 +4302,10 @@
         else if (subscriber.growth_rate > 0) score += 15;
         else score += 5;
         
-        if (engagement.engagement_rate > 30) score += 25;
-        else if (engagement.engagement_rate > 15) score += 15;
-        else score += 5;
+        if (engagement.engagement_rate > 50) score += 25;      // Excellent
+        else if (engagement.engagement_rate > 30) score += 20; // Good  
+        else if (engagement.engagement_rate > 15) score += 10; // Fair
+        else score += 5; 
         
         if (events.avg_capacity_utilization > 70) score += 25;
         else if (events.avg_capacity_utilization > 40) score += 15;
@@ -4499,21 +4500,37 @@
         }
         
         // Engagement insights
-        if (engagement.engagement_rate > 40) {
+        if (engagement.engagement_rate > 60) {  // 60%+ is truly high
           insights.push({
             type: 'success',
             icon: '🎯',
-            title: 'High Engagement',
-            description: `${engagement.engagement_rate}% of subscribers are actively participating in events. Your community is highly engaged!`,
+            title: 'Excellent Engagement',
+            description: `${engagement.engagement_rate}% of subscribers actively participate in events. Outstanding community engagement!`,
             action: 'Maintain momentum'
           });
-        } else if (engagement.engagement_rate < 15) {
+        } else if (engagement.engagement_rate > 35) {  // 35-60% is good
+          insights.push({
+            type: 'success',
+            icon: '👍',
+            title: 'Good Engagement',
+            description: `${engagement.engagement_rate}% participation rate shows solid community engagement.`,
+            action: 'Scale successful events'
+          });
+        } else if (engagement.engagement_rate > 20) {  // 20-35% is average
           insights.push({
             type: 'opportunity',
-            icon: '💡',
-            title: 'Engagement Opportunity',
-            description: 'Only a small portion of subscribers are attending events. Try diversifying event types or sending targeted invitations.',
+            icon: '📈',
+            title: 'Room for Growth',
+            description: `${engagement.engagement_rate}% participation rate has potential for improvement. Consider more diverse events.`,
             action: 'Boost engagement'
+          });
+        } else {  // Under 20% needs attention
+          insights.push({
+            type: 'warning',
+            icon: '⚠️',
+            title: 'Low Engagement',
+            description: `Only ${engagement.engagement_rate}% of subscribers are participating in events. Consider survey feedback or promotional campaigns.`,
+            action: 'Launch engagement campaign'
           });
         }
         

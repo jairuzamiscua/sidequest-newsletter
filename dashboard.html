@@ -2503,7 +2503,7 @@
     
 
     // Render events list
-   function renderEventsList(events) {
+    function renderEventsList(events) {
       const listContainer = document.getElementById('eventsList');
       
       if (!events || events.length === 0) {
@@ -2516,76 +2516,16 @@
         return;
       }
 
-      // CRITICAL: Clear container completely first
+      // Clear container completely first
       listContainer.innerHTML = '';
       
       // Create each event as a separate DOM element (not HTML string)
       events.forEach(event => {
         const eventCard = createEventCardElement(event);
-        listContainer.appendChild(eventCard); // Append as siblings
+        listContainer.appendChild(eventCard);
       });
-    
-
-      container.innerHTML = events.map(event => {
-        const eventDate = new Date(event.date_time);
-        const capacityPercent = event.capacity > 0 ? (event.registration_count / event.capacity * 100) : 0;
-        const spotsText = event.capacity > 0 ? `${event.spots_available} spots left` : 'Unlimited spots';
-        
-        return `
-          <div class="event-card ${event.event_type}" onclick="showEventDetails(${event.id})">
-            <div class="event-header">
-              <div>
-                <div class="event-title">${event.title}</div>
-                ${event.game_title ? `<div style="color: #aaa; font-size: 0.9rem;">${event.game_title}</div>` : ''}
-              </div>
-              <span class="event-badge badge-${event.event_type}">${event.event_type.replace('_', ' ')}</span>
-            </div>
-            
-            <div class="event-details">
-              <div class="event-detail">
-                <span class="event-detail-icon">📅</span>
-                <span>${eventDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-              </div>
-              <div class="event-detail">
-                <span class="event-detail-icon">🕐</span>
-                <span>${eventDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-              <div class="event-detail">
-                <span class="event-detail-icon">👥</span>
-                <span>${event.registration_count} registered</span>
-              </div>
-              ${event.entry_fee > 0 ? `
-                <div class="event-detail">
-                  <span class="event-detail-icon">💰</span>
-                  <span>£${event.entry_fee}</span>
-                </div>
-              ` : ''}
-            </div>
-            
-            ${event.capacity > 0 ? `
-              <div class="capacity-bar">
-                <div class="capacity-fill" style="width: ${capacityPercent}%"></div>
-                <span class="capacity-text">${spotsText}</span>
-              </div>
-            ` : ''}
-            
-            <div class="event-actions" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
-              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); quickRegister(${event.id})">
-                Quick Register
-              </button>
-              <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); editEvent(${event.id})">
-                Edit Event
-              </button>
-              <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); viewAttendees(${event.id})">
-                View Attendees
-              </button>
-              <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); showMarketing(${event.id})">
-                📊 Marketing
-              </button>
-            </div>
-        `;
-      }).join('');
     }
+   
 
 
     async function showMarketing(eventId) {

@@ -4482,199 +4482,193 @@
       }
     }
 
-    // Update subscriber growth chart
-    function updateSubscriberGrowthChart(data) {
+    // Enhanced main chart (replaces both subscriber growth and registration trend)
+    function updateMainGrowthChart(trends) {
       try {
-        const ctx = document.getElementById('subscriberGrowthChart');
+        const ctx = document.getElementById('mainGrowthChart');
         if (!ctx) return;
         
         if (subscriberGrowthChart) {
           subscriberGrowthChart.destroy();
         }
         
-        // Prepare data
-        const labels = data.map(item => {
-          const date = new Date(item.date);
-          return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
-        });
+        let data, chartConfig;
         
-        const newSubscribers = data.map(item => item.new_subscribers || 0);
-        const cumulativeSubscribers = data.map(item => item.cumulative_subscribers || 0);
-        
-        subscriberGrowthChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                label: 'New Subscribers',
-                data: newSubscribers,
-                borderColor: '#FFD700',
-                backgroundColor: 'rgba(255, 215, 0, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#FFD700',
-                pointBorderColor: '#1a1a1a',
-                pointBorderWidth: 2,
-                pointRadius: 5,
-                yAxisID: 'y'
-              },
-              {
-                label: 'Total Subscribers',
-                data: cumulativeSubscribers,
-                borderColor: '#4ECDC4',
-                backgroundColor: 'rgba(78, 205, 196, 0.1)',
-                borderWidth: 2,
-                fill: false,
-                tension: 0.4,
-                pointBackgroundColor: '#4ECDC4',
-                pointBorderColor: '#1a1a1a',
-                pointBorderWidth: 2,
-                pointRadius: 4,
-                yAxisID: 'y1'
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-              mode: 'index',
-              intersect: false,
+        if (currentChartView === 'subscribers') {
+          const subscriberData = trends.subscriber_growth || [];
+          
+          const labels = subscriberData.map(item => {
+            const date = new Date(item.date);
+            return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+          });
+          
+          const newSubscribers = subscriberData.map(item => item.new_subscribers || 0);
+          const cumulativeSubscribers = subscriberData.map(item => item.cumulative_subscribers || 0);
+          
+          chartConfig = {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  label: 'New Subscribers',
+                  data: newSubscribers,
+                  borderColor: '#FFD700',
+                  backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                  borderWidth: 3,
+                  fill: true,
+                  tension: 0.4,
+                  pointBackgroundColor: '#FFD700',
+                  pointBorderColor: '#1a1a1a',
+                  pointBorderWidth: 2,
+                  pointRadius: 6,
+                  yAxisID: 'y'
+                },
+                {
+                  label: 'Total Subscribers',
+                  data: cumulativeSubscribers,
+                  borderColor: '#4ECDC4',
+                  backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                  borderWidth: 2,
+                  fill: false,
+                  tension: 0.4,
+                  pointBackgroundColor: '#4ECDC4',
+                  pointBorderColor: '#1a1a1a',
+                  pointBorderWidth: 2,
+                  pointRadius: 5,
+                  yAxisID: 'y1'
+                }
+              ]
             },
-            plugins: {
-              legend: {
-                display: true,
-                position: 'top',
-                labels: {
-                  color: '#FFD700',
-                  font: { weight: 'bold' },
-                  usePointStyle: true
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: {
+                mode: 'index',
+                intersect: false,
+              },
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top',
+                  labels: {
+                    color: '#FFD700',
+                    font: { weight: 'bold' },
+                    usePointStyle: true
+                  }
+                },
+                tooltip: {
+                  backgroundColor: '#2a2a2a',
+                  titleColor: '#FFD700',
+                  bodyColor: '#ffffff',
+                  borderColor: '#FFD700',
+                  borderWidth: 1
                 }
               },
-              tooltip: {
-                backgroundColor: '#2a2a2a',
-                titleColor: '#FFD700',
-                bodyColor: '#ffffff',
-                borderColor: '#FFD700',
-                borderWidth: 1
-              }
-            },
-            scales: {
-              x: {
-                grid: { color: '#444' },
-                ticks: { color: '#cccccc', maxRotation: 45 }
-              },
-              y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                beginAtZero: true,
-                grid: { color: '#444' },
-                ticks: { color: '#cccccc' },
-                title: {
+              scales: {
+                x: {
+                  grid: { color: '#444' },
+                  ticks: { color: '#cccccc', maxRotation: 45 }
+                },
+                y: {
+                  type: 'linear',
                   display: true,
-                  text: 'New Subscribers',
-                  color: '#FFD700'
-                }
-              },
-              y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                beginAtZero: true,
-                grid: { drawOnChartArea: false },
-                ticks: { color: '#4ECDC4' },
-                title: {
+                  position: 'left',
+                  beginAtZero: true,
+                  grid: { color: '#444' },
+                  ticks: { color: '#cccccc' },
+                  title: {
+                    display: true,
+                    text: 'New Subscribers',
+                    color: '#FFD700'
+                  }
+                },
+                y1: {
+                  type: 'linear',
                   display: true,
-                  text: 'Total Subscribers',
-                  color: '#4ECDC4'
+                  position: 'right',
+                  beginAtZero: true,
+                  grid: { drawOnChartArea: false },
+                  ticks: { color: '#4ECDC4' },
+                  title: {
+                    display: true,
+                    text: 'Total Subscribers',
+                    color: '#4ECDC4'
+                  }
                 }
               }
             }
-          }
-        });
-        
-      } catch (error) {
-        console.error('Error updating subscriber growth chart:', error);
-      }
-    }
-
-    // Update registration trend chart
-    function updateRegistrationTrendChart(data) {
-      try {
-        const ctx = document.getElementById('registrationTrendChart');
-        if (!ctx) return;
-        
-        if (registrationTrendChart) {
-          registrationTrendChart.destroy();
+          };
+        } else {
+          // Registrations view
+          const registrationData = trends.registration_trend || [];
+          
+          const labels = registrationData.map(item => {
+            const date = new Date(item.date);
+            return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+          });
+          
+          const registrations = registrationData.map(item => item.registrations || 0);
+          
+          chartConfig = {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Event Registrations',
+                data: registrations,
+                backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                borderColor: '#8B5CF6',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top',
+                  labels: {
+                    color: '#8B5CF6',
+                    font: { weight: 'bold' },
+                    usePointStyle: true
+                  }
+                },
+                tooltip: {
+                  backgroundColor: '#2a2a2a',
+                  titleColor: '#8B5CF6',
+                  bodyColor: '#ffffff',
+                  borderColor: '#8B5CF6',
+                  borderWidth: 1
+                }
+              },
+              scales: {
+                x: {
+                  grid: { color: '#444' },
+                  ticks: { color: '#cccccc', maxRotation: 45 }
+                },
+                y: {
+                  beginAtZero: true,
+                  grid: { color: '#444' },
+                  ticks: { color: '#cccccc' },
+                  title: {
+                    display: true,
+                    text: 'Registrations',
+                    color: '#8B5CF6'
+                  }
+                }
+              }
+            }
+          };
         }
         
-        // Prepare data
-        const labels = data.map(item => {
-          const date = new Date(item.date);
-          return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
-        });
-        
-        const registrations = data.map(item => item.registrations || 0);
-        
-        registrationTrendChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: 'Event Registrations',
-              data: registrations,
-              backgroundColor: 'rgba(139, 92, 246, 0.8)',
-              borderColor: '#8B5CF6',
-              borderWidth: 2,
-              borderRadius: 6,
-              borderSkipped: false,
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                position: 'top',
-                labels: {
-                  color: '#8B5CF6',
-                  font: { weight: 'bold' },
-                  usePointStyle: true
-                }
-              },
-              tooltip: {
-                backgroundColor: '#2a2a2a',
-                titleColor: '#8B5CF6',
-                bodyColor: '#ffffff',
-                borderColor: '#8B5CF6',
-                borderWidth: 1
-              }
-            },
-            scales: {
-              x: {
-                grid: { color: '#444' },
-                ticks: { color: '#cccccc', maxRotation: 45 }
-              },
-              y: {
-                beginAtZero: true,
-                grid: { color: '#444' },
-                ticks: { color: '#cccccc' },
-                title: {
-                  display: true,
-                  text: 'Registrations',
-                  color: '#8B5CF6'
-                }
-              }
-            }
-          }
-        });
+        subscriberGrowthChart = new Chart(ctx, chartConfig);
         
       } catch (error) {
-        console.error('Error updating registration trend chart:', error);
+        console.error('Error updating main growth chart:', error);
       }
     }
 

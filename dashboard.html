@@ -4153,6 +4153,26 @@
       }
     }
 
+    // Add this function to your JavaScript (around line 2500)
+    function toggleChartView(viewType) {
+      if (currentChartView === viewType) return;
+      
+      currentChartView = viewType;
+      
+      // Update button states
+      document.querySelectorAll('.chart-toggle-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      const targetButton = document.querySelector(`[data-chart="${viewType}"]`);
+      if (targetButton) {
+        targetButton.classList.add('active');
+      }
+      
+      // Reload the chart with new data
+      loadAnalyticsData();
+    }
+
     let subscriberGrowthChart = null;
     let registrationTrendChart = null;
 

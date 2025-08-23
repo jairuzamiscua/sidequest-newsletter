@@ -1301,26 +1301,44 @@
           </div>
          
           <!-- Analytics Tab -->
+     <!-- Enhanced Analytics Tab - REPLACE YOUR EXISTING ANALYTICS TAB CONTENT -->
           <div class="tab-content" id="analytics">
             <div class="card-header">
-              <h3 class="card-title">Analytics Dashboard</h3>
-              <div>
-                <select id="analyticsTimeRange" class="form-select" style="width: 150px; display: inline-block;">
+              <h3 class="card-title">📊 Analytics Dashboard</h3>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <select id="analyticsTimeRange" class="form-select" style="width: 150px;">
                   <option value="7">Last 7 days</option>
                   <option value="30" selected>Last 30 days</option>
                   <option value="90">Last 90 days</option>
                 </select>
-                <button class="btn btn-primary btn-sm" onclick="refreshAnalytics()" style="margin-left: 10px;">
+                <button class="btn btn-primary btn-sm" onclick="refreshAnalytics()">
                   🔄 Refresh
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="exportAnalyticsReport()">
+                  📊 Export Report
                 </button>
               </div>
             </div>
 
-            <!-- KPI Cards Grid -->
-            <div class="analytics-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px;">
+            <!-- Quick Status Banner -->
+            <div class="analytics-status-banner" style="background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); border-radius: 12px; padding: 15px; margin-bottom: 25px; border-left: 4px solid #FFD700; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span style="color: #FFD700; font-weight: 700;">🚀 Business Health: </span>
+                <span id="businessHealthScore" style="color: #00ff88; font-weight: 700;">Excellent</span>
+              </div>
+              <div style="display: flex; gap: 20px; font-size: 0.9rem;">
+                <span style="color: #cccccc;">📧 <strong id="quickSubscriberCount">-</strong> subscribers</span>
+                <span style="color: #cccccc;">🎮 <strong id="quickEventCount">-</strong> events</span>
+                <span style="color: #cccccc;">💰 <strong id="quickRevenue">£-</strong> revenue</span>
+                <span style="color: #cccccc;" id="brevoSyncQuickStatus">🔄 Brevo: <strong>Synced</strong></span>
+              </div>
+            </div>
+
+            <!-- KPI Cards Grid with Tooltips -->
+            <div class="analytics-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px;">
               
               <!-- Subscriber KPIs -->
-              <div class="kpi-card subscriber-kpis">
+              <div class="kpi-card subscriber-kpis" title="Track subscriber growth and acquisition trends">
                 <div class="kpi-header">
                   <h4>👥 Subscribers</h4>
                   <span class="kpi-trend" id="subscriberTrend">+0%</span>
@@ -1339,10 +1357,13 @@
                     <span class="kpi-detail-label">This week</span>
                   </div>
                 </div>
+                <div class="kpi-insight" id="subscriberInsight" style="margin-top: 10px; font-size: 0.8rem; color: #aaa; font-style: italic;">
+                  📈 Growing steadily
+                </div>
               </div>
 
-              <!-- Event KPIs -->
-              <div class="kpi-card event-kpis">
+              <!-- Event Performance KPIs -->
+              <div class="kpi-card event-kpis" title="Monitor event creation and registration performance">
                 <div class="kpi-header">
                   <h4>🎮 Events</h4>
                   <span class="kpi-badge" id="upcomingEventsBadge">- upcoming</span>
@@ -1354,17 +1375,20 @@
                 <div class="kpi-details">
                   <div class="kpi-detail">
                     <span class="kpi-detail-value" id="totalRegistrations">-</span>
-                    <span class="kpi-detail-label">Registrations</span>
+                    <span class="kpi-detail-label">Total Registrations</span>
                   </div>
                   <div class="kpi-detail">
                     <span class="kpi-detail-value" id="capacityUtil">-%</span>
                     <span class="kpi-detail-label">Avg Capacity</span>
                   </div>
                 </div>
+                <div class="kpi-insight" id="eventInsight" style="margin-top: 10px; font-size: 0.8rem; color: #aaa; font-style: italic;">
+                  🎯 Strong demand
+                </div>
               </div>
 
               <!-- Revenue KPIs -->
-              <div class="kpi-card revenue-kpis">
+              <div class="kpi-card revenue-kpis" title="Track revenue from paid events and pricing performance">
                 <div class="kpi-header">
                   <h4>💰 Revenue</h4>
                   <span class="kpi-badge" id="paidEventsBadge">- paid events</span>
@@ -1379,21 +1403,24 @@
                     <span class="kpi-detail-label">Avg per event</span>
                   </div>
                   <div class="kpi-detail">
-                    <span class="kpi-detail-value" id="paidEventsRevenue">£-</span>
-                    <span class="kpi-detail-label">From paid events</span>
+                    <span class="kpi-detail-value" id="revenueGrowth">+-%</span>
+                    <span class="kpi-detail-label">Growth rate</span>
                   </div>
+                </div>
+                <div class="kpi-insight" id="revenueInsight" style="margin-top: 10px; font-size: 0.8rem; color: #aaa; font-style: italic;">
+                  💡 Consider premium events
                 </div>
               </div>
 
               <!-- Engagement KPIs -->
-              <div class="kpi-card engagement-kpis">
+              <div class="kpi-card engagement-kpis" title="Monitor how actively subscribers engage with your events">
                 <div class="kpi-header">
                   <h4>📊 Engagement</h4>
                   <span class="kpi-trend" id="attendanceTrend">-%</span>
                 </div>
                 <div class="kpi-main">
                   <div class="kpi-value" id="engagementRate">-%</div>
-                  <div class="kpi-label">Engagement Rate</div>
+                  <div class="kpi-label">Event Participation</div>
                 </div>
                 <div class="kpi-details">
                   <div class="kpi-detail">
@@ -1401,50 +1428,70 @@
                     <span class="kpi-detail-label">Active subscribers</span>
                   </div>
                   <div class="kpi-detail">
-                    <span class="kpi-detail-value" id="activeAttendees">-</span>
-                    <span class="kpi-detail-label">Regular attendees</span>
+                    <span class="kpi-detail-value" id="avgRegistrationsPerEvent">-</span>
+                    <span class="kpi-detail-label">Avg regs/event</span>
                   </div>
                 </div>
+                <div class="kpi-insight" id="engagementInsight" style="margin-top: 10px; font-size: 0.8rem; color: #aaa; font-style: italic;">
+                  🎯 High engagement
+                </div>
               </div>
             </div>
 
-            <!-- Charts Row -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+            <!-- Charts Section with Improved Layout -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-bottom: 30px;">
               
-              <!-- Growth Chart -->
+              <!-- Main Growth Chart -->
               <div class="analytics-chart-container">
                 <div class="chart-header">
-                  <h4>📈 Subscriber Growth</h4>
-                  <span class="chart-subtitle">Daily new subscribers</span>
+                  <h4>📈 Growth Trends</h4>
+                  <div style="display: flex; gap: 10px;">
+                    <button class="chart-toggle-btn active" data-chart="subscribers" onclick="toggleChartView('subscribers')">Subscribers</button>
+                    <button class="chart-toggle-btn" data-chart="registrations" onclick="toggleChartView('registrations')">Registrations</button>
+                  </div>
                 </div>
-                <div class="chart-container" style="height: 300px;">
-                  <canvas id="subscriberGrowthChart"></canvas>
+                <div class="chart-container" style="height: 320px;">
+                  <canvas id="mainGrowthChart"></canvas>
                 </div>
               </div>
 
-              <!-- Registration Trend Chart -->
+              <!-- Performance Summary -->
               <div class="analytics-chart-container">
                 <div class="chart-header">
-                  <h4>🎯 Event Registrations</h4>
-                  <span class="chart-subtitle">Daily registrations</span>
+                  <h4>⚡ Quick Stats</h4>
+                  <span class="chart-subtitle">This period overview</span>
                 </div>
-                <div class="chart-container" style="height: 300px;">
-                  <canvas id="registrationTrendChart"></canvas>
+                <div id="performanceSummary" style="padding: 20px 0;">
+                  <!-- Performance metrics will be populated here -->
                 </div>
               </div>
             </div>
 
-            <!-- Event Types Performance -->
+            <!-- Event Types Performance with Detailed Insights -->
             <div class="analytics-section">
               <div class="section-header">
                 <h4>🎮 Event Type Performance</h4>
-                <span class="section-subtitle">Popularity by event type</span>
+                <div style="display: flex; gap: 10px;">
+                  <span class="section-subtitle">Analyze which event types drive the most engagement</span>
+                  <button class="btn btn-secondary btn-sm" onclick="optimizeEventMix()">💡 Get Recommendations</button>
+                </div>
               </div>
               <div id="eventTypesPerformance" class="event-types-grid">
                 <div class="loading-placeholder">
                   <div class="spinner"></div>
                   <p>Loading performance data...</p>
                 </div>
+              </div>
+            </div>
+
+            <!-- Key Insights Section -->
+            <div class="analytics-section" style="margin-top: 25px;">
+              <div class="section-header">
+                <h4>🧠 AI Insights & Recommendations</h4>
+                <span class="section-subtitle">Data-driven suggestions to improve your business</span>
+              </div>
+              <div id="aiInsights" class="insights-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                <!-- AI insights will be populated here -->
               </div>
             </div>
           </div>

@@ -987,8 +987,259 @@
       border-left-color: #FF69B4 !important;
     }
 
+    /* Analytics Dashboard Styles - ADD TO YOUR EXISTING CSS */
+
+    .analytics-kpi-grid {
+      margin-bottom: 30px;
+    }
+
+    .kpi-card {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      border-radius: 15px;
+      padding: 20px;
+      border-left: 4px solid #FFD700;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    }
+
+    .kpi-card.subscriber-kpis { border-left-color: #FFD700; }
+    .kpi-card.event-kpis { border-left-color: #4ECDC4; }
+    .kpi-card.revenue-kpis { border-left-color: #00ff88; }
+    .kpi-card.engagement-kpis { border-left-color: #8B5CF6; }
+
+    .kpi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .kpi-header h4 {
+      color: #FFD700;
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .kpi-trend {
+      background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+      color: #1a1a1a;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .kpi-trend.negative {
+      background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+      color: #ffffff;
+    }
+
+    .kpi-badge {
+      background: #444;
+      color: #FFD700;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .kpi-main {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .kpi-value {
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: #FFD700;
+      margin-bottom: 5px;
+      text-shadow: 0 2px 4px rgba(255, 215, 0, 0.3);
+    }
+
+    .kpi-label {
+      color: #cccccc;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-details {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+    }
+
+    .kpi-detail {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      background: #1a1a1a;
+      border-radius: 8px;
+    }
+
+    .kpi-detail-value {
+      display: block;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 3px;
+    }
+
+    .kpi-detail-label {
+      font-size: 0.75rem;
+      color: #aaaaaa;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .analytics-chart-container {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      border-radius: 15px;
+      padding: 20px;
+      border: 1px solid #444;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .chart-header {
+      margin-bottom: 15px;
+    }
+
+    .chart-header h4 {
+      color: #FFD700;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0 0 5px 0;
+    }
+
+    .chart-subtitle {
+      color: #aaaaaa;
+      font-size: 0.85rem;
+    }
+
+    .analytics-section {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      border-radius: 15px;
+      padding: 25px;
+      border: 1px solid #444;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .section-header {
+      margin-bottom: 20px;
+    }
+
+    .section-header h4 {
+      color: #FFD700;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin: 0 0 5px 0;
+    }
+
+    .section-subtitle {
+      color: #aaaaaa;
+      font-size: 0.9rem;
+    }
+
+    .event-types-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+    }
+
+    .event-type-card {
+      background: #1a1a1a;
+      border-radius: 12px;
+      padding: 18px;
+      border-left: 4px solid;
+      transition: all 0.3s ease;
+    }
+
+    .event-type-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    .event-type-card.tournament { border-left-color: #FF6B35; }
+    .event-type-card.game_night { border-left-color: #4ECDC4; }
+    .event-type-card.special { border-left-color: #8B5CF6; }
+    .event-type-card.birthday { border-left-color: #FF69B4; }
+
+    .event-type-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .event-type-title {
+      color: #ffffff;
+      font-weight: 700;
+      text-transform: capitalize;
+    }
+
+    .event-type-count {
+      background: #FFD700;
+      color: #1a1a1a;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .event-type-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .event-type-stat {
+      text-align: center;
+    }
+
+    .event-type-stat-value {
+      display: block;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #FFD700;
+    }
+
+    .event-type-stat-label {
+      font-size: 0.75rem;
+      color: #aaaaaa;
+      text-transform: uppercase;
+    }
+
+    .loading-placeholder {
+      text-align: center;
+      padding: 40px;
+      color: #aaaaaa;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .analytics-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .kpi-details {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .event-types-grid {
+        grid-template-columns: 1fr;
+      }
+    }
  </style>
 </head>
+
 <body>
     <!-- Header -->
     <div class="header" style="position: relative;">
@@ -1068,34 +1319,151 @@
               </div>
             </div>
           </div>
-
+         
           <!-- Analytics Tab -->
           <div class="tab-content" id="analytics">
             <div class="card-header">
-              <h3 class="card-title">Subscriber Analytics</h3>
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label">Growth Chart (Last 30 Days)</label>
-              <div class="chart-container">
-                <canvas id="growthChart"></canvas>
+              <h3 class="card-title">Analytics Dashboard</h3>
+              <div>
+                <select id="analyticsTimeRange" class="form-select" style="width: 150px; display: inline-block;">
+                  <option value="7">Last 7 days</option>
+                  <option value="30" selected>Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="refreshAnalytics()" style="margin-left: 10px;">
+                  🔄 Refresh
+                </button>
               </div>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">Signup Sources</label>
-              <div class="source-stats">
-                <div class="source-stat">
-                  <div class="source-stat-value" id="webSignups">-</div>
-                  <div class="source-stat-label">Web Signups</div>
+            <!-- KPI Cards Grid -->
+            <div class="analytics-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px;">
+              
+              <!-- Subscriber KPIs -->
+              <div class="kpi-card subscriber-kpis">
+                <div class="kpi-header">
+                  <h4>👥 Subscribers</h4>
+                  <span class="kpi-trend" id="subscriberTrend">+0%</span>
                 </div>
-                <div class="source-stat">
-                  <div class="source-stat-value" id="manualSignups">-</div>
-                  <div class="source-stat-label">Manual Adds</div>
+                <div class="kpi-main">
+                  <div class="kpi-value" id="totalSubscribers">-</div>
+                  <div class="kpi-label">Total Subscribers</div>
                 </div>
-                <div class="source-stat">
-                  <div class="source-stat-value" id="importSignups">-</div>
-                  <div class="source-stat-label">Imports</div>
+                <div class="kpi-details">
+                  <div class="kpi-detail">
+                    <span class="kpi-detail-value" id="newSubscribers">-</span>
+                    <span class="kpi-detail-label">New this period</span>
+                  </div>
+                  <div class="kpi-detail">
+                    <span class="kpi-detail-value" id="weeklyGrowth">-</span>
+                    <span class="kpi-detail-label">This week</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Event KPIs -->
+              <div class="kpi-card event-kpis">
+                <div class="kpi-header">
+                  <h4>🎮 Events</h4>
+                  <span class="kpi-badge" id="upcomingEventsBadge">- upcoming</span>
+                </div>
+                <div class="kpi-main">
+                  <div class="kpi-value" id="totalEvents">-</div>
+                  <div class="kpi-label">Total Events</div>
+                </div>
+                <div class="kpi-details">
+                  <div class="kpi-detail">
+                    <span class="kpi-detail-value" id="totalRegistrations">-</span>
+                    <span class="kpi-detail-label">Registrations</span>
+                  </div>
+                  <div class="kpi-detail">
+                    <span class="kpi-detail-value" id="capacityUtil">-%</span>
+                    <span class="kpi-detail-label">Avg Capacity</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Revenue KPIs -->
+              <div class="kpi-card revenue-kpis">
+                <div class="kpi-header">
+                  <h4>💰 Revenue</h4>
+                  <span class="kpi-badge" id="paidEventsBadge">- paid events</span>
+                </div>
+                <div class="kpi-main">
+                  <div class="kpi-value" id="totalRevenue">£-</div>
+                  <div class="kpi-label">Total Revenue</div>
+                </div>
+                <div class="kpi-details">
+                  <div class="kpi-detail">
+                    <span class="kpi-detail-value" id="avgRevenuePerEvent">£-</span>
+                    <span class="kpi-detail-label">Avg per event</span>
+                  </div>
+                  <div class="kpi-detail">
+                    <span class="kpi-detail-value" id="paidEventsRevenue">£-</span>
+                    <span class="kpi-detail-label">From paid events</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Engagement KPIs -->
+              <div class="kpi-card engagement-kpis">
+                <div class="kpi-header">
+                  <h4>📊 Engagement</h4>
+                  <span class="kpi-trend" id="attendanceTrend">-%</span>
+                </div>
+                <div class="kpi-main">
+                  <div class="kpi-value" id="engagementRate">-%</div>
+                  <div class="kpi-label">Engagement Rate</div>
+                </div>
+                <div class="kpi-details">
+                  <div class="kpi-detail">
+                    <span class="kpi-detail-value" id="engagedSubscribers">-</span>
+                    <span class="kpi-detail-label">Active subscribers</span>
+                  </div>
+                  <div class="kpi-detail">
+                    <span class="kpi-detail-value" id="activeAttendees">-</span>
+                    <span class="kpi-detail-label">Regular attendees</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+              
+              <!-- Growth Chart -->
+              <div class="analytics-chart-container">
+                <div class="chart-header">
+                  <h4>📈 Subscriber Growth</h4>
+                  <span class="chart-subtitle">Daily new subscribers</span>
+                </div>
+                <div class="chart-container" style="height: 300px;">
+                  <canvas id="subscriberGrowthChart"></canvas>
+                </div>
+              </div>
+
+              <!-- Registration Trend Chart -->
+              <div class="analytics-chart-container">
+                <div class="chart-header">
+                  <h4>🎯 Event Registrations</h4>
+                  <span class="chart-subtitle">Daily registrations</span>
+                </div>
+                <div class="chart-container" style="height: 300px;">
+                  <canvas id="registrationTrendChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Event Types Performance -->
+            <div class="analytics-section">
+              <div class="section-header">
+                <h4>🎮 Event Type Performance</h4>
+                <span class="section-subtitle">Popularity by event type</span>
+              </div>
+              <div id="eventTypesPerformance" class="event-types-grid">
+                <div class="loading-placeholder">
+                  <div class="spinner"></div>
+                  <p>Loading performance data...</p>
                 </div>
               </div>
             </div>
@@ -2765,47 +3133,6 @@
       }
     });
 
-    // Tab functionality
-    function initializeTabs() {
-      try {
-        const tabs = document.querySelectorAll('.tab');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        tabs.forEach(tab => {
-          tab.addEventListener('click', function() {
-            const targetTab = this.dataset.tab;
-            
-            // Remove active class from all tabs and contents
-            tabs.forEach(t => t.classList.remove('active'));
-            tabContents.forEach(content => content.classList.remove('active'));
-            
-            // Add active class to clicked tab and corresponding content
-            this.classList.add('active');
-            const targetContent = document.getElementById(targetTab);
-            if (targetContent) {
-              targetContent.classList.add('active');
-            }
-            
-            // Update campaign recipient count when switching to campaigns tab
-            if (targetTab === 'campaigns') {
-              updateCampaignRecipientCount();
-            }
-            
-            // Refresh chart when switching to analytics tab
-            if (targetTab === 'analytics') {
-              setTimeout(() => {
-                if (document.getElementById('growthChart') && subscriberDetails.length > 0) {
-                  initializeGrowthChart();
-                }
-              }, 100);
-            }
-          });
-        });
-      } catch (error) {
-        console.error('Error initializing tabs:', error);
-      }
-    }
-
     // Load all initial data
     async function loadInitialData() {
       try {
@@ -3583,6 +3910,8 @@
       }
     }
 
+    
+
     // Utility functions
     function isValidEmail(email) {
       const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -3605,6 +3934,452 @@
       }
     }
 
+    let subscriberGrowthChart = null;
+    let registrationTrendChart = null;
+    // Analytics Functions - ADD TO YOUR EXISTING JAVASCRIPT
+
+    // Load analytics data
+    async function loadAnalyticsData() {
+      try {
+        const timeRange = document.getElementById('analyticsTimeRange')?.value || 30;
+        
+        showAnalyticsLoading();
+        
+        const response = await fetch(`${API_BASE}/api/analytics/kpis?days=${timeRange}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          updateAnalyticsKPIs(data.kpis);
+          updateAnalyticsCharts(data.trends);
+          updateEventTypesPerformance(data.trends.event_types);
+          
+          log_activity('Analytics data loaded successfully', 'success');
+        } else {
+          showAnalyticsError('Failed to load analytics data: ' + (data.error || 'Unknown error'));
+        }
+        
+      } catch (error) {
+        console.error('Error loading analytics:', error);
+        showAnalyticsError('Network error loading analytics data');
+      }
+    }
+
+    // Update KPI cards
+    function updateAnalyticsKPIs(kpis) {
+      try {
+        // Subscriber KPIs
+        const subscriberKPIs = kpis.subscribers || {};
+        document.getElementById('totalSubscribers').textContent = subscriberKPIs.total || 0;
+        document.getElementById('newSubscribers').textContent = subscriberKPIs.new_this_period || 0;
+        document.getElementById('weeklyGrowth').textContent = subscriberKPIs.weekly_growth || 0;
+        
+        // Update growth trend
+        const growthRate = subscriberKPIs.growth_rate || 0;
+        const trendElement = document.getElementById('subscriberTrend');
+        if (trendElement) {
+          trendElement.textContent = (growthRate >= 0 ? '+' : '') + growthRate + '%';
+          trendElement.className = growthRate >= 0 ? 'kpi-trend' : 'kpi-trend negative';
+        }
+        
+        // Event KPIs
+        const eventKPIs = kpis.events || {};
+        document.getElementById('totalEvents').textContent = eventKPIs.total || 0;
+        document.getElementById('totalRegistrations').textContent = eventKPIs.total_registrations || 0;
+        document.getElementById('capacityUtil').textContent = (eventKPIs.avg_capacity_utilization || 0) + '%';
+        
+        const upcomingBadge = document.getElementById('upcomingEventsBadge');
+        if (upcomingBadge) {
+          upcomingBadge.textContent = (eventKPIs.upcoming || 0) + ' upcoming';
+        }
+        
+        // Revenue KPIs
+        const revenueKPIs = kpis.revenue || {};
+        document.getElementById('totalRevenue').textContent = '£' + (revenueKPIs.total || 0).toFixed(2);
+        document.getElementById('avgRevenuePerEvent').textContent = '£' + (revenueKPIs.avg_per_event || 0).toFixed(2);
+        document.getElementById('paidEventsRevenue').textContent = '£' + (revenueKPIs.paid_events_revenue || 0).toFixed(2);
+        
+        const paidEventsBadge = document.getElementById('paidEventsBadge');
+        if (paidEventsBadge) {
+          paidEventsBadge.textContent = (revenueKPIs.paid_events || 0) + ' paid events';
+        }
+        
+        // Engagement KPIs
+        const engagementKPIs = kpis.engagement || {};
+        document.getElementById('engagementRate').textContent = (engagementKPIs.engagement_rate || 0) + '%';
+        document.getElementById('engagedSubscribers').textContent = engagementKPIs.engaged_subscribers || 0;
+        document.getElementById('activeAttendees').textContent = engagementKPIs.active_attendees || 0;
+        
+        const attendanceTrend = document.getElementById('attendanceTrend');
+        if (attendanceTrend) {
+          attendanceTrend.textContent = (engagementKPIs.attendance_rate || 0) + '%';
+        }
+        
+      } catch (error) {
+        console.error('Error updating KPIs:', error);
+      }
+    }
+
+    // Update charts
+    function updateAnalyticsCharts(trends) {
+      try {
+        updateSubscriberGrowthChart(trends.subscriber_growth || []);
+        updateRegistrationTrendChart(trends.registration_trend || []);
+      } catch (error) {
+        console.error('Error updating charts:', error);
+      }
+    }
+
+    // Update subscriber growth chart
+    function updateSubscriberGrowthChart(data) {
+      try {
+        const ctx = document.getElementById('subscriberGrowthChart');
+        if (!ctx) return;
+        
+        if (subscriberGrowthChart) {
+          subscriberGrowthChart.destroy();
+        }
+        
+        // Prepare data
+        const labels = data.map(item => {
+          const date = new Date(item.date);
+          return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+        });
+        
+        const newSubscribers = data.map(item => item.new_subscribers || 0);
+        const cumulativeSubscribers = data.map(item => item.cumulative_subscribers || 0);
+        
+        subscriberGrowthChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'New Subscribers',
+                data: newSubscribers,
+                borderColor: '#FFD700',
+                backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#FFD700',
+                pointBorderColor: '#1a1a1a',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                yAxisID: 'y'
+              },
+              {
+                label: 'Total Subscribers',
+                data: cumulativeSubscribers,
+                borderColor: '#4ECDC4',
+                backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                pointBackgroundColor: '#4ECDC4',
+                pointBorderColor: '#1a1a1a',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                yAxisID: 'y1'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: {
+                  color: '#FFD700',
+                  font: { weight: 'bold' },
+                  usePointStyle: true
+                }
+              },
+              tooltip: {
+                backgroundColor: '#2a2a2a',
+                titleColor: '#FFD700',
+                bodyColor: '#ffffff',
+                borderColor: '#FFD700',
+                borderWidth: 1
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: '#444' },
+                ticks: { color: '#cccccc', maxRotation: 45 }
+              },
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                beginAtZero: true,
+                grid: { color: '#444' },
+                ticks: { color: '#cccccc' },
+                title: {
+                  display: true,
+                  text: 'New Subscribers',
+                  color: '#FFD700'
+                }
+              },
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                beginAtZero: true,
+                grid: { drawOnChartArea: false },
+                ticks: { color: '#4ECDC4' },
+                title: {
+                  display: true,
+                  text: 'Total Subscribers',
+                  color: '#4ECDC4'
+                }
+              }
+            }
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error updating subscriber growth chart:', error);
+      }
+    }
+
+    // Update registration trend chart
+    function updateRegistrationTrendChart(data) {
+      try {
+        const ctx = document.getElementById('registrationTrendChart');
+        if (!ctx) return;
+        
+        if (registrationTrendChart) {
+          registrationTrendChart.destroy();
+        }
+        
+        // Prepare data
+        const labels = data.map(item => {
+          const date = new Date(item.date);
+          return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+        });
+        
+        const registrations = data.map(item => item.registrations || 0);
+        
+        registrationTrendChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Event Registrations',
+              data: registrations,
+              backgroundColor: 'rgba(139, 92, 246, 0.8)',
+              borderColor: '#8B5CF6',
+              borderWidth: 2,
+              borderRadius: 6,
+              borderSkipped: false,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: {
+                  color: '#8B5CF6',
+                  font: { weight: 'bold' },
+                  usePointStyle: true
+                }
+              },
+              tooltip: {
+                backgroundColor: '#2a2a2a',
+                titleColor: '#8B5CF6',
+                bodyColor: '#ffffff',
+                borderColor: '#8B5CF6',
+                borderWidth: 1
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: '#444' },
+                ticks: { color: '#cccccc', maxRotation: 45 }
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: '#444' },
+                ticks: { color: '#cccccc' },
+                title: {
+                  display: true,
+                  text: 'Registrations',
+                  color: '#8B5CF6'
+                }
+              }
+            }
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error updating registration trend chart:', error);
+      }
+    }
+
+    // Update event types performance
+    function updateEventTypesPerformance(eventTypes) {
+      try {
+        const container = document.getElementById('eventTypesPerformance');
+        if (!container) return;
+        
+        if (!eventTypes || eventTypes.length === 0) {
+          container.innerHTML = '<p class="text-muted text-center">No event data available</p>';
+          return;
+        }
+        
+        container.innerHTML = eventTypes.map(eventType => {
+          const typeClass = eventType.event_type.toLowerCase().replace(/\s+/g, '_');
+          const capacityUtil = Math.round(eventType.avg_capacity_util || 0);
+          
+          return `
+            <div class="event-type-card ${typeClass}">
+              <div class="event-type-header">
+                <span class="event-type-title">${eventType.event_type.replace('_', ' ')}</span>
+                <span class="event-type-count">${eventType.event_count}</span>
+              </div>
+              <div class="event-type-stats">
+                <div class="event-type-stat">
+                  <span class="event-type-stat-value">${eventType.total_registrations || 0}</span>
+                  <span class="event-type-stat-label">Registrations</span>
+                </div>
+                <div class="event-type-stat">
+                  <span class="event-type-stat-value">${capacityUtil}%</span>
+                  <span class="event-type-stat-label">Avg Capacity</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+      } catch (error) {
+        console.error('Error updating event types performance:', error);
+      }
+    }
+
+    // Show loading state
+    function showAnalyticsLoading() {
+      // Update KPI cards to show loading
+      const kpiValues = document.querySelectorAll('.kpi-value, .kpi-detail-value');
+      kpiValues.forEach(element => {
+        element.textContent = '-';
+      });
+      
+      // Show loading for charts
+      const chartContainers = document.querySelectorAll('.chart-container canvas');
+      chartContainers.forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      });
+      
+      // Show loading for event types
+      const eventTypesContainer = document.getElementById('eventTypesPerformance');
+      if (eventTypesContainer) {
+        eventTypesContainer.innerHTML = `
+          <div class="loading-placeholder">
+            <div class="spinner"></div>
+            <p>Loading performance data...</p>
+          </div>
+        `;
+      }
+    }
+
+    // Show error state
+    function showAnalyticsError(message) {
+      console.error('Analytics error:', message);
+      
+      const eventTypesContainer = document.getElementById('eventTypesPerformance');
+      if (eventTypesContainer) {
+        eventTypesContainer.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: #ff6b35;">
+            <p>❌ ${message}</p>
+            <button class="btn btn-primary btn-sm" onclick="loadAnalyticsData()">
+              🔄 Retry
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    // Refresh analytics
+    async function refreshAnalytics() {
+      await loadAnalyticsData();
+      showSuccess('Analytics data refreshed!');
+    }
+
+    // Initialize analytics when tab is clicked
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add event listener for analytics time range change
+      const timeRangeSelect = document.getElementById('analyticsTimeRange');
+      if (timeRangeSelect) {
+        timeRangeSelect.addEventListener('change', loadAnalyticsData);
+      }
+      
+      // Load analytics when analytics tab is clicked
+      const analyticsTab = document.querySelector('.tab[data-tab="analytics"]');
+      if (analyticsTab) {
+        analyticsTab.addEventListener('click', function() {
+          // Small delay to ensure tab content is visible
+          setTimeout(loadAnalyticsData, 200);
+        });
+      }
+    });
+
+    // Also update the existing tab switching to load analytics
+    function initializeTabs() {
+      try {
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+          tab.addEventListener('click', function() {
+            const targetTab = this.dataset.tab;
+            
+            // Remove active class from all tabs and contents
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            this.classList.add('active');
+            const targetContent = document.getElementById(targetTab);
+            if (targetContent) {
+              targetContent.classList.add('active');
+            }
+            
+            // Load appropriate data based on tab
+            if (targetTab === 'campaigns') {
+              updateCampaignRecipientCount();
+            } else if (targetTab === 'analytics') {
+              // 🆕 NEW: Load analytics data when switching to analytics tab
+              setTimeout(loadAnalyticsData, 200);
+            } else if (targetTab === 'events') {
+              // Load events when switching to events tab
+              setTimeout(loadEvents, 100);
+            }
+            
+            // 🆕 NEW: Also refresh the old growth chart if it exists (backward compatibility)
+            if (targetTab === 'analytics' && document.getElementById('growthChart')) {
+              setTimeout(() => {
+                if (subscriberDetails.length > 0) {
+                  initializeGrowthChart();
+                }
+              }, 100);
+            }
+          });
+        });
+      } catch (error) {
+        console.error('Error initializing tabs:', error);
+      }
+    }
+
     function showError(elementId, message) {
       try {
         const element = document.getElementById(elementId);
@@ -3618,7 +4393,7 @@
       } catch (error) {
         console.error('Error showing error:', error);
       }
-    }
+    }  
 
     function showSuccess(message) {
       try {
@@ -3670,6 +4445,9 @@
         console.error('Error setting up enter key handler:', error);
       }
     });
+
+
+    
   </script>
 </body>
 

@@ -265,6 +265,7 @@ def verify_database_schema():
     except Exception as e:
         print(f"❌ Schema verification failed: {e}")
         return False
+       
 
 # Update your init_database function to include migrations
 def init_database():
@@ -2876,6 +2877,185 @@ def get_event_stats():
     except Exception as e:
         log_error(f"Error getting event stats: {e}")
         return jsonify({"success": False, "error": str(e)}), 500 
+
+@app.route('/api/analytics/kpis', methods=['GET'])
+def get_analytics_kpis():
+    """Get comprehensive KPIs for analytics dashboard"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Core subscriber KPIs
+        subscriber_kpis = execute_query_one(f"""
+            SELECT 
+                COUNT(*) as total_subscribers,
+                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '{days} days' THEN 1 END) as new_subscribers,
+                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as weekly_growth,
+                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '1 day' THEN 1 END) as daily_growth
+            FROM subscribers
+        """)
+        
+        # Event performance KPIs
+        event_kpis = execute_query_one(f"""
+            SELECT 
+                COUNT(DISTINCT e.id) as total_events,
+                COUNT(DISTINCT CASE WHEN e.date_time >= CURRENT_DATE - INTERVAL '{days} days' THEN e.id END) as recent_events,
+                COUNT(DISTINCT CASE WHEN e.date_time > CURRENT_TIMESTAMP THEN e.id END) as upcoming_events,
+                COUNT(DISTINCT r.id) as total_registrations,
+                COUNT(DISTINCT CASE WHEN r.attended = true THEN r.id END) as total_attended,
+                COALESCE(AVG(
+                    CASE WHEN e.capacity > 0 THEN 
+                        (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id)::float / e.capacity * 100
+                    END
+                ), 0) as avg_capacity_utilization
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.created_at >= CURRENT_DATE - INTERVAL '{days} days'
+        """)
+        
+        # Revenue KPIs
+        revenue_kpis = execute_query_one(f"""
+            SELECT 
+                COALESCE(SUM(e.entry_fee * reg_counts.registration_count), 0) as total_revenue,
+                COALESCE(AVG(e.entry_fee * reg_counts.registration_count), 0) as avg_revenue_per_event,
+                COUNT(CASE WHEN e.entry_fee > 0 THEN 1 END) as paid_events,
+                COALESCE(SUM(CASE WHEN e.entry_fee > 0 THEN e.entry_fee * reg_counts.registration_count END), 0) as paid_events_revenue
+            FROM events e
+            LEFT JOIN (
+                SELECT event_id, COUNT(*) as registration_count
+                FROM event_registrations
+                GROUP BY event_id
+            ) reg_counts ON e.id = reg_counts.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '{days} days'
+        """)
+        
+        # Engagement KPIs
+        engagement_kpis = execute_query_one(f"""
+            SELECT 
+                COUNT(DISTINCT s.email) as total_subscribers,
+                COUNT(DISTINCT r.subscriber_email) as engaged_subscribers,
+                COUNT(DISTINCT CASE WHEN r.attended = true THEN r.subscriber_email END) as active_attendees,
+                COALESCE(
+                    COUNT(DISTINCT r.subscriber_email)::float / NULLIF(COUNT(DISTINCT s.email), 0) * 100, 0
+                ) as engagement_rate,
+                COALESCE(
+                    COUNT(DISTINCT CASE WHEN r.attended = true THEN r.subscriber_email END)::float / 
+                    NULLIF(COUNT(DISTINCT r.subscriber_email), 0) * 100, 0
+                ) as attendance_rate
+            FROM subscribers s
+            LEFT JOIN event_registrations r ON s.email = r.subscriber_email
+            LEFT JOIN events e ON r.event_id = e.id
+            WHERE s.date_added >= CURRENT_DATE - INTERVAL '{days} days'
+            OR e.date_time >= CURRENT_DATE - INTERVAL '{days} days'
+        """)
+        
+        # Popular event types
+        event_types = execute_query(f"""
+            SELECT 
+                event_type,
+                COUNT(*) as event_count,
+                COUNT(r.id) as total_registrations,
+                COALESCE(AVG(
+                    CASE WHEN e.capacity > 0 THEN 
+                        (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id)::float / e.capacity * 100
+                    END
+                ), 0) as avg_capacity_util
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '{days} days'
+            GROUP BY event_type
+            ORDER BY total_registrations DESC
+        """)
+        
+        # Growth trend data (last 30 days)
+        growth_data = execute_query(f"""
+            SELECT 
+                DATE(date_added) as date,
+                COUNT(*) as new_subscribers,
+                SUM(COUNT(*)) OVER (ORDER BY DATE(date_added)) as cumulative_subscribers
+            FROM subscribers 
+            WHERE date_added >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY DATE(date_added)
+            ORDER BY date
+        """)
+        
+        # Event registration trend
+        registration_trend = execute_query(f"""
+            SELECT 
+                DATE(r.registered_at) as date,
+                COUNT(*) as registrations
+            FROM event_registrations r
+            JOIN events e ON r.event_id = e.id
+            WHERE r.registered_at >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY DATE(r.registered_at)
+            ORDER BY date
+        """)
+        
+        # Calculate growth rates
+        previous_period_subscribers = execute_query_one(f"""
+            SELECT COUNT(*) as count
+            FROM subscribers
+            WHERE date_added >= CURRENT_DATE - INTERVAL '{days*2} days'
+            AND date_added < CURRENT_DATE - INTERVAL '{days} days'
+        """)
+        
+        current_new = subscriber_kpis.get('new_subscribers', 0) if subscriber_kpis else 0
+        previous_new = previous_period_subscribers.get('count', 0) if previous_period_subscribers else 0
+        
+        growth_rate = 0
+        if previous_new > 0:
+            growth_rate = round(((current_new - previous_new) / previous_new) * 100, 1)
+        elif current_new > 0:
+            growth_rate = 100
+            
+        # Convert datetime objects to strings for JSON serialization
+        for item in growth_data or []:
+            if 'date' in item and item['date']:
+                item['date'] = item['date'].isoformat()
+                
+        for item in registration_trend or []:
+            if 'date' in item and item['date']:
+                item['date'] = item['date'].isoformat()
+        
+        return jsonify({
+            "success": True,
+            "kpis": {
+                "subscribers": {
+                    "total": subscriber_kpis.get('total_subscribers', 0) if subscriber_kpis else 0,
+                    "new_this_period": current_new,
+                    "weekly_growth": subscriber_kpis.get('weekly_growth', 0) if subscriber_kpis else 0,
+                    "daily_growth": subscriber_kpis.get('daily_growth', 0) if subscriber_kpis else 0,
+                    "growth_rate": growth_rate
+                },
+                "events": {
+                    "total": event_kpis.get('total_events', 0) if event_kpis else 0,
+                    "recent": event_kpis.get('recent_events', 0) if event_kpis else 0,
+                    "upcoming": event_kpis.get('upcoming_events', 0) if event_kpis else 0,
+                    "total_registrations": event_kpis.get('total_registrations', 0) if event_kpis else 0,
+                    "avg_capacity_utilization": round(event_kpis.get('avg_capacity_utilization', 0), 1) if event_kpis else 0
+                },
+                "revenue": {
+                    "total": float(revenue_kpis.get('total_revenue', 0)) if revenue_kpis else 0,
+                    "avg_per_event": round(float(revenue_kpis.get('avg_revenue_per_event', 0)), 2) if revenue_kpis else 0,
+                    "paid_events": revenue_kpis.get('paid_events', 0) if revenue_kpis else 0,
+                    "paid_events_revenue": float(revenue_kpis.get('paid_events_revenue', 0)) if revenue_kpis else 0
+                },
+                "engagement": {
+                    "engagement_rate": round(engagement_kpis.get('engagement_rate', 0), 1) if engagement_kpis else 0,
+                    "attendance_rate": round(engagement_kpis.get('attendance_rate', 0), 1) if engagement_kpis else 0,
+                    "engaged_subscribers": engagement_kpis.get('engaged_subscribers', 0) if engagement_kpis else 0,
+                    "active_attendees": engagement_kpis.get('active_attendees', 0) if engagement_kpis else 0
+                }
+            },
+            "trends": {
+                "subscriber_growth": growth_data or [],
+                "registration_trend": registration_trend or [],
+                "event_types": event_types or []
+            }
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting analytics KPIs: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
  # Add this route anywhere in your backend.py
 @app.route('/api/events/<int:event_id>/qr-code')

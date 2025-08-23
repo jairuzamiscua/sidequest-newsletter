@@ -1237,9 +1237,201 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* Enhanced Analytics Styles - ADD TO YOUR EXISTING CSS */
+
+    .analytics-status-banner {
+      animation: slideIn 0.5s ease;
+    }
+
+    .chart-toggle-btn {
+      padding: 6px 12px;
+      background: #444;
+      color: #ccc;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .chart-toggle-btn.active {
+      background: #FFD700;
+      color: #1a1a1a;
+      font-weight: 700;
+    }
+
+    .chart-toggle-btn:hover:not(.active) {
+      background: #555;
+      color: #FFD700;
+    }
+
+    .kpi-insight {
+      padding: 8px 12px;
+      background: rgba(255, 215, 0, 0.1);
+      border-radius: 8px;
+      border-left: 3px solid #FFD700;
+      margin-top: 12px !important;
+      font-size: 0.8rem !important;
+      color: #FFD700 !important;
+    }
+
+    .insights-grid {
+      margin-top: 20px;
+    }
+
+    .insight-card {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      border-radius: 12px;
+      padding: 20px;
+      border-left: 4px solid;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .insight-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    }
+
+    .insight-card.growth { border-left-color: #00ff88; }
+    .insight-card.warning { border-left-color: #ff6b35; }
+    .insight-card.opportunity { border-left-color: #8B5CF6; }
+    .insight-card.success { border-left-color: #FFD700; }
+
+    .insight-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .insight-icon {
+      font-size: 1.5rem;
+    }
+
+    .insight-title {
+      color: #FFD700;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    .insight-description {
+      color: #cccccc;
+      line-height: 1.5;
+      margin-bottom: 15px;
+    }
+
+    .insight-action {
+      color: #FFD700;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .insight-action:hover {
+      color: #FFA500;
+    }
+
+    .performance-metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 15px;
+      background: #1a1a1a;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      border-left: 3px solid #FFD700;
+      transition: all 0.3s ease;
+    }
+
+    .performance-metric:hover {
+      background: #2a2a2a;
+      transform: translateX(5px);
+    }
+
+    .metric-label {
+      color: #cccccc;
+      font-weight: 600;
+    }
+
+    .metric-value {
+      color: #FFD700;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    .metric-trend {
+      font-size: 0.8rem;
+      margin-left: 8px;
+    }
+
+    .trend-up { color: #00ff88; }
+    .trend-down { color: #ff6b35; }
+    .trend-neutral { color: #aaaaaa; }
+
+    /* Improved event type cards */
+    .event-type-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .event-type-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent 0%, var(--accent-color, #FFD700) 50%, transparent 100%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .event-type-card:hover::before {
+      opacity: 1;
+    }
+
+    .event-type-card.tournament { --accent-color: #FF6B35; }
+    .event-type-card.game_night { --accent-color: #4ECDC4; }
+    .event-type-card.special { --accent-color: #8B5CF6; }
+    .event-type-card.birthday { --accent-color: #FF69B4; }
+
+    /* Responsive improvements */
+    @media (max-width: 1024px) {
+      .analytics-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .chart-header {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .analytics-status-banner {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .analytics-kpi-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .kpi-details {
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .insights-grid {
+        grid-template-columns: 1fr;
+      }
+    }
  </style>
 </head>
-
 <body>
     <!-- Header -->
     <div class="header" style="position: relative;">

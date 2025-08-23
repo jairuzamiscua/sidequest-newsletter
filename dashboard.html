@@ -4118,8 +4118,14 @@
         // Refresh data every 30 seconds
         setInterval(async () => {
           try {
-            await loadStats();
+            // Remove the old loadStats() call and replace with:
             await loadActivity();
+            
+            // Only refresh analytics if we're currently on the analytics tab
+            const analyticsTab = document.querySelector('.tab[data-tab="analytics"]');
+            if (analyticsTab && analyticsTab.classList.contains('active')) {
+              await loadAnalyticsData();
+            }
           } catch (error) {
             console.error('Auto refresh error:', error);
           }

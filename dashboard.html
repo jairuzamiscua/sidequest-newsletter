@@ -4186,20 +4186,14 @@
     // Update KPI cards
     function updateAnalyticsKPIs(kpis) {
       try {
-        // 🔍 DEBUG: Add these lines temporarily
-        console.log('🔍 DEBUG: Full KPIs object:', kpis);
-        console.log('🔍 DEBUG: Subscriber KPIs:', kpis.subscribers);
-
         // Subscriber KPIs
         const subscriberKPIs = kpis.subscribers || {};
-        
-        // 🔍 MOVE THIS LINE BEFORE THE UPDATE:
-        console.log('🔍 DEBUG: subscriberKPIs.total:', subscriberKPIs.total);
-        console.log('🔍 DEBUG: totalSubscribers element:', document.getElementById('totalSubscribers'));
-        
         document.getElementById('analyticsSubscribers').textContent = subscriberKPIs.total || 0;
         document.getElementById('newSubscribers').textContent = subscriberKPIs.new_this_period || 0;
         document.getElementById('weeklyGrowth').textContent = subscriberKPIs.weekly_growth || 0;
+        
+        // Update status banner
+        document.getElementById('quickSubscriberCount').textContent = subscriberKPIs.total || 0;
         
         // Update growth trend
         const growthRate = subscriberKPIs.growth_rate || 0;
@@ -4215,6 +4209,9 @@
         document.getElementById('totalRegistrations').textContent = eventKPIs.total_registrations || 0;
         document.getElementById('capacityUtil').textContent = (eventKPIs.avg_capacity_utilization || 0) + '%';
         
+        // Update status banner
+        document.getElementById('quickEventCount').textContent = eventKPIs.total || 0;
+        
         const upcomingBadge = document.getElementById('upcomingEventsBadge');
         if (upcomingBadge) {
           upcomingBadge.textContent = (eventKPIs.upcoming || 0) + ' upcoming';
@@ -4224,7 +4221,9 @@
         const revenueKPIs = kpis.revenue || {};
         document.getElementById('totalRevenue').textContent = '£' + (revenueKPIs.total || 0).toFixed(2);
         document.getElementById('avgRevenuePerEvent').textContent = '£' + (revenueKPIs.avg_per_event || 0).toFixed(2);
-        document.getElementById('paidEventsRevenue').textContent = '£' + (revenueKPIs.paid_events_revenue || 0).toFixed(2);
+        
+        // Update status banner
+        document.getElementById('quickRevenue').textContent = '£' + (revenueKPIs.total || 0).toFixed(0);
         
         const paidEventsBadge = document.getElementById('paidEventsBadge');
         if (paidEventsBadge) {
@@ -4235,15 +4234,80 @@
         const engagementKPIs = kpis.engagement || {};
         document.getElementById('engagementRate').textContent = (engagementKPIs.engagement_rate || 0) + '%';
         document.getElementById('engagedSubscribers').textContent = engagementKPIs.engaged_subscribers || 0;
-        document.getElementById('activeAttendees').textContent = engagementKPIs.active_attendees || 0;
+        
+        // Calculate average registrations per event
+        const avgRegsPerEvent = eventKPIs.total > 0 ? Math.round((eventKPIs.total_registrations || 0) / eventKPIs.total) : 0;
+        document.getElementById('avgRegistrationsPerEvent').textContent = avgRegsPerEvent;
         
         const attendanceTrend = document.getElementById('attendanceTrend');
         if (attendanceTrend) {
           attendanceTrend.textContent = (engagementKPIs.attendance_rate || 0) + '%';
         }
         
+        // Update business health score
+        updateBusinessHealthScore(kpis);
+        
+        // Update insights
+        updateInsights(kpis);
+        
+        // Update performance summary
+        updatePerformanceSummary(kpis);
+        
       } catch (error) {
         console.error('Error updating KPIs:', error);
+      }
+    }
+
+    // Business health score calculation
+    function updateBusinessHealthScore(kpis) {
+      try {
+        const subscriber = kpis.subscribers || {};
+        const events = kpis.events || {};
+        const engagement = kpis.engagement || {};
+        
+        let score = 0;
+        let status = 'Good';
+        let color = '#FFD700';
+        
+        // Score factors
+        if (subscriber.growth_rate > 20) score += 25;
+        else if (subscriber.growth_rate > 0) score += 15;
+        else score += 5;
+        
+        if (engagement.engagement_rate > 30) score += 25;
+        else if (engagement.engagement_rate > 15) score += 15;
+        else score += 5;
+        
+        if (events.avg_capacity_utilization > 70) score += 25;
+        else if (events.avg_capacity_utilization > 40) score += 15;
+        else score += 5;
+        
+        if (events.upcoming > 0) score += 25;
+        else score += 10;
+        
+        // Determine status
+        if (score >= 80) {
+          status = 'Excellent';
+          color = '#00ff88';
+        } else if (score >= 60) {
+          status = 'Good';
+          color = '#FFD700';
+        } else if (score >= 40) {
+          status = 'Fair';
+          color = '#FFA500';
+        } else {
+          status = 'Needs Attention';
+          color = '#ff6b35';
+        }
+        
+        const healthElement = document.getElementById('businessHealthScore');
+        if (healthElement) {
+          healthElement.textContent = status;
+          healthElement.style.color = color;
+        }
+        
+      } catch (error) {
+        console.error('Error updating business health score:', error);
       }
     }
 

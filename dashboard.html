@@ -3953,7 +3953,7 @@
           updateAnalyticsCharts(data.trends);
           updateEventTypesPerformance(data.trends.event_types);
           
-          log_activity('Analytics data loaded successfully', 'success');
+         console.log('Analytics data loaded successfully');
         } else {
           showAnalyticsError('Failed to load analytics data: ' + (data.error || 'Unknown error'));
         }

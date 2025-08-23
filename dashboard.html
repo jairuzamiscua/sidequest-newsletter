@@ -3967,12 +3967,16 @@
     // Update KPI cards
     function updateAnalyticsKPIs(kpis) {
       try {
+        // 🔍 DEBUG: Add these lines temporarily
+        console.log('🔍 DEBUG: Full KPIs object:', kpis);
+        console.log('🔍 DEBUG: Subscriber KPIs:', kpis.subscribers);
+
         // Subscriber KPIs
         const subscriberKPIs = kpis.subscribers || {};
         document.getElementById('totalSubscribers').textContent = subscriberKPIs.total || 0;
         document.getElementById('newSubscribers').textContent = subscriberKPIs.new_this_period || 0;
         document.getElementById('weeklyGrowth').textContent = subscriberKPIs.weekly_growth || 0;
-        
+        console.log('🔍 DEBUG: subscriberKPIs.total:', subscriberKPIs.total); // Add this line
         // Update growth trend
         const growthRate = subscriberKPIs.growth_rate || 0;
         const trendElement = document.getElementById('subscriberTrend');

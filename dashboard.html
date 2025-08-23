@@ -715,25 +715,14 @@
 
   
     .event-card {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      padding: 25px;
-      border-left: 4px solid #FFD700;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      
-      /* CRITICAL: Clear separation */
-      margin-bottom: 30px; /* Force space between cards */
-      display: block; /* Ensure block layout */
-      width: 100%; /* Full width */
-      clear: both; /* Clear any floats */
-      
-      /* Remove problematic properties */
-      position: static; /* Remove relative positioning */
-      transform: none; /* Remove transforms initially */
-      z-index: auto; /* Auto z-index */
-      
-      transition: all 0.3s ease;
+      border: 3px solid red !important; /* You'll see red boxes */
+      margin-bottom: 50px !important; /* Force huge gaps */
+      position: static !important;
+      transform: none !important;
+    }
+
+    .event-card * {
+      position: static !important; /* Force all children to be static */
     }
    
 

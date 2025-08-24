@@ -404,6 +404,8 @@ def backup_database_schema():
         print(f"⚠️ Schema backup error: {e}")
         return True  # Don't fail initialization for backup issues
 
+# Add these config variables near the top
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest2024')  # Change this!
 
 def require_admin_auth(f):
     """Decorator to require admin authentication"""
@@ -1695,7 +1697,30 @@ def handle_exception(error):
 # Database Connection
 # =============================
 
-
+def get_db_connection():
+    """Get PostgreSQL connection using Railway's DATABASE_URL"""
+    try:
+        # Railway provides DATABASE_URL automatically
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            # Railway uses 'postgresql://', but psycopg2 needs 'postgres://'
+            if database_url.startswith('postgres://'):
+                database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+        else:
+            # Fallback for local development
+            conn = psycopg2.connect(
+                host=os.environ.get('PGHOST', 'localhost'),
+                port=os.environ.get('PGPORT', 5432),
+                database=os.environ.get('PGDATABASE', 'sidequest'),
+                user=os.environ.get('PGUSER', 'postgres'),
+                password=os.environ.get('PGPASSWORD', ''),
+                cursor_factory=RealDictCursor
+            )
+        return conn
+    except Exception as e:
+        log_error(f"Database connection error: {e}")
+        return None
 
 def execute_query(query, params=None, fetch=True):
     """Execute a database query with error handling"""
@@ -1727,72 +1752,80 @@ def execute_query(query, params=None, fetch=True):
             conn.close()
 
 def execute_query_one(query, params=None):
-    """Execute a query and return the first result - FIXED VERSION"""
+    """Execute a query and return the first result"""
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         if not conn:
+            log_error("Failed to get database connection")
             return None
             
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        log_activity(f"Executing query: {query[:100]}..." if len(query) > 100 else query, "info")
+        log_activity(f"With params: {params}", "info")
+        
         cursor.execute(query, params)
         
+        # For INSERT/UPDATE/DELETE with RETURNING, we need to fetch the result
         if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')) and 'RETURNING' in query.upper():
             result = cursor.fetchone()
-            conn.commit()
+            conn.commit()  # Important: commit the transaction
+            log_activity(f"Query executed successfully, returning: {result}", "success")
             return dict(result) if result else None
+        
+        # For SELECT queries
         elif query.strip().upper().startswith('SELECT'):
             result = cursor.fetchone()
+            log_activity(f"Query executed successfully, returning: {result}", "success")
             return dict(result) if result else None
+        
+        # For other queries without RETURNING
         else:
             conn.commit()
+            log_activity(f"Query executed successfully, no return data", "success")
             return {"affected_rows": cursor.rowcount}
             
-    except Exception as e:
-        print(f"❌ Database error: {e}")
+    except psycopg2.Error as e:
+        log_error(f"Database error in execute_query_one: {e}")
+        log_error(f"Query was: {query}")
+        log_error(f"Params were: {params}")
         if conn:
             conn.rollback()
         return None
+        
+    except Exception as e:
+        log_error(f"Unexpected error in execute_query_one: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        if conn:
+            conn.rollback()
+        return None
+        
     finally:
         if cursor:
             cursor.close()
         if conn:
             conn.close()
-            
+
 # =============================
 # Event Management Routes
 # =============================
 
 @app.route('/api/events', methods=['GET'])
 def get_events():
-    """Get all events with registration counts - FIXED VERSION"""
+    """Get all events with optional filtering"""
     try:
         event_type = request.args.get('type', 'all')
         status = request.args.get('status', 'all')
         upcoming_only = request.args.get('upcoming', 'false').lower() == 'true'
         
-        # FIXED QUERY: Ensure we get registration counts properly
         query = """
             SELECT 
-                e.id,
-                e.title,
-                e.event_type,
-                e.game_title,
-                e.date_time,
-                e.end_time,
-                e.capacity,
-                e.description,
-                e.entry_fee,
-                e.prize_pool,
-                e.status,
-                e.image_url,
-                e.requirements,
-                e.created_at,
-                e.updated_at,
-                COALESCE(COUNT(r.id), 0) as registration_count,
+                e.*,
+                COUNT(r.id) as registration_count,
                 CASE 
-                    WHEN e.capacity > 0 THEN GREATEST(0, e.capacity - COALESCE(COUNT(r.id), 0))
+                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
                     ELSE NULL
                 END as spots_available
             FROM events e
@@ -1811,23 +1844,15 @@ def get_events():
             
         if upcoming_only:
             query += " AND e.date_time > CURRENT_TIMESTAMP"
-        
-        # CRITICAL: Add GROUP BY to make COUNT work properly
-        query += " GROUP BY e.id, e.title, e.event_type, e.game_title, e.date_time, e.end_time, e.capacity, e.description, e.entry_fee, e.prize_pool, e.status, e.image_url, e.requirements, e.created_at, e.updated_at"
-        query += " ORDER BY e.date_time ASC"
-        
-        print(f"🔍 DEBUG: Executing query: {query}")
-        print(f"🔍 DEBUG: With params: {params}")
+            
+        query += " GROUP BY e.id ORDER BY e.date_time ASC"
         
         events = execute_query(query, params)
         
         if events is None:
-            print("❌ DEBUG: execute_query returned None")
             return jsonify({"success": False, "error": "Database error"}), 500
-        
-        print(f"✅ DEBUG: Found {len(events)} events")
-        
-        # Convert datetime objects to ISO format and debug capacity data
+            
+        # Convert datetime objects to ISO format
         for event in events:
             if event['date_time']:
                 event['date_time'] = event['date_time'].isoformat()
@@ -1835,13 +1860,8 @@ def get_events():
                 event['end_time'] = event['end_time'].isoformat()
             if event['created_at']:
                 event['created_at'] = event['created_at'].isoformat()
-            if event['updated_at']:
-                event['updated_at'] = event['updated_at'].isoformat()
                 
-            # DEBUG: Log capacity data for each event
-            print(f"📊 Event '{event['title']}': capacity={event['capacity']}, registrations={event['registration_count']}, spots_available={event['spots_available']}")
-        
-        log_activity(f"Retrieved {len(events)} events with capacity data", "info")
+        log_activity(f"Retrieved {len(events)} events", "info")
         
         return jsonify({
             "success": True,
@@ -1850,10 +1870,7 @@ def get_events():
         })
         
     except Exception as e:
-        error_msg = f"Error getting events: {str(e)}"
-        print(f"❌ DEBUG: {error_msg}")
-        print(f"❌ TRACEBACK: {traceback.format_exc()}")
-        log_error(error_msg)
+        log_error(f"Error getting events: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events/<int:event_id>', methods=['GET'])
@@ -3048,87 +3065,7 @@ def get_analytics_kpis():
         log_error(f"Error getting analytics KPIs: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/events/<int:event_id>/qr-code')
-def get_event_qr_code(event_id):
-    """Generate QR code for event signup with fallback"""
-    try:
-        # Get the signup URL
-        signup_url = f"{request.scheme}://{request.host}/signup/event/{event_id}"
-        
-        if QR_CODE_AVAILABLE:
-            try:
-                # Generate QR code using local library
-                qr = qrcode.QRCode(version=1, box_size=10, border=4)
-                qr.add_data(signup_url)
-                qr.make(fit=True)
-                
-                # Create image
-                img = qr.make_image(fill_color="black", back_color="white")
-                
-                # Convert to base64
-                buffered = io.BytesIO()
-                img.save(buffered, format="PNG")
-                img_str = base64.b64encode(buffered.getvalue()).decode()
-                
-                return jsonify({
-                    "success": True,
-                    "qr_code": f"data:image/png;base64,{img_str}",
-                    "signup_url": signup_url,
-                    "method": "local_generation"
-                })
-                
-            except Exception as e:
-                log_error(f"Local QR generation failed: {e}")
-                # Fall through to external service
-        
-        # Fallback to external QR service
-        external_qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={quote(signup_url)}"
-        
-        return jsonify({
-            "success": True,
-            "qr_code": external_qr_url,
-            "signup_url": signup_url,
-            "method": "external_service"
-        })
-        
-    except Exception as e:
-        log_error(f"Error generating QR code for event {event_id}: {e}")
-        return jsonify({"success": False, "error": "Failed to generate QR code"}), 500
 
-@app.route('/test/event-signup/<int:event_id>')
-def test_event_signup(event_id):
-    """Test endpoint to verify event signup functionality"""
-    try:
-        # Check if event exists
-        event_check = execute_query_one("SELECT id, title, status FROM events WHERE id = %s", (event_id,))
-        if not event_check:
-            return jsonify({"success": False, "error": "Event not found"}), 404
-        
-        signup_url = f"{request.scheme}://{request.host}/signup/event/{event_id}"
-        public_api_url = f"{request.scheme}://{request.host}/api/events/{event_id}/public"
-        qr_api_url = f"{request.scheme}://{request.host}/api/events/{event_id}/qr-code"
-        
-        return jsonify({
-            "success": True,
-            "event_id": event_id,
-            "event_title": event_check['title'],
-            "event_status": event_check['status'],
-            "urls": {
-                "signup_page": signup_url,
-                "public_api": public_api_url, 
-                "qr_code_api": qr_api_url
-            },
-            "qr_library_available": QR_CODE_AVAILABLE,
-            "next_steps": [
-                f"1. Visit {signup_url} to test signup page",
-                f"2. Visit {public_api_url} to test API",
-                f"3. Visit {qr_api_url} to test QR generation"
-            ]
-        })
-        
-    except Exception as e:
-        log_error(f"Error in test endpoint: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/analytics/subscriber-data', methods=['GET'])
 def get_subscriber_analytics():
@@ -3435,113 +3372,46 @@ if __name__ == '__main__':
         print("🚀 SideQuest Backend starting...")
         print("=" * 50)
         
-        # Quick dependency check
-        print("📦 Checking dependencies...")
-        if not QR_CODE_AVAILABLE:
-            print("⚠️ QR code library missing - will use external service")
+        # Initialize database
+        print("🗄️  Initializing database...")
+        if init_database():
+            print("✅ Database ready!")
         else:
-            print("✅ QR code library ready")
-            
-        if not sib_api_v3_sdk:
-            print("⚠️ Brevo SDK missing - email features disabled")
+            print("❌ Database initialization failed!")
+        
+        # Test Brevo connection
+        print("🧪 Testing Brevo API connection...")
+        brevo_connected, brevo_status, brevo_email = test_brevo_connection()
+        if brevo_connected:
+            print(f"✅ Brevo connection successful - {brevo_email}")
         else:
-            print("✅ Brevo SDK ready")
+            print(f"❌ Brevo connection failed: {brevo_status}")
+            print("⚠️  Email campaigns and sync features may not work")
         
-        # Quick database check (don't run full migrations on startup)
-        print("🗄️ Testing database connection...")
-        test_conn = get_db_connection()
-        if test_conn:
-            print("✅ Database connection successful!")
-            test_conn.close()
-            
-            # Only run migrations if needed (check version quickly)
-            try:
-                current_version = get_current_schema_version()
-                if current_version < 3:  # Adjust this number based on your latest migration
-                    print("🔄 Running database migrations...")
-                    if not run_database_migrations():
-                        print("❌ Migration failed, but continuing...")
-                else:
-                    print("✅ Database schema up to date")
-            except Exception as e:
-                print(f"⚠️ Migration check failed: {e}, continuing anyway...")
-        else:
-            print("❌ Database connection failed!")
+        log_activity("SideQuest Backend started with PostgreSQL", "info")
         
-        # Quick Brevo test (don't wait for full connection test)
-        print("🧪 Testing Brevo API...")
-        try:
-            if BREVO_API_KEY and sib_api_v3_sdk:
-                print("✅ Brevo API key configured")
-            else:
-                print("⚠️ Brevo API not configured")
-        except Exception as e:
-            print(f"⚠️ Brevo test failed: {e}")
-        
-        # Log startup
-        try:
-            log_activity("SideQuest Backend started", "info")
-        except:
-            pass  # Don't fail startup for logging issues
-        
-        # Show config summary
         print(f"📧 Sender email: {SENDER_EMAIL}")
         print(f"🔄 Brevo Auto-Sync: {'ON' if AUTO_SYNC_TO_BREVO else 'OFF'}")
-        print(f"🌐 Server starting on port {int(os.environ.get('PORT', 4000))}")
+        print(f"📋 Brevo List ID: {BREVO_LIST_ID}")
+        print(f"🗄️  Database: PostgreSQL")
+        print(f"🌐 Server running on all interfaces")
+        print(f"📱 Signup page: http://localhost:4000/signup")
+        print(f"🔧 Admin dashboard: http://localhost:4000/admin")
+        print(f"📊 API Health check: http://localhost:4000/health")
         print("=" * 50)
         print("✅ SideQuest backend ready! 🎮")
         
-        # Start server
         port = int(os.environ.get('PORT', 4000))
-        
-        # IMPORTANT: Set debug=False for production
-        app.run(
-            host='0.0.0.0', 
-            port=port, 
-            debug=False,  # This is critical for Railway
-            threaded=True,
-            use_reloader=False  # Disable reloader for production
-        )
+        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
         
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
+        log_activity("Server stopped by user", "info")
     except Exception as e:
-        print(f"❌ Critical startup error: {e}")
+        print(f"❌ Critical error starting server: {e}")
         print(f"Traceback: {traceback.format_exc()}")
-        # Don't call log_activity here as it might fail
+        log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
 
-# ALSO ADD: Faster init_database that skips heavy operations on startup
-def quick_init_database():
-    """Quick database initialization for faster startup"""
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return False
-            
-        cursor = conn.cursor()
-        
-        # Just check if main tables exist, don't create them on every startup
-        cursor.execute("""
-            SELECT table_name FROM information_schema.tables 
-            WHERE table_name IN ('subscribers', 'events', 'event_registrations', 'activity_log')
-        """)
-        
-        existing_tables = [row[0] for row in cursor.fetchall()]
-        
-        if len(existing_tables) >= 4:
-            print("✅ Core tables exist")
-            cursor.close()
-            conn.close()
-            return True
-        else:
-            print(f"⚠️ Missing tables: {set(['subscribers', 'events', 'event_registrations', 'activity_log']) - set(existing_tables)}")
-            # Run full initialization
-            cursor.close()
-            conn.close()
-            return init_database()
-            
-    except Exception as e:
-        print(f"❌ Quick database check failed: {e}")
-        return False
+

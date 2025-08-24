@@ -2993,16 +2993,19 @@
           const event = currentEvents.find(e => e.id === eventId);
           const isTournament = event && (
             event.event_type === 'tournament' || 
-            event.title.toLowerCase().includes('tournament') ||
-            event.title.toLowerCase().includes('valorant') ||
-            event.title.toLowerCase().includes('fortnite') ||
-            event.title.toLowerCase().includes('rocket league') ||
-            event.title.toLowerCase().includes('competition')
+            event.title.toLowerCase().includes('tournament')
           );
           
           // Show success message with Discord link for tournaments
           if (isTournament) {
-            showSuccessWithDiscord(email, data.confirmation_code, event.title);
+            showSuccess(`✅ Registered ${email} - Code: ${data.confirmation_code}\n\n🎮 Tournament Discord: https://discord.gg/ZJp3hhe6Cr`);
+            
+            // Also show a separate Discord notification
+            setTimeout(() => {
+              if (confirm('🎮 Join our Tournament Discord server for updates and team coordination?\n\nClick OK to open Discord link.')) {
+                window.open('https://discord.gg/ZJp3hhe6Cr', '_blank');
+              }
+            }, 2000);
           } else {
             showSuccess(`✅ Registered ${email} - Confirmation: ${data.confirmation_code}`);
           }

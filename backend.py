@@ -404,8 +404,6 @@ def backup_database_schema():
         print(f"⚠️ Schema backup error: {e}")
         return True  # Don't fail initialization for backup issues
 
-# Add these config variables near the top
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest2024')  # Change this!
 
 def require_admin_auth(f):
     """Decorator to require admin authentication"""
@@ -1697,30 +1695,7 @@ def handle_exception(error):
 # Database Connection
 # =============================
 
-def get_db_connection():
-    """Get PostgreSQL connection using Railway's DATABASE_URL"""
-    try:
-        # Railway provides DATABASE_URL automatically
-        database_url = os.environ.get('DATABASE_URL')
-        if database_url:
-            # Railway uses 'postgresql://', but psycopg2 needs 'postgres://'
-            if database_url.startswith('postgres://'):
-                database_url = database_url.replace('postgres://', 'postgresql://', 1)
-            conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
-        else:
-            # Fallback for local development
-            conn = psycopg2.connect(
-                host=os.environ.get('PGHOST', 'localhost'),
-                port=os.environ.get('PGPORT', 5432),
-                database=os.environ.get('PGDATABASE', 'sidequest'),
-                user=os.environ.get('PGUSER', 'postgres'),
-                password=os.environ.get('PGPASSWORD', ''),
-                cursor_factory=RealDictCursor
-            )
-        return conn
-    except Exception as e:
-        log_error(f"Database connection error: {e}")
-        return None
+
 
 def execute_query(query, params=None, fetch=True):
     """Execute a database query with error handling"""
@@ -1752,62 +1727,39 @@ def execute_query(query, params=None, fetch=True):
             conn.close()
 
 def execute_query_one(query, params=None):
-    """Execute a query and return the first result"""
+    """Execute a query and return the first result - FIXED VERSION"""
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         if not conn:
-            log_error("Failed to get database connection")
             return None
             
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        
-        log_activity(f"Executing query: {query[:100]}..." if len(query) > 100 else query, "info")
-        log_activity(f"With params: {params}", "info")
-        
+        cursor = conn.cursor()
         cursor.execute(query, params)
         
-        # For INSERT/UPDATE/DELETE with RETURNING, we need to fetch the result
         if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')) and 'RETURNING' in query.upper():
             result = cursor.fetchone()
-            conn.commit()  # Important: commit the transaction
-            log_activity(f"Query executed successfully, returning: {result}", "success")
+            conn.commit()
             return dict(result) if result else None
-        
-        # For SELECT queries
         elif query.strip().upper().startswith('SELECT'):
             result = cursor.fetchone()
-            log_activity(f"Query executed successfully, returning: {result}", "success")
             return dict(result) if result else None
-        
-        # For other queries without RETURNING
         else:
             conn.commit()
-            log_activity(f"Query executed successfully, no return data", "success")
             return {"affected_rows": cursor.rowcount}
             
-    except psycopg2.Error as e:
-        log_error(f"Database error in execute_query_one: {e}")
-        log_error(f"Query was: {query}")
-        log_error(f"Params were: {params}")
-        if conn:
-            conn.rollback()
-        return None
-        
     except Exception as e:
-        log_error(f"Unexpected error in execute_query_one: {e}")
-        log_error(f"Full traceback: {traceback.format_exc()}")
+        print(f"❌ Database error: {e}")
         if conn:
             conn.rollback()
         return None
-        
     finally:
         if cursor:
             cursor.close()
         if conn:
             conn.close()
-
+            
 # =============================
 # Event Management Routes
 # =============================

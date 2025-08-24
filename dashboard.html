@@ -856,34 +856,39 @@
     }
 
     /* Capacity bar improvements */
-    .capacity-bar {
-      width: 100%;
-      height: 28px; /* Slightly taller */
-      background: #1a1a1a;
-      border-radius: 15px;
-      overflow: hidden;
-      margin: 15px 0 20px 0;
-      position: relative;
-      border: 2px solid #333;
+  .capacity-bar {
+        width: 100%;
+        height: 28px;
+        background: #1a1a1a;
+        border-radius: 15px;
+        overflow: hidden;
+        margin: 15px 0 20px 0;
+        position: relative; /* FIXED: Ensure proper positioning */
+        border: 2px solid #333;
+        z-index: 1; /* FIXED: Ensure it's above background but below other elements */
     }
 
-   .capacity-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
-      transition: width 0.3s ease;
-      border-radius: 12px;
+    .capacity-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
+        transition: width 0.3s ease;
+        border-radius: 12px;
+        position: relative; /* FIXED: Proper positioning for the fill */
+        z-index: 2;
     }
 
     .capacity-text {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: white;
-      font-weight: 700;
-      font-size: 0.9rem;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.7);
-      z-index: 2;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-weight: 700;
+        font-size: 0.9rem;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+        z-index: 3; /* FIXED: Ensure text is above the fill */
+        pointer-events: none; /* FIXED: Prevent text from interfering with clicks */
+        white-space: nowrap; /* FIXED: Prevent text wrapping */
     }
 
     /* Modal Styles */
@@ -2452,12 +2457,21 @@
         minute: '2-digit' 
       });
       
-      // Handle different capacity field names
-      const registrations = event.attendeeCount || event.registrations || event.current_attendees || 0;
-      const capacity = event.maxAttendees || event.capacity || event.max_capacity || 0;
+      // FIXED: Handle capacity calculation properly with MORE field name variations
+      const registrations = event.attendeeCount || 
+                          event.registrations || 
+                          event.current_attendees || 
+                          event.registration_count || 
+                          event.attendees_count || 0;
+                          
+      const capacity = event.maxAttendees || 
+                      event.capacity || 
+                      event.max_capacity || 
+                      event.event_capacity || 0;
+                      
       const capacityText = capacity > 0 ? `${registrations}/${capacity}` : `${registrations} registered`;
-      const capacityPercent = capacity > 0 ? (registrations / capacity) * 100 : 0;
-      
+      const capacityPercent = capacity > 0 ? Math.min((registrations / capacity) * 100, 100) : 0;
+
       // Handle different event type field names
       const eventType = event.event_type || event.type || 'special';
       const eventTitle = event.title || event.name || 'Untitled Event';
@@ -2730,11 +2744,7 @@
         alert('Failed to load marketing assets: ' + error.message);
       }
     }
-    
-
-
-    
-
+        
     // Render events list
     function renderEventsList(events) {
       const listContainer = document.getElementById('eventsList');
@@ -2956,7 +2966,12 @@
         
         if (data.success) {
           showSuccess(`✅ Registered ${email} - Confirmation: ${data.confirmation_code}`);
-          loadEvents(); // Refresh the events list
+          
+          // Update the specific event card immediately
+          await updateEventCard(eventId, data.updated_event);
+          
+          // Also refresh the full events list in case backend returns more data
+          loadEvents();
           
           // Refresh attendees modal if it's open
           const modal = document.getElementById('eventModal');
@@ -2966,10 +2981,53 @@
         } else {
           alert('❌ Error: ' + (data.error || 'Failed to register'));
         }
-    } catch (error) {
-      console.error(`Error ${isEditing ? 'updating' : 'creating'} event:`, error);
-      alert(`Failed to ${isEditing ? 'update' : 'create'} event`);
+      } catch (error) {
+        console.error('Error registering for event:', error);
+        alert('❌ Network error: ' + error.message);
+      }
     }
+
+    async function updateEventCard(eventId, updatedEventData = null) {
+      try {
+        // Find the existing event card
+        const existingCard = document.querySelector(`.event-card[onclick*="${eventId}"]`);
+        if (!existingCard) {
+          console.log('Event card not found, will refresh full list');
+          return;
+        }
+
+        let eventData = updatedEventData;
+        
+        // If we don't have updated data, fetch it
+        if (!eventData) {
+          const response = await fetch(`${API_BASE}/api/events/${eventId}`);
+          const data = await response.json();
+          if (!data.success) {
+            console.error('Failed to fetch updated event data');
+            return;
+          }
+          eventData = data.event;
+        }
+
+        // Update the current events array
+        const eventIndex = currentEvents.findIndex(e => e.id === eventId);
+        if (eventIndex !== -1) {
+          currentEvents[eventIndex] = eventData;
+        }
+
+        // Create new card element
+        const newCard = createEventCardElement(eventData);
+        
+        // Replace the old card with the new one
+        existingCard.parentNode.replaceChild(newCard, existingCard);
+        
+        console.log(`✅ Updated event card for event ${eventId}`);
+        
+      } catch (error) {
+        console.error('Error updating event card:', error);
+        // Fallback to full refresh if individual update fails
+        loadEvents();
+      }
     }
 
     // View event attendees

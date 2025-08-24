@@ -3775,10 +3775,15 @@
     }
 
     // Reset event form
-    function resetEventForm() {
-      document.getElementById('createEventForm').reset();
-      currentEditingEventId = null; // Reset edit state
-      resetCreateFormUI(); // Reset UI
+   function resetEventForm() {
+      const form = document.getElementById('createEventForm');
+      if (form) {
+        form.reset();
+      }
+      
+      // FIXED: Always reset edit state when clearing form
+      currentEditingEventId = null;
+      resetCreateFormUI(); // Reset UI elements too
       
       // Set default datetime to tomorrow at 7pm
       const tomorrow = new Date();
@@ -3788,6 +3793,8 @@
       if (dateInput) {
         dateInput.value = tomorrow.toISOString().slice(0, 16);
       }
+      
+      console.log('🔧 Form data reset complete');
     }
 
     // Call initialization when DOM is ready
@@ -3854,6 +3861,7 @@
       }
     }
 
+    // 2. Replace the resetCreateFormUI function
     function resetCreateFormUI() {
       // Reset form title
       const formTitle = document.querySelector('#event-create-view .card-title');
@@ -3876,9 +3884,9 @@
         cancelButton.remove();
       }
       
-      // Reset global edit state
-      currentEditingEventId = null;
+      console.log('🔧 UI reset complete');
     }
+      
 
     function cancelEdit() {
       currentEditingEventId = null;
@@ -5515,7 +5523,7 @@
       }
     });
 
-   // Initialize tabs
+    // Initialize tabs
     function initializeTabs() {
       try {
         const tabs = document.querySelectorAll('.tab');
@@ -5541,13 +5549,13 @@
               console.log('🔧 Resetting edit state due to tab switch');
               currentEditingEventId = null;
               resetCreateFormUI();
+              resetEventForm();
             }
             
             // Load appropriate data based on tab
             if (targetTab === 'campaigns') {
               updateCampaignRecipientCount();
             } else if (targetTab === 'analytics') {
-              // 🆕 NEW: Load analytics data when switching to analytics tab
               setTimeout(loadAnalyticsData, 200);
             } else if (targetTab === 'events') {
               // FIXED: Reset to list view and clear edit state when returning to events
@@ -5557,12 +5565,12 @@
                   console.log('🔧 Clearing edit state on events tab return');
                   currentEditingEventId = null;
                   resetCreateFormUI();
+                  resetEventForm();
                   switchEventView('list'); // Always go back to list view
                 }
               }, 100);
             }
             
-            // 🆕 NEW: Also refresh the old growth chart if it exists (backward compatibility)
             if (targetTab === 'analytics' && document.getElementById('growthChart')) {
               setTimeout(() => {
                 if (subscriberDetails.length > 0) {

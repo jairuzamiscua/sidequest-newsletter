@@ -2562,6 +2562,36 @@
       }
     }
 
+    // Social proof badge display function
+    function showBadge(message, type = 'urgency') {
+      const badgeContainer = document.getElementById('social-proof-container') || createBadgeContainer();
+      
+      const badge = document.createElement('div');
+      badge.className = `social-proof-badge ${type}`;
+      badge.innerHTML = message;
+      
+      // Clear existing badges
+      badgeContainer.innerHTML = '';
+      badgeContainer.appendChild(badge);
+      
+      // Animate in
+      setTimeout(() => badge.classList.add('visible'), 100);
+    }
+
+    function createBadgeContainer() {
+      const container = document.createElement('div');
+      container.id = 'social-proof-container';
+      container.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        max-width: 280px;
+      `;
+      document.body.appendChild(container);
+      return container;
+    }
+
     async function testEventRegistration(eventId) {
       console.log(`🧪 Testing registration flow for event ${eventId}`);
       
@@ -5485,7 +5515,7 @@
       }
     });
 
-    // Also update the existing tab switching to load analytics
+   // Initialize tabs
     function initializeTabs() {
       try {
         const tabs = document.querySelectorAll('.tab');
@@ -5506,6 +5536,13 @@
               targetContent.classList.add('active');
             }
             
+            // FIXED: Reset edit state when switching away from events tab
+            if (targetTab !== 'events' && currentEditingEventId !== null) {
+              console.log('🔧 Resetting edit state due to tab switch');
+              currentEditingEventId = null;
+              resetCreateFormUI();
+            }
+            
             // Load appropriate data based on tab
             if (targetTab === 'campaigns') {
               updateCampaignRecipientCount();
@@ -5513,8 +5550,16 @@
               // 🆕 NEW: Load analytics data when switching to analytics tab
               setTimeout(loadAnalyticsData, 200);
             } else if (targetTab === 'events') {
-              // Load events when switching to events tab
-              setTimeout(loadEvents, 100);
+              // FIXED: Reset to list view and clear edit state when returning to events
+              setTimeout(() => {
+                loadEvents();
+                if (currentEditingEventId !== null) {
+                  console.log('🔧 Clearing edit state on events tab return');
+                  currentEditingEventId = null;
+                  resetCreateFormUI();
+                  switchEventView('list'); // Always go back to list view
+                }
+              }, 100);
             }
             
             // 🆕 NEW: Also refresh the old growth chart if it exists (backward compatibility)

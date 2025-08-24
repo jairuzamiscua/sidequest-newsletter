@@ -1657,9 +1657,14 @@
                     <!-- Add Subscriber -->
                     <div class="form-group">
                         <label class="form-label">Add New Subscriber</label>
-                        <div style="display: flex; gap: 12px;">
-                            <input type="email" class="form-input" id="newSubscriberEmail" placeholder="Enter email address">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 12px; align-items: end;">
+                            <input type="text" class="form-input" id="newSubscriberFirstName" placeholder="First name">
+                            <input type="text" class="form-input" id="newSubscriberLastName" placeholder="Last name">
+                            <input type="email" class="form-input" id="newSubscriberEmail" placeholder="Email address">
                             <button class="btn btn-primary" onclick="addSubscriber()">Add</button>
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <input type="text" class="form-input" id="newSubscriberHandle" placeholder="Gaming handle (optional)" style="max-width: 200px;">
                         </div>
                     </div>
 
@@ -2993,19 +2998,16 @@
           const event = currentEvents.find(e => e.id === eventId);
           const isTournament = event && (
             event.event_type === 'tournament' || 
-            event.title.toLowerCase().includes('tournament')
+            event.title.toLowerCase().includes('tournament') ||
+            event.title.toLowerCase().includes('valorant') ||
+            event.title.toLowerCase().includes('fortnite') ||
+            event.title.toLowerCase().includes('rocket league') ||
+            event.title.toLowerCase().includes('competition')
           );
           
           // Show success message with Discord link for tournaments
           if (isTournament) {
-            showSuccess(`✅ Registered ${email} - Code: ${data.confirmation_code}\n\n🎮 Tournament Discord: https://discord.gg/ZJp3hhe6Cr`);
-            
-            // Also show a separate Discord notification
-            setTimeout(() => {
-              if (confirm('🎮 Join our Tournament Discord server for updates and team coordination?\n\nClick OK to open Discord link.')) {
-                window.open('https://discord.gg/ZJp3hhe6Cr', '_blank');
-              }
-            }, 2000);
+            showSuccessWithDiscord(email, data.confirmation_code, event.title);
           } else {
             showSuccess(`✅ Registered ${email} - Confirmation: ${data.confirmation_code}`);
           }
@@ -3963,40 +3965,32 @@
     }
 
     // Load subscribers from backend
-    async function loadSubscribers() {
-      try {
-        showLoading('subscriberList');
-        const response = await fetch(`${API_BASE}/subscribers`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          subscribers = data.subscribers || [];
-          subscriberDetails = data.subscriber_details || [];
-          currentStats = data.stats || {};
-          
-          renderSubscribers();
-          updateStats();
-          updateCampaignRecipientCount();
-          
-          // Initialize chart after data is loaded
-          setTimeout(() => {
-            if (document.getElementById('growthChart')) {
-              initializeGrowthChart();
+   async function loadSubscribers() {
+        try {
+            showLoading('subscriberList');
+            
+            // Make sure your backend returns the new fields
+            const response = await fetch(`${API_BASE}/subscribers`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-          }, 100);
-        } else {
-          showError('subscriberList', 'Failed to load subscribers');
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                subscribers = data.subscribers || [];
+                subscriberDetails = data.subscriber_details || []; // This should now include name fields
+                currentStats = data.stats || {};
+                
+                renderSubscribers();
+                updateStats();
+                updateCampaignRecipientCount();
+            }
+        } catch (error) {
+            console.error('Error loading subscribers:', error);
+            showError('subscriberList', `Connection error: ${error.message}`);
         }
-      } catch (error) {
-        console.error('Error loading subscribers:', error);
-        showError('subscriberList', `Connection error: ${error.message}`);
-        updateServerStatus(false);
-      }
     }
 
     // Load statistics
@@ -4203,21 +4197,26 @@
         }
 
         subscriberList.innerHTML = subscribersToRender.map(email => {
-          const details = subscriberDetails.find(d => d.email === email);
-          const dateAdded = details ? new Date(details.date_added).toLocaleDateString() : 'Unknown';
-          const source = details ? details.source : 'unknown';
-          
-          return `
-            <div class="subscriber-item">
-              <div class="subscriber-info">
-                <div class="subscriber-email">${email}</div>
-                <div class="subscriber-meta">Added: ${dateAdded} • Source: ${source}</div>
-              </div>
-              <button class="btn btn-danger btn-sm" onclick="removeSubscriber('${email}')">
-                🗑️ Remove
-              </button>
-            </div>
-          `;
+            const details = subscriberDetails.find(d => d.email === email);
+            const dateAdded = details ? new Date(details.date_added).toLocaleDateString() : 'Unknown';
+            const source = details ? details.source : 'unknown';
+            const fullName = details?.full_name || details?.first_name || 'No name';
+            const gamingHandle = details?.gaming_handle;
+            
+            return `
+                <div class="subscriber-item">
+                    <div class="subscriber-info">
+                        <div class="subscriber-email">
+                            <strong>${fullName}</strong> - ${email}
+                            ${gamingHandle ? `<span style="color: #FFD700; font-size: 0.8rem; margin-left: 8px;">🎮 ${gamingHandle}</span>` : ''}
+                        </div>
+                        <div class="subscriber-meta">Added: ${dateAdded} • Source: ${source}</div>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="removeSubscriber('${email}')">
+                        🗑️ Remove
+                    </button>
+                </div>
+            `;
         }).join('');
       } catch (error) {
         console.error('Error rendering subscribers:', error);
@@ -4226,49 +4225,65 @@
 
     // Add new subscriber
     async function addSubscriber() {
-      try {
-        const emailInput = document.getElementById('newSubscriberEmail');
-        if (!emailInput) {
-          console.error('Email input not found');
-          return;
-        }
-        
-        const email = emailInput.value.trim();
+        try {
+            const emailInput = document.getElementById('newSubscriberEmail');
+            const firstNameInput = document.getElementById('newSubscriberFirstName');
+            const lastNameInput = document.getElementById('newSubscriberLastName');
+            const handleInput = document.getElementById('newSubscriberHandle');
+            
+            if (!emailInput || !firstNameInput || !lastNameInput) {
+                console.error('Required input fields not found');
+                return;
+            }
+            
+            const email = emailInput.value.trim();
+            const firstName = firstNameInput.value.trim();
+            const lastName = lastNameInput.value.trim();
+            const gamingHandle = handleInput.value.trim();
 
-        if (!email) {
-          alert('Please enter an email address');
-          return;
-        }
+            if (!email || !firstName || !lastName) {
+                alert('Please enter email, first name, and last name');
+                return;
+            }
 
-        if (!isValidEmail(email)) {
-          alert('Please enter a valid email address');
-          return;
-        }
+            if (!isValidEmail(email)) {
+                alert('Please enter a valid email address');
+                return;
+            }
 
-        const response = await fetch(`${API_BASE}/subscribe`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, source: 'manual' })
-        });
+            const response = await fetch(`${API_BASE}/subscribe`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    email, 
+                    firstName,
+                    lastName,
+                    gamingHandle: gamingHandle || null,
+                    source: 'admin_manual' 
+                })
+            });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
 
-        const data = await response.json();
-        
-        if (data.success) {
-          emailInput.value = '';
-          await loadSubscribers();
-          await loadActivity();
-          showSuccess('Subscriber added successfully!');
-        } else {
-          alert(data.error || 'Failed to add subscriber');
+            const data = await response.json();
+            
+            if (data.success) {
+                emailInput.value = '';
+                firstNameInput.value = '';
+                lastNameInput.value = '';
+                handleInput.value = '';
+                await loadSubscribers();
+                await loadActivity();
+                showSuccess(`Added ${firstName} ${lastName} (${email}) successfully!`);
+            } else {
+                alert(data.error || 'Failed to add subscriber');
+            }
+        } catch (error) {
+            console.error('Error adding subscriber:', error);
+            alert('Network error. Please try again.');
         }
-      } catch (error) {
-        console.error('Error adding subscriber:', error);
-        alert('Network error. Please try again.');
-      }
     }
 
     // Remove subscriber
@@ -4405,6 +4420,43 @@
       }
     }
 
+    async function syncToBrevoWithNames(subscriber) {
+        if (!BREVO_API_KEY) return;
+
+        try {
+            const response = await fetch('https://api.brevo.com/v3/contacts', {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'content-type': 'application/json',
+                    'api-key': BREVO_API_KEY
+                },
+                body: JSON.stringify({
+                    email: subscriber.email,
+                    attributes: {
+                        FIRSTNAME: subscriber.firstName,
+                        LASTNAME: subscriber.lastName,
+                        GAMING_HANDLE: subscriber.gamingHandle || '',
+                        SOURCE: 'SideQuest Canterbury'
+                    },
+                    listIds: [BREVO_LIST_ID]
+                })
+            });
+
+            if (response.ok) {
+                console.log(`✅ Synced ${subscriber.firstName} ${subscriber.lastName} to Brevo`);
+                return true;
+            } else {
+                const errorData = await response.json();
+                console.error('Brevo sync error:', errorData);
+                return false;
+            }
+        } catch (error) {
+            console.error('Brevo API error:', error);
+            return false;
+        }
+    }
+
     // Send campaign
     async function sendCampaign() {
       try {
@@ -4531,20 +4583,30 @@
 
     // Search functionality
     function setupSearch() {
-      try {
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-          searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const filteredSubscribers = subscribers.filter(email => 
-              email.toLowerCase().includes(searchTerm)
-            );
-            renderSubscribers(filteredSubscribers);
-          });
+        try {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const filteredSubscribers = subscribers.filter(email => {
+                        const details = subscriberDetails.find(d => d.email === email);
+                        const fullName = details?.full_name?.toLowerCase() || '';
+                        const firstName = details?.first_name?.toLowerCase() || '';
+                        const lastName = details?.last_name?.toLowerCase() || '';
+                        const gamingHandle = details?.gaming_handle?.toLowerCase() || '';
+                        
+                        return email.toLowerCase().includes(searchTerm) ||
+                              fullName.includes(searchTerm) ||
+                              firstName.includes(searchTerm) ||
+                              lastName.includes(searchTerm) ||
+                              gamingHandle.includes(searchTerm);
+                    });
+                    renderSubscribers(filteredSubscribers);
+                });
+            }
+        } catch (error) {
+            console.error('Error setting up search:', error);
         }
-      } catch (error) {
-        console.error('Error setting up search:', error);
-      }
     }
 
     // Export CSV

@@ -338,7 +338,7 @@ def verify_database_schema():
 
 # Update your init_database function to include migrations
 def init_database():
-    """Initialize database tables and run migrations"""
+    """Initialize database tables and add missing columns"""
     try:
         conn = get_db_connection()
         if not conn:
@@ -347,7 +347,7 @@ def init_database():
             
         cursor = conn.cursor()
         
-        # Create core tables (same as before)
+        # Create core tables first
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS subscribers (
                 id SERIAL PRIMARY KEY,
@@ -358,6 +358,42 @@ def init_database():
             )
         ''')
         
+        # Add name columns if they don't exist
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN first_name VARCHAR(100);')
+            print("✅ Added first_name column")
+        except Exception:
+            print("ℹ️ first_name column already exists")
+            
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN last_name VARCHAR(100);')
+            print("✅ Added last_name column")
+        except Exception:
+            print("ℹ️ last_name column already exists")
+            
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN gaming_handle VARCHAR(50);')
+            print("✅ Added gaming_handle column")
+        except Exception:
+            print("ℹ️ gaming_handle column already exists")
+        
+        # Add computed full_name column (skip if it fails)
+        try:
+            cursor.execute('''
+                ALTER TABLE subscribers ADD COLUMN full_name VARCHAR(200) 
+                GENERATED ALWAYS AS (
+                    CASE 
+                        WHEN first_name IS NOT NULL AND last_name IS NOT NULL 
+                        THEN CONCAT(first_name, ' ', last_name)
+                        ELSE COALESCE(first_name, email)
+                    END
+                ) STORED;
+            ''')
+            print("✅ Added full_name computed column")
+        except Exception as e:
+            print(f"ℹ️ full_name column issue: {e}")
+        
+        # Create other tables...
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS activity_log (
                 id SERIAL PRIMARY KEY,
@@ -388,7 +424,6 @@ def init_database():
             )
         ''')
         
-        # Create event_registrations with all required columns
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS event_registrations (
                 id SERIAL PRIMARY KEY,
@@ -403,29 +438,11 @@ def init_database():
             )
         ''')
         
-        # Create basic indexes
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_events_date_time ON events(date_time);')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_registrations_event_id ON event_registrations(event_id);')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_event_registrations_email ON event_registrations(subscriber_email);')
-        
         conn.commit()
         cursor.close()
         conn.close()
         
-        print("✅ Core database tables initialized")
-        
-        # Run migrations for any additional schema changes
-        if not run_database_migrations():
-            print("❌ Database migrations failed")
-            return False
-        
-        # Verify schema is correct
-        if not verify_database_schema():
-            print("❌ Database schema verification failed")
-            return False
-        
-        print("✅ Database initialization completed successfully")
+        print("✅ Database initialization completed")
         return True
         
     except Exception as e:

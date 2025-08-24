@@ -3028,43 +3028,6 @@
       }
     }
 
-    // Helper function to open Discord and close notification
-    function openDiscordAndClose(notification) {
-      // Copy Discord link to clipboard as backup
-      copyToClipboard('https://discord.gg/ZJp3hhe6Cr');
-      
-      // Open Discord link
-      window.open('https://discord.gg/ZJp3hhe6Cr', '_blank');
-      
-      // Show brief "Opening Discord..." message
-      notification.innerHTML = `
-        <div style="text-align: center; padding: 20px;">
-          <div style="font-size: 1.2rem; margin-bottom: 10px;">🚀</div>
-          <div style="font-weight: bold;">Opening Discord...</div>
-          <div style="font-size: 0.9rem; color: #666; margin-top: 8px;">
-            Link copied to clipboard as backup!
-          </div>
-        </div>
-      `;
-      
-      // Close notification after 2 seconds
-      setTimeout(() => {
-        closeDiscordNotification(notification);
-      }, 2000);
-    }
-
-    // Helper function to close Discord notification
-    function closeDiscordNotification(notification) {
-      if (document.body.contains(notification)) {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => {
-          if (document.body.contains(notification)) {
-            document.body.removeChild(notification);
-          }
-        }, 300);
-      }
-    }
-
     async function updateEventCard(eventId, updatedEventData = null) {
       try {
         // Find the existing event card

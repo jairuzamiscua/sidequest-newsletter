@@ -200,6 +200,26 @@ def run_database_migrations():
                    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();'''
             ]
         },
+        {
+            'version': 4,
+            'description': 'Add name fields to subscribers table',
+            'sql': [
+                'ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS first_name VARCHAR(100);',
+                'ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS last_name VARCHAR(100);',
+                'ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS gaming_handle VARCHAR(50);',
+                '''ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS full_name VARCHAR(200) 
+                   GENERATED ALWAYS AS (
+                       CASE 
+                           WHEN first_name IS NOT NULL AND last_name IS NOT NULL 
+                           THEN CONCAT(first_name, ' ', last_name)
+                           ELSE COALESCE(first_name, email)
+                       END
+                   ) STORED;''',
+                'CREATE INDEX IF NOT EXISTS idx_subscribers_first_name ON subscribers(first_name);',
+                'CREATE INDEX IF NOT EXISTS idx_subscribers_last_name ON subscribers(last_name);',
+                'CREATE INDEX IF NOT EXISTS idx_subscribers_full_name ON subscribers(full_name);'
+            ]
+        }
         # Add more migrations here as needed
     ]
     
@@ -458,18 +478,25 @@ def admin_logout():
 # Database Helper Functions
 # =============================
 
-def add_subscriber_to_db(email, source='manual'):
-    """Add subscriber to database"""
+def add_subscriber_to_db(email, source='manual', first_name=None, last_name=None, gaming_handle=None):
+    """Add subscriber to database with enhanced name fields"""
     try:
         conn = get_db_connection()
         if not conn:
             return False
             
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO subscribers (email, source) VALUES (%s, %s) ON CONFLICT (email) DO NOTHING",
-            (email, source)
-        )
+        
+        # Enhanced insert with name fields
+        cursor.execute("""
+            INSERT INTO subscribers (email, first_name, last_name, gaming_handle, source) 
+            VALUES (%s, %s, %s, %s, %s) 
+            ON CONFLICT (email) DO UPDATE SET
+                first_name = COALESCE(subscribers.first_name, EXCLUDED.first_name),
+                last_name = COALESCE(subscribers.last_name, EXCLUDED.last_name),
+                gaming_handle = COALESCE(subscribers.gaming_handle, EXCLUDED.gaming_handle)
+        """, (email, first_name, last_name, gaming_handle, source))
+        
         rows_affected = cursor.rowcount
         conn.commit()
         cursor.close()
@@ -502,14 +529,19 @@ def remove_subscriber_from_db(email):
         return False
 
 def get_all_subscribers():
-    """Get all subscribers from database"""
+    """Get all subscribers from database with name fields"""
     try:
         conn = get_db_connection()
         if not conn:
             return []
             
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT * FROM subscribers ORDER BY date_added DESC")
+        cursor.execute("""
+            SELECT id, email, first_name, last_name, gaming_handle, full_name, 
+                   date_added, source, status 
+            FROM subscribers 
+            ORDER BY date_added DESC
+        """)
         subscribers = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -637,24 +669,31 @@ def test_brevo_connection() -> tuple[bool, str, str | None]:
 # =============================
 
 def add_to_brevo_contact(email: str, attributes: dict = None) -> dict:
-    """Enhanced function to add contact to Brevo with attributes"""
+    """Enhanced function to add contact to Brevo with name attributes"""
     if not AUTO_SYNC_TO_BREVO:
         return {"success": True, "message": "Brevo sync disabled"}
     if not contacts_api:
         return {"success": False, "error": "Brevo API not initialized"}
     
     try:
-        # Create contact with enhanced attributes
+        # Enhanced contact attributes with names
         contact_attributes = {
-            'FNAME': attributes.get('first_name', '') if attributes else '',
-            'LNAME': attributes.get('last_name', '') if attributes else '',
             'SOURCE': attributes.get('source', 'web') if attributes else 'web',
             'DATE_ADDED': datetime.now().isoformat(),
         }
         
-        # Add any additional attributes
+        # Add name fields if provided
         if attributes:
-            contact_attributes.update(attributes)
+            if attributes.get('first_name'):
+                contact_attributes['FNAME'] = attributes['first_name']
+            if attributes.get('last_name'):
+                contact_attributes['LNAME'] = attributes['last_name']
+            if attributes.get('gaming_handle'):
+                contact_attributes['GAMING_HANDLE'] = attributes['gaming_handle']
+            
+            # Add any additional attributes
+            contact_attributes.update({k: v for k, v in attributes.items() 
+                                     if k not in ['first_name', 'last_name', 'gaming_handle', 'source']})
         
         create_contact = sib_api_v3_sdk.CreateContact(
             email=email,
@@ -666,22 +705,27 @@ def add_to_brevo_contact(email: str, attributes: dict = None) -> dict:
         )
         
         result = contacts_api.create_contact(create_contact)
-        log_activity(f"✅ Added {email} to Brevo with ID: {getattr(result, 'id', 'unknown')}", "success")
+        
+        # Enhanced logging with names
+        name_info = ""
+        if attributes and (attributes.get('first_name') or attributes.get('last_name')):
+            name_info = f" ({attributes.get('first_name', '')} {attributes.get('last_name', '')})".strip()
+        
+        log_activity(f"✅ Added {email}{name_info} to Brevo with ID: {getattr(result, 'id', 'unknown')}", "success")
         return {"success": True, "message": f"Added to Brevo", "brevo_id": getattr(result, 'id', None)}
         
     except ApiException as e:
         error_msg = str(e)
         if "duplicate_parameter" in error_msg or "already exists" in error_msg.lower():
             try:
-                # Contact exists, try to add to list
-                contacts_api.add_contact_to_list(
-                    BREVO_LIST_ID,
-                    sib_api_v3_sdk.AddContactToList(emails=[email])
-                )
-                log_activity(f"ℹ️ Contact {email} already exists in Brevo, added to list", "info")
-                return {"success": True, "message": "Contact already exists, added to list"}
+                # Contact exists, try to update with new attributes
+                update_contact = sib_api_v3_sdk.UpdateContact(attributes=contact_attributes)
+                contacts_api.update_contact(email, update_contact)
+                
+                log_activity(f"ℹ️ Updated existing contact {email} in Brevo with new attributes", "info")
+                return {"success": True, "message": "Contact updated in Brevo"}
             except Exception as e2:
-                log_activity(f"⚠️ Error adding existing contact {email} to list: {str(e2)}", "warning")
+                log_activity(f"⚠️ Error updating existing contact {email}: {str(e2)}", "warning")
                 return {"success": True, "message": "Contact already in Brevo"}
         else:
             log_activity(f"❌ Brevo API Error for {email}: {error_msg}", "danger")
@@ -936,7 +980,7 @@ def get_subscribers():
         return jsonify({
             "success": True,
             "subscribers": [sub['email'] for sub in subscribers],
-            "subscriber_details": subscribers,
+            "subscriber_details": subscribers,  # Now includes name fields
             "count": len(subscribers),
             "stats": stats,
         })
@@ -946,41 +990,78 @@ def get_subscribers():
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/subscribe', methods=['POST'])
+@app.route('/subscribe', methods=['POST'])
 def add_subscriber():
-    """Enhanced subscribe route with better Brevo sync"""
+    """Enhanced subscribe route with name fields and better Brevo sync"""
     try:
         data = request.json or {}
         email = str(data.get('email', '')).strip().lower()
         source = data.get('source', 'manual')
-        first_name = data.get('first_name', '')
-        last_name = data.get('last_name', '')
+        first_name = data.get('firstName', '').strip()  # Note: matches frontend
+        last_name = data.get('lastName', '').strip()    # Note: matches frontend
+        gaming_handle = data.get('gamingHandle', '').strip() or None
         
+        # Enhanced validation
         if not email:
             return jsonify({"success": False, "error": "Email is required"}), 400
         if not is_valid_email(email):
             return jsonify({"success": False, "error": "Invalid email format"}), 400
+            
+        # Validate name fields (required for enhanced signup)
+        if source in ['signup_page_enhanced', 'admin_manual'] and (not first_name or not last_name):
+            return jsonify({"success": False, "error": "First name and last name are required"}), 400
+            
+        if first_name and len(first_name.strip()) < 2:
+            return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
+            
+        if last_name and len(last_name.strip()) < 2:
+            return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
+        
+        # Name validation regex
+        if first_name or last_name:
+            import re
+            name_pattern = r'^[a-zA-Z\s\'-]+$'
+            if first_name and not re.match(name_pattern, first_name):
+                return jsonify({"success": False, "error": "Invalid characters in first name"}), 400
+            if last_name and not re.match(name_pattern, last_name):
+                return jsonify({"success": False, "error": "Invalid characters in last name"}), 400
+        
+        # Gaming handle validation
+        if gaming_handle and (len(gaming_handle) < 3 or len(gaming_handle) > 30):
+            return jsonify({"success": False, "error": "Gaming handle must be 3-30 characters"}), 400
         
         # Check if already exists
         existing_subscribers = get_all_subscribers()
         if any(sub['email'] == email for sub in existing_subscribers):
             return jsonify({"success": False, "error": "Email already subscribed"}), 400
         
-        # Add to database
-        if add_subscriber_to_db(email, source):
-            # 🔥 ENHANCED: Add to Brevo with attributes
-            brevo_result = add_to_brevo_contact(email, {
-                'first_name': first_name,
-                'last_name': last_name,
+        # Add to database with name fields
+        if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle):
+            # Enhanced Brevo sync with names
+            brevo_attributes = {
                 'source': source,
                 'date_added': datetime.now().isoformat()
-            })
+            }
             
-            log_activity(f"New subscriber added: {email} (source: {source})", "success")
+            if first_name:
+                brevo_attributes['first_name'] = first_name
+            if last_name:
+                brevo_attributes['last_name'] = last_name
+            if gaming_handle:
+                brevo_attributes['gaming_handle'] = gaming_handle
+            
+            brevo_result = add_to_brevo_contact(email, brevo_attributes)
+            
+            # Enhanced logging with names
+            subscriber_info = f"{first_name} {last_name}" if first_name and last_name else email
+            log_activity(f"New subscriber added: {subscriber_info} ({email}) - Source: {source}", "success")
             
             return jsonify({
                 "success": True,
                 "message": "Subscriber added successfully",
                 "email": email,
+                "name": f"{first_name} {last_name}".strip() if first_name or last_name else None,
+                "gaming_handle": gaming_handle,
                 "brevo_synced": brevo_result.get("success", False),
                 "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
             })
@@ -1056,7 +1137,7 @@ def get_activity():
 
 @app.route('/bulk-import', methods=['POST'])
 def bulk_import():
-    """Enhanced bulk import with better Brevo sync"""
+    """Enhanced bulk import with name field support"""
     try:
         data = request.json or {}
         emails = data.get('emails', [])
@@ -1071,9 +1152,18 @@ def bulk_import():
         existing_subscribers = get_all_subscribers()
         existing_emails = {sub['email'] for sub in existing_subscribers}
         
-        for email in emails:
+        for item in emails:
             try:
-                email = str(email).strip().lower()
+                # Handle both string emails and objects with name data
+                if isinstance(item, dict):
+                    email = str(item.get('email', '')).strip().lower()
+                    first_name = item.get('firstName', '').strip() or None
+                    last_name = item.get('lastName', '').strip() or None
+                    gaming_handle = item.get('gamingHandle', '').strip() or None
+                else:
+                    email = str(item).strip().lower()
+                    first_name = last_name = gaming_handle = None
+                
                 if not is_valid_email(email):
                     errors.append(f"Invalid email: {email}")
                     continue
@@ -1081,9 +1171,17 @@ def bulk_import():
                     errors.append(f"Already exists: {email}")
                     continue
                 
-                if add_subscriber_to_db(email, source):
-                    # Add to Brevo
-                    brevo_result = add_to_brevo_contact(email, {'source': source})
+                if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle):
+                    # Add to Brevo with names
+                    brevo_attributes = {'source': source}
+                    if first_name:
+                        brevo_attributes['first_name'] = first_name
+                    if last_name:
+                        brevo_attributes['last_name'] = last_name
+                    if gaming_handle:
+                        brevo_attributes['gaming_handle'] = gaming_handle
+                        
+                    brevo_result = add_to_brevo_contact(email, brevo_attributes)
                     if brevo_result.get("success", False):
                         brevo_synced += 1
                     else:
@@ -1409,124 +1507,201 @@ def signup_page():
 </html>'''
     return signup_html
 
-@app.route('/signup/event/<int:event_id>')
-def public_signup_page(event_id):
-    """Serve the public event signup page"""
-    return '''<!DOCTYPE html>
+# Replace your signup_page() function with this updated version:
+
+@app.route('/signup')
+def signup_page():
+    signup_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register for Event - SideQuest Gaming Cafe</title>
+    <title>Join SideQuest Newsletter</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #1a1a1a; color: white; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .header { background: #FFD700; color: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        .form-input { width: 100%; padding: 10px; border-radius: 5px; border: none; }
-        .btn { background: #FFD700; color: #1a1a1a; padding: 15px 30px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        .success { background: #00ff88; color: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px; }
-        .error { background: #ff6b35; color: white; padding: 15px; border-radius: 5px; margin-top: 15px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #ffffff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .container { background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); padding: 50px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 2px solid #444; max-width: 500px; width: 100%; text-align: center; position: relative; overflow: hidden; }
+        .container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%); }
+        .logo { width: 60px; height: 60px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 12px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #1a1a1a; font-size: 18px; letter-spacing: -1px; box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3); }
+        h1 { font-size: 2.5rem; margin-bottom: 15px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 800; }
+        .subtitle { font-size: 1.2rem; margin-bottom: 30px; color: #cccccc; font-weight: 500; line-height: 1.5; }
+        .form-container { margin: 30px 0; text-align: left; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #FFD700; font-weight: 600; font-size: 14px; }
+        input[type="text"], input[type="email"] { 
+            width: 100%; 
+            padding: 16px 20px; 
+            border: 2px solid #444; 
+            border-radius: 12px; 
+            font-size: 16px; 
+            background: #1a1a1a; 
+            color: #ffffff; 
+            transition: all 0.3s ease; 
+            font-weight: 500; 
+        }
+        input[type="text"]:focus, input[type="email"]:focus { 
+            outline: none; 
+            border-color: #FFD700; 
+            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
+            background: #2a2a2a; 
+        }
+        .submit-btn { 
+            width: 100%; 
+            padding: 18px 25px; 
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
+            border: none; 
+            border-radius: 12px; 
+            color: #1a1a1a; 
+            font-size: 16px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            transition: all 0.3s ease; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3); 
+        }
+        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4); }
+        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        .message { margin-top: 20px; padding: 15px 20px; border-radius: 10px; font-weight: 500; opacity: 0; transition: all 0.3s ease; }
+        .message.show { opacity: 1; }
+        .message.success { background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); color: #1a1a1a; border: 2px solid #00ff88; }
+        .message.error { background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%); color: #ffffff; border: 2px solid #ff6b35; }
+        .features { margin-top: 40px; text-align: left; }
+        .features h3 { color: #FFD700; font-size: 1.1rem; margin-bottom: 15px; font-weight: 600; }
+        .feature-list { list-style: none; padding: 0; }
+        .feature-list li { padding: 8px 0; color: #cccccc; position: relative; padding-left: 25px; font-size: 14px; }
+        .feature-list li::before { content: '⚡'; position: absolute; left: 0; color: #FFD700; font-weight: bold; }
+        .footer-links { margin-top: 30px; padding-top: 20px; border-top: 1px solid #444; font-size: 12px; color: #888; text-align: center; }
+        .footer-links a { color: #FFD700; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
+        .optional { color: #aaa; font-size: 12px; margin-left: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🎮 SideQuest Gaming Cafe</h1>
-            <p>Event Registration</p>
-        </div>
+        <div class="logo">SQ</div>
+        <h1>Join the Quest</h1>
+        <p class="subtitle">Get exclusive gaming updates, events, and special offers delivered straight to your inbox!</p>
         
-        <div id="eventDetails">Loading event details...</div>
-        
-        <div id="registrationForm" style="display: none;">
-            <h2>Register for this Event</h2>
-            <form id="regForm">
+        <form class="form-container" id="signupForm">
+            <div class="form-row">
                 <div class="form-group">
-                    <label>Email Address *</label>
-                    <input type="email" id="email" class="form-input" required>
+                    <label for="firstName">First Name *</label>
+                    <input type="text" id="firstName" name="firstName" required>
                 </div>
                 <div class="form-group">
-                    <label>Player Name *</label>
-                    <input type="text" id="playerName" class="form-input" required>
+                    <label for="lastName">Last Name *</label>
+                    <input type="text" id="lastName" name="lastName" required>
                 </div>
-                <button type="submit" class="btn">🎮 Register Now</button>
-            </form>
-            <div id="message"></div>
-        </div>
-        
-        <div id="confirmationPage" style="display: none;">
-            <div class="success">
-                <h2>✅ Registration Confirmed!</h2>
-                <h3>Your Confirmation Code: <span id="confirmationCode"></span></h3>
-                <p>Show this code at check-in!</p>
             </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="gamingHandle">Gaming Handle <span class="optional">(optional)</span></label>
+                <input type="text" id="gamingHandle" name="gamingHandle" placeholder="Your gamer tag">
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">Level Up Your Inbox</button>
+        </form>
+        
+        <div id="message" class="message"></div>
+        
+        <div class="features">
+            <h3>What You'll Get:</h3>
+            <ul class="feature-list">
+                <li>Early access to gaming events & tournaments</li>
+                <li>Exclusive member discounts & offers</li>
+                <li>Community night invitations</li>
+                <li>New location openings & updates</li>
+                <li>Gaming tips & industry news</li>
+            </ul>
+        </div>
+        
+        <div class="footer-links">
+            <a href="https://sidequesthub.com">SideQuest Hub</a> • 
+            <a href="#" onclick="showPrivacyInfo()">Privacy</a>
         </div>
     </div>
     
     <script>
-        const EVENT_ID = ''' + str(event_id) + ''';
-        
-        document.addEventListener('DOMContentLoaded', loadEventDetails);
-        
-        async function loadEventDetails() {
-            try {
-                const response = await fetch(`/api/events/${EVENT_ID}/public`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    const event = data.event;
-                    const eventDate = new Date(event.date_time);
-                    
-                    document.getElementById('eventDetails').innerHTML = `
-                        <div style="background: #2a2a2a; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                            <h1 style="color: #FFD700;">${event.title}</h1>
-                            <p><strong>📅 Date:</strong> ${eventDate.toLocaleDateString()}</p>
-                            <p><strong>🕐 Time:</strong> ${eventDate.toLocaleTimeString()}</p>
-                            <p><strong>🎮 Game:</strong> ${event.game_title || 'TBA'}</p>
-                            <p><strong>💰 Entry:</strong> ${event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE!'}</p>
-                            <p><strong>👥 Spots Available:</strong> ${event.spots_available || 'Unlimited'}</p>
-                        </div>
-                    `;
-                    
-                    document.getElementById('registrationForm').style.display = 'block';
-                } else {
-                    document.getElementById('eventDetails').innerHTML = '<div class="error">Event not found</div>';
-                }
-            } catch (error) {
-                document.getElementById('eventDetails').innerHTML = '<div class="error">Failed to load event</div>';
-            }
-        }
-        
-        document.getElementById('regForm').addEventListener('submit', async function(e) {
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const email = document.getElementById('email').value;
-            const playerName = document.getElementById('playerName').value;
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const gamingHandle = document.getElementById('gamingHandle').value.trim();
+            const messageDiv = document.getElementById('message');
+            const submitButton = document.getElementById('submitBtn');
+            
+            // Validation
+            if (!firstName || !lastName || !email) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Please fill in all required fields';
+                return;
+            }
+            
+            if (firstName.length < 2 || lastName.length < 2) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Names must be at least 2 characters long';
+                return;
+            }
+            
+            submitButton.innerHTML = 'Joining Quest...';
+            submitButton.disabled = true;
             
             try {
-                const response = await fetch(`/api/events/${EVENT_ID}/register-public`, {
+                const response = await fetch('/subscribe', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, player_name: playerName })
+                    body: JSON.stringify({ 
+                        firstName, 
+                        lastName, 
+                        email, 
+                        gamingHandle: gamingHandle || null,
+                        source: 'signup_page_enhanced' 
+                    })
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    document.getElementById('registrationForm').style.display = 'none';
-                    document.getElementById('confirmationCode').textContent = data.confirmation_code;
-                    document.getElementById('confirmationPage').style.display = 'block';
+                    messageDiv.className = 'message success show';
+                    messageDiv.innerHTML = `🎮 Welcome to SideQuest, ${firstName}! Check your email for confirmation.`;
+                    
+                    // Clear form
+                    document.getElementById('signupForm').reset();
+                    
+                    submitButton.innerHTML = '✅ Quest Joined!';
+                    setTimeout(() => { 
+                        submitButton.innerHTML = 'Level Up Your Inbox'; 
+                        submitButton.disabled = false; 
+                    }, 3000);
                 } else {
-                    document.getElementById('message').innerHTML = `<div class="error">${data.error}</div>`;
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = '❌ ' + (data.error || 'Something went wrong');
+                    submitButton.innerHTML = 'Level Up Your Inbox';
+                    submitButton.disabled = false;
                 }
             } catch (error) {
-                document.getElementById('message').innerHTML = '<div class="error">Registration failed. Please try again.</div>';
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Connection error. Please try again later.';
+                submitButton.innerHTML = 'Level Up Your Inbox';
+                submitButton.disabled = false;
             }
         });
+        
+        function showPrivacyInfo() {
+            alert('We respect your privacy! Your information is only used for gaming updates and is never shared with third parties.');
+        }
     </script>
 </body>
 </html>'''
+    return signup_html
 
 # Add the login template
 LOGIN_TEMPLATE = '''

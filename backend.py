@@ -3483,46 +3483,113 @@ if __name__ == '__main__':
         print("🚀 SideQuest Backend starting...")
         print("=" * 50)
         
-        # Initialize database
-        print("🗄️  Initializing database...")
-        if init_database():
-            print("✅ Database ready!")
+        # Quick dependency check
+        print("📦 Checking dependencies...")
+        if not QR_CODE_AVAILABLE:
+            print("⚠️ QR code library missing - will use external service")
         else:
-            print("❌ Database initialization failed!")
-        
-        # Test Brevo connection
-        print("🧪 Testing Brevo API connection...")
-        brevo_connected, brevo_status, brevo_email = test_brevo_connection()
-        if brevo_connected:
-            print(f"✅ Brevo connection successful - {brevo_email}")
+            print("✅ QR code library ready")
+            
+        if not sib_api_v3_sdk:
+            print("⚠️ Brevo SDK missing - email features disabled")
         else:
-            print(f"❌ Brevo connection failed: {brevo_status}")
-            print("⚠️  Email campaigns and sync features may not work")
+            print("✅ Brevo SDK ready")
         
-        log_activity("SideQuest Backend started with PostgreSQL", "info")
+        # Quick database check (don't run full migrations on startup)
+        print("🗄️ Testing database connection...")
+        test_conn = get_db_connection()
+        if test_conn:
+            print("✅ Database connection successful!")
+            test_conn.close()
+            
+            # Only run migrations if needed (check version quickly)
+            try:
+                current_version = get_current_schema_version()
+                if current_version < 3:  # Adjust this number based on your latest migration
+                    print("🔄 Running database migrations...")
+                    if not run_database_migrations():
+                        print("❌ Migration failed, but continuing...")
+                else:
+                    print("✅ Database schema up to date")
+            except Exception as e:
+                print(f"⚠️ Migration check failed: {e}, continuing anyway...")
+        else:
+            print("❌ Database connection failed!")
         
+        # Quick Brevo test (don't wait for full connection test)
+        print("🧪 Testing Brevo API...")
+        try:
+            if BREVO_API_KEY and sib_api_v3_sdk:
+                print("✅ Brevo API key configured")
+            else:
+                print("⚠️ Brevo API not configured")
+        except Exception as e:
+            print(f"⚠️ Brevo test failed: {e}")
+        
+        # Log startup
+        try:
+            log_activity("SideQuest Backend started", "info")
+        except:
+            pass  # Don't fail startup for logging issues
+        
+        # Show config summary
         print(f"📧 Sender email: {SENDER_EMAIL}")
         print(f"🔄 Brevo Auto-Sync: {'ON' if AUTO_SYNC_TO_BREVO else 'OFF'}")
-        print(f"📋 Brevo List ID: {BREVO_LIST_ID}")
-        print(f"🗄️  Database: PostgreSQL")
-        print(f"🌐 Server running on all interfaces")
-        print(f"📱 Signup page: http://localhost:4000/signup")
-        print(f"🔧 Admin dashboard: http://localhost:4000/admin")
-        print(f"📊 API Health check: http://localhost:4000/health")
+        print(f"🌐 Server starting on port {int(os.environ.get('PORT', 4000))}")
         print("=" * 50)
         print("✅ SideQuest backend ready! 🎮")
         
+        # Start server
         port = int(os.environ.get('PORT', 4000))
-        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+        
+        # IMPORTANT: Set debug=False for production
+        app.run(
+            host='0.0.0.0', 
+            port=port, 
+            debug=False,  # This is critical for Railway
+            threaded=True,
+            use_reloader=False  # Disable reloader for production
+        )
         
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
-        log_activity("Server stopped by user", "info")
     except Exception as e:
-        print(f"❌ Critical error starting server: {e}")
+        print(f"❌ Critical startup error: {e}")
         print(f"Traceback: {traceback.format_exc()}")
-        log_activity(f"Critical startup error: {str(e)}", "danger")
+        # Don't call log_activity here as it might fail
     finally:
         print("🔄 Server shutdown complete")
 
-
+# ALSO ADD: Faster init_database that skips heavy operations on startup
+def quick_init_database():
+    """Quick database initialization for faster startup"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Just check if main tables exist, don't create them on every startup
+        cursor.execute("""
+            SELECT table_name FROM information_schema.tables 
+            WHERE table_name IN ('subscribers', 'events', 'event_registrations', 'activity_log')
+        """)
+        
+        existing_tables = [row[0] for row in cursor.fetchall()]
+        
+        if len(existing_tables) >= 4:
+            print("✅ Core tables exist")
+            cursor.close()
+            conn.close()
+            return True
+        else:
+            print(f"⚠️ Missing tables: {set(['subscribers', 'events', 'event_registrations', 'activity_log']) - set(existing_tables)}")
+            # Run full initialization
+            cursor.close()
+            conn.close()
+            return init_database()
+            
+    except Exception as e:
+        print(f"❌ Quick database check failed: {e}")
+        return False

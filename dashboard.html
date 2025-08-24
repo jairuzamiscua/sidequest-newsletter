@@ -346,7 +346,6 @@
     .event-actions .btn-warning {
       background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
       box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-      color: white !important;
     }
     
     /* Subscriber List */
@@ -1938,6 +1937,7 @@
               <button class="event-nav-btn active" data-view="list">📋 Event List</button>
               <button class="event-nav-btn" data-view="calendar">📅 Calendar View</button>
               <button class="event-nav-btn" data-view="create">➕ Create Event</button>
+              <button class="event-nav-btn" data-view="stats">📊 Statistics</button>
             </div>
 
             <!--Events List View-->
@@ -2059,6 +2059,39 @@
                   <button type="button" class="btn btn-secondary" onclick="resetEventForm()">Clear Form</button>
                 </div>
               </form>
+            </div>
+            
+            <!-- Event Statistics View -->
+            <div class="event-view" id="event-stats-view">
+              <div class="card-header">
+                <h3 class="card-title">Event Statistics</h3>
+              </div>
+              
+              <div class="stats-grid" style ="margin-top: 30px;">
+                <div class="stat-card primary">
+                  <div class="stat-value" id="totalEvents">-</div>
+                  <div class="stat-label">Total Events</div>
+                </div>
+                <div class="stat-card success">
+                  <div class="stat-value" id="upcomingEvents">-</div>
+                  <div class="stat-label">Upcoming Events</div>
+                </div>
+                <div class="stat-card warning">
+                  <div class="stat-value" id="totalEventRegistrations">-</div>
+                  <div class="stat-label>Total Registrations</div>
+                </div>
+                <div class="stat-card info">
+                  <div class="stat-value" id="avgCapacityFilled">-%</div>
+                  <div class="stat-label">Avg Capacity Fillled</div> 
+                </div>
+              </div>
+              
+              <div class="chart-header">
+                <h3 class="card-title">Popular Events</h3>
+              </div>
+              <div id="popularEventsList">
+                <p class="text-muted text-center">Loading Statistics...</p>
+              </div>
             </div>
           </div> 
           <div id="eventModal" class="modal" style="display: none;">

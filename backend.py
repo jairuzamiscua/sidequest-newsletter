@@ -1814,18 +1814,33 @@ def execute_query_one(query, params=None):
 
 @app.route('/api/events', methods=['GET'])
 def get_events():
-    """Get all events with optional filtering"""
+    """Get all events with registration counts - FIXED VERSION"""
     try:
         event_type = request.args.get('type', 'all')
         status = request.args.get('status', 'all')
         upcoming_only = request.args.get('upcoming', 'false').lower() == 'true'
         
+        # FIXED QUERY: Ensure we get registration counts properly
         query = """
             SELECT 
-                e.*,
-                COUNT(r.id) as registration_count,
+                e.id,
+                e.title,
+                e.event_type,
+                e.game_title,
+                e.date_time,
+                e.end_time,
+                e.capacity,
+                e.description,
+                e.entry_fee,
+                e.prize_pool,
+                e.status,
+                e.image_url,
+                e.requirements,
+                e.created_at,
+                e.updated_at,
+                COALESCE(COUNT(r.id), 0) as registration_count,
                 CASE 
-                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
+                    WHEN e.capacity > 0 THEN GREATEST(0, e.capacity - COALESCE(COUNT(r.id), 0))
                     ELSE NULL
                 END as spots_available
             FROM events e
@@ -1844,15 +1859,23 @@ def get_events():
             
         if upcoming_only:
             query += " AND e.date_time > CURRENT_TIMESTAMP"
-            
-        query += " GROUP BY e.id ORDER BY e.date_time ASC"
+        
+        # CRITICAL: Add GROUP BY to make COUNT work properly
+        query += " GROUP BY e.id, e.title, e.event_type, e.game_title, e.date_time, e.end_time, e.capacity, e.description, e.entry_fee, e.prize_pool, e.status, e.image_url, e.requirements, e.created_at, e.updated_at"
+        query += " ORDER BY e.date_time ASC"
+        
+        print(f"🔍 DEBUG: Executing query: {query}")
+        print(f"🔍 DEBUG: With params: {params}")
         
         events = execute_query(query, params)
         
         if events is None:
+            print("❌ DEBUG: execute_query returned None")
             return jsonify({"success": False, "error": "Database error"}), 500
-            
-        # Convert datetime objects to ISO format
+        
+        print(f"✅ DEBUG: Found {len(events)} events")
+        
+        # Convert datetime objects to ISO format and debug capacity data
         for event in events:
             if event['date_time']:
                 event['date_time'] = event['date_time'].isoformat()
@@ -1860,8 +1883,13 @@ def get_events():
                 event['end_time'] = event['end_time'].isoformat()
             if event['created_at']:
                 event['created_at'] = event['created_at'].isoformat()
+            if event['updated_at']:
+                event['updated_at'] = event['updated_at'].isoformat()
                 
-        log_activity(f"Retrieved {len(events)} events", "info")
+            # DEBUG: Log capacity data for each event
+            print(f"📊 Event '{event['title']}': capacity={event['capacity']}, registrations={event['registration_count']}, spots_available={event['spots_available']}")
+        
+        log_activity(f"Retrieved {len(events)} events with capacity data", "info")
         
         return jsonify({
             "success": True,
@@ -1870,7 +1898,10 @@ def get_events():
         })
         
     except Exception as e:
-        log_error(f"Error getting events: {e}")
+        error_msg = f"Error getting events: {str(e)}"
+        print(f"❌ DEBUG: {error_msg}")
+        print(f"❌ TRACEBACK: {traceback.format_exc()}")
+        log_error(error_msg)
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events/<int:event_id>', methods=['GET'])

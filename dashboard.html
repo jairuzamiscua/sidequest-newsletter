@@ -5577,21 +5577,6 @@
       }
     }
 
-    function showError(elementId, message) {
-      try {
-        const element = document.getElementById(elementId);
-        if (element) {
-          element.innerHTML = `
-            <div style="text-align: center; padding: 50px; color: #ff6b35;">
-              ❌ ${message}
-            </div>
-          `;
-        }
-      } catch (error) {
-        console.error('Error showing error:', error);
-      }
-    }  
-
     function showSuccess(message) {
       try {
         // Success notification with SideQuest styling

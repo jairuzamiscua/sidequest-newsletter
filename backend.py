@@ -238,6 +238,48 @@ def run_database_migrations():
     print("✅ All database migrations completed successfully")
     return True
 
+def add_name_columns():
+    """Add missing name columns to subscribers table"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Add the missing columns
+        cursor.execute('ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS first_name VARCHAR(100);')
+        cursor.execute('ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS last_name VARCHAR(100);')
+        cursor.execute('ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS gaming_handle VARCHAR(50);')
+        
+        # Add the computed full_name column
+        cursor.execute('''
+            ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS full_name VARCHAR(200) 
+            GENERATED ALWAYS AS (
+                CASE 
+                    WHEN first_name IS NOT NULL AND last_name IS NOT NULL 
+                    THEN CONCAT(first_name, ' ', last_name)
+                    ELSE COALESCE(first_name, email)
+                END
+            ) STORED;
+        ''')
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        print("✅ Added name columns to subscribers table")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error adding name columns: {e}")
+        return False
+
+# Call this function once when your app starts
+if __name__ == '__main__':
+    add_name_columns()  # Add this line before app.run()
+
+
 def verify_database_schema():
     """Verify that all required tables and columns exist"""
     try:

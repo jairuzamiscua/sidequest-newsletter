@@ -3224,140 +3224,134 @@ def get_public_event(event_id):
 
 @app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
 def register_public(event_id):
-   """Public registration endpoint with first/last name support"""
-   conn = None
-   cursor = None
-   try:
-       data = request.json or {}
-       email = data.get('email', '').strip().lower()
-       player_name = data.get('player_name', '').strip()
-       first_name = data.get('first_name', '').strip()
-       last_name = data.get('last_name', '').strip()
-       
-       # Validation
-       if not email:
-           return jsonify({"success": False, "error": "Email is required"}), 400
-           
-       if not is_valid_email(email):
-           return jsonify({"success": False, "error": "Invalid email format"}), 400
-           
-       if not first_name or not last_name:
-           return jsonify({"success": False, "error": "First and last name are required"}), 400
-       
-       # Use full name as player_name if not provided
-       if not player_name:
-           player_name = f"{first_name} {last_name}"
-       
-       # Check if event exists
-       event_check = execute_query_one("""
-           SELECT id, title, capacity, date_time, status
-           FROM events 
-           WHERE id = %s
-       """, (event_id,))
-       
-       if not event_check:
-           return jsonify({"success": False, "error": "Event not found"}), 404
-       
-       # Check if already registered
-       existing_registration = execute_query_one(
-           "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
-           (event_id, email)
-       )
-       if existing_registration:
-           return jsonify({"success": False, "error": "You're already registered for this event"}), 400
-       
-       # Check capacity
-       if event_check['capacity'] > 0:
-           current_count = execute_query_one(
-               "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
-               (event_id,)
-           )
-           if current_count and current_count['count'] >= event_check['capacity']:
-               return jsonify({"success": False, "error": "Event is at full capacity"}), 400
-       
-       # Auto-add to subscribers with names if not exists
-       subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
-       if not subscriber_check:
-           if add_subscriber_to_db(email, 'event_registration', first_name, last_name):
-               log_activity(f"Auto-added {first_name} {last_name} ({email}) to subscribers via event registration", "info")
-       
-       # Generate confirmation code
-       import random
-       import string
-       confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-       
-       # Manual database handling for registration
-       conn = get_db_connection()
-       if not conn:
-           return jsonify({"success": False, "error": "Database connection failed"}), 500
-           
-       cursor = conn.cursor()
-       
-       register_query = """
-           INSERT INTO event_registrations (event_id, subscriber_email, player_name, confirmation_code)
-           VALUES (%s, %s, %s, %s)
-           RETURNING id
-       """
-       
-       cursor.execute(register_query, (event_id, email, player_name, confirmation_code))
-       result = cursor.fetchone()
-       
-       if result:
-           conn.commit()
-           log_activity(f"Public registration: {first_name} {last_name} ({email}) for event: {event_check['title']} (Code: {confirmation_code})", "success")
-           
-           # Check if tournament using the event_check we already have
-           is_tournament = False
-           try:
-               # Try to get event_type from database
-               cursor.execute("SELECT event_type FROM events WHERE id = %s", (event_id,))
-               event_type_result = cursor.fetchone()
-               
-               if event_type_result:
-                   event_type = event_type_result['event_type']
-                   title = event_check['title'].lower()
-                   
-                   is_tournament = (
-                       event_type == 'tournament' or
-                       'tournament' in title or
-                       'valorant' in title or
-                       'fortnite' in title or
-                       'rocket league' in title or
-                       'competition' in title
-                   )
-           except Exception as e:
-               log_error(f"Error checking tournament status: {e}")
-               # Default to False if check fails
-           
-           response_data = {
-               "success": True,
-               "message": "Registration successful!",
-               "confirmation_code": confirmation_code,
-               "event_title": event_check['title'],
-               "player_name": player_name
-           }
-           
-           if is_tournament:
-               response_data["discord_invite"] = "https://discord.gg/ZJp3hhe6Cr"
-               response_data["show_discord"] = True
-               
-           return jsonify(response_data)
-       else:
-           conn.rollback()
-           return jsonify({"success": False, "error": "Registration failed"}), 500
-           
-   except Exception as e:
-       if conn:
-           conn.rollback()
-       log_error(f"Error in public registration for event {event_id}: {e}")
-       return jsonify({"success": False, "error": "Registration failed. Please try again."}), 500
-       
-   finally:
-       if cursor:
-           cursor.close()
-       if conn:
-           conn.close()
-
+    """Public registration endpoint with first/last name support"""
+    conn = None
+    cursor = None
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        player_name = data.get('player_name', '').strip()
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        
+        # Validation
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+            
+        if not is_valid_email(email):
+            return jsonify({"success": False, "error": "Invalid email format"}), 400
+            
+        if not first_name or not last_name:
+            return jsonify({"success": False, "error": "First and last name are required"}), 400
+        
+        # Use full name as player_name if not provided
+        if not player_name:
+            player_name = f"{first_name} {last_name}"
+        
+        # Check if event exists
+        event_check = execute_query_one("""
+            SELECT id, title, capacity, date_time, status, event_type
+            FROM events 
+            WHERE id = %s
+        """, (event_id,))
+        
+        if not event_check:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        # Check if already registered
+        existing_registration = execute_query_one(
+            "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
+            (event_id, email)
+        )
+        if existing_registration:
+            return jsonify({"success": False, "error": "You're already registered for this event"}), 400
+        
+        # Check capacity
+        if event_check['capacity'] > 0:
+            current_count = execute_query_one(
+                "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
+                (event_id,)
+            )
+            if current_count and current_count['count'] >= event_check['capacity']:
+                return jsonify({"success": False, "error": "Event is at full capacity"}), 400
+        
+        # Auto-add to subscribers with names if not exists
+        subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
+        if not subscriber_check:
+            if add_subscriber_to_db(email, 'event_registration', first_name, last_name):
+                log_activity(f"Auto-added {first_name} {last_name} ({email}) to subscribers via event registration", "info")
+        
+        # Generate confirmation code
+        import random
+        import string
+        confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        # Manual database handling for registration
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor()
+        
+        register_query = """
+            INSERT INTO event_registrations (event_id, subscriber_email, player_name, confirmation_code)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+        """
+        
+        cursor.execute(register_query, (event_id, email, player_name, confirmation_code))
+        result = cursor.fetchone()
+        
+        if result:
+            conn.commit()
+            log_activity(f"Public registration: {first_name} {last_name} ({email}) for event: {event_check['title']} (Code: {confirmation_code})", "success")
+            
+            # Check if tournament - use event_check that already includes event_type
+            is_tournament = False
+            try:
+                event_type = event_check.get('event_type', '').lower()
+                title = event_check['title'].lower()
+                
+                is_tournament = (
+                    event_type == 'tournament' or
+                    'tournament' in title or
+                    'valorant' in title or
+                    'fortnite' in title or
+                    'rocket league' in title or
+                    'competition' in title
+                )
+            except Exception as e:
+                log_error(f"Error checking tournament status: {e}")
+                is_tournament = False
+            
+            response_data = {
+                "success": True,
+                "message": "Registration successful!",
+                "confirmation_code": confirmation_code,
+                "event_title": event_check['title'],
+                "player_name": player_name
+            }
+            
+            if is_tournament:
+                response_data["discord_invite"] = "https://discord.gg/ZJp3hhe6Cr"
+                response_data["show_discord"] = True
+                
+            return jsonify(response_data)
+        else:
+            conn.rollback()
+            return jsonify({"success": False, "error": "Registration failed"}), 500
+            
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        log_error(f"Error in public registration for event {event_id}: {e}")
+        return jsonify({"success": False, "error": "Registration failed. Please try again."}), 500
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 

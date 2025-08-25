@@ -1638,9 +1638,11 @@ def signup_page():
 
  # Add this route to your backend.py file after the existing /signup route
 
+# 1. UPDATE THE EVENT SIGNUP PAGE to handle equipment reservations
+
 @app.route('/signup/event/<int:event_id>')
 def event_signup_page(event_id):
-    """Event-specific signup page"""
+    """Event-specific signup page with equipment reservation for game nights"""
     try:
         # Get event details
         conn = get_db_connection()
@@ -1663,6 +1665,18 @@ def event_signup_page(event_id):
         """, (event_id,))
         
         event_data = cursor.fetchone()
+        
+        # For game nights, also get existing reservations to show what's available
+        equipment_reservations = []
+        if event_data and event_data['event_type'] == 'game_night':
+            cursor.execute("""
+                SELECT player_name, notes
+                FROM event_registrations 
+                WHERE event_id = %s AND player_name IS NOT NULL
+                ORDER BY registered_at ASC
+            """, (event_id,))
+            equipment_reservations = cursor.fetchall()
+        
         cursor.close()
         conn.close()
         
@@ -1684,13 +1698,52 @@ def event_signup_page(event_id):
         # Check if event is full
         is_full = event['capacity'] > 0 and event['registration_count'] >= event['capacity']
         
+        # Determine if this event type requires newsletter opt-in
+        requires_optin = event['event_type'] in ['tournament', 'special']
+        is_game_night = event['event_type'] == 'game_night'
+        
+
+
+        # Available gaming equipment/stations (CORRECTED FOR YOUR ACTUAL SETUP)
+        available_equipment = [
+            "PlayStation 5 - Station 1",
+            "PlayStation 5 - Station 2",
+            "PlayStation 5 - Station 3", 
+            "PlayStation 5 - Station 4",
+            "Driving Rig - Station 1",
+            "Driving Rig - Station 2",
+            "VR Setup (Meta Quest)",
+            "Racing Rig - Station 1",
+            "Racing Rig - Station 2",
+            "Table for Board Games",
+            "General Gaming Area"
+        ]
+        
+        # Remove already reserved equipment
+        reserved_equipment = [res['player_name'] for res in equipment_reservations if res['player_name'] in available_equipment]
+        available_equipment = [eq for eq in available_equipment if eq not in reserved_equipment]
+        
+        # Set appropriate labels based on event type
+        if is_game_night:
+            page_title = f"Reserve Equipment - {event['title']}"
+            action_word = "Reserve"
+            button_text = "🎮 Reserve Equipment"
+            success_message = "Reservation confirmed!"
+            capacity_label = "Equipment Reserved"
+        else:
+            page_title = f"Register for {event['title']}"
+            action_word = "Register"
+            button_text = "🎮 Register for Event"
+            success_message = "Registration successful!"
+            capacity_label = "Registered"
+        
         # Generate the HTML for event-specific signup
         event_signup_html = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register for {event['title']} - SideQuest</title>
+    <title>{page_title} - SideQuest</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ 
@@ -1794,6 +1847,62 @@ def event_signup_page(event_id):
             font-weight: 500; 
         }}
         
+        .reserved-equipment {{
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }}
+        
+        .reserved-equipment h4 {{
+            color: #FFD700;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }}
+        
+        .reserved-item {{
+            color: #ff6b35;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            padding-left: 15px;
+            position: relative;
+        }}
+        
+        .reserved-item::before {{
+            content: '🔴';
+            position: absolute;
+            left: 0;
+        }}
+        
+        .available-equipment {{
+            background: #1a1a1a;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }}
+        
+        .available-equipment h4 {{
+            color: #00ff88;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }}
+        
+        .available-item {{
+            color: #00ff88;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            padding-left: 15px;
+            position: relative;
+        }}
+        
+        .available-item::before {{
+            content: '🟢';
+            position: absolute;
+            left: 0;
+        }}
+        
         .form-container {{ 
             margin: 30px 0; 
             text-align: left; 
@@ -1818,7 +1927,7 @@ def event_signup_page(event_id):
             font-size: 14px; 
         }}
         
-        input[type="text"], input[type="email"] {{ 
+        input[type="text"], input[type="email"], select {{ 
             width: 100%; 
             padding: 16px 20px; 
             border: 2px solid #444; 
@@ -1830,11 +1939,51 @@ def event_signup_page(event_id):
             font-weight: 500; 
         }}
         
-        input[type="text"]:focus, input[type="email"]:focus {{ 
+        input[type="text"]:focus, input[type="email"]:focus, select:focus {{ 
             outline: none; 
             border-color: #FFD700; 
             box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
             background: #2a2a2a; 
+        }}
+        
+        select {{
+            cursor: pointer;
+        }}
+        
+        select option {{
+            background: #1a1a1a;
+            color: #ffffff;
+        }}
+        
+        .checkbox-group {{
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 12px;
+            border: 2px solid #444;
+        }}
+        
+        .checkbox-group input[type="checkbox"] {{
+            width: 20px;
+            height: 20px;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #FFD700;
+        }}
+        
+        .checkbox-label {{
+            color: #cccccc;
+            font-size: 14px;
+            line-height: 1.5;
+            cursor: pointer;
+            flex: 1;
+        }}
+        
+        .checkbox-label strong {{
+            color: #FFD700;
         }}
         
         .submit-btn {{ 
@@ -1907,19 +2056,30 @@ def event_signup_page(event_id):
             display: inline-block;
             margin-bottom: 20px;
         }}
+        
+        .privacy-notice {{
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: #cccccc;
+            text-align: left;
+        }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="logo">SQ</div>
         
-        <span class="event-badge badge-{event['event_type']}">{event['event_type'].replace('_', ' ').upper()}</span>
+        <span class="event-badge badge-{event['event_type']}">{("GAME NIGHT" if is_game_night else event['event_type'].replace('_', ' ').upper())}</span>
         
         <h1>{event['title']}</h1>
         
-        {f'<div class="spots-remaining">⚡ Only {event["spots_available"]} spots left!</div>' if event['capacity'] > 0 and event['spots_available'] <= 5 and event['spots_available'] > 0 else ''}
+        {f'<div class="spots-remaining">⚡ Only {event["spots_available"]} spots left!</div>' if event['capacity'] > 0 and event['spots_available'] <= 5 and event['spots_available'] > 0 and not is_game_night else ''}
         
-        {'<div class="capacity-warning">❌ This event is currently full. You can still register for the waiting list.</div>' if is_full else ''}
+        {'<div class="capacity-warning">❌ All equipment is currently reserved. You can still make a reservation for the waiting list.</div>' if is_full and is_game_night else ''}
         
         <div class="event-details">
             <div class="detail-row">
@@ -1930,17 +2090,35 @@ def event_signup_page(event_id):
                 <span class="detail-label">🕒 Time</span>
                 <span class="detail-value">{formatted_time}</span>
             </div>
-            {f'<div class="detail-row"><span class="detail-label">🎮 Game</span><span class="detail-value">{event["game_title"]}</span></div>' if event.get('game_title') else ''}
             <div class="detail-row">
-                <span class="detail-label">👥 Capacity</span>
-                <span class="detail-value">{f"{event['registration_count']}/{event['capacity']}" if event['capacity'] > 0 else f"{event['registration_count']} registered"}</span>
+                <span class="detail-label">🎮 {capacity_label}</span>
+                <span class="detail-value">{event['registration_count']}{f"/{event['capacity']}" if event['capacity'] > 0 else ""}</span>
             </div>
             <div class="detail-row">
-                <span class="detail-label">💰 Entry Fee</span>
+                <span class="detail-label">💰 {"Hourly Rate" if is_game_night else "Entry Fee"}</span>
                 <span class="detail-value">{"£{:.2f}".format(event['entry_fee']) if event['entry_fee'] > 0 else 'FREE'}</span>
             </div>
             {f'<div class="detail-row"><span class="detail-label">📝 Description</span><span class="detail-value">{event["description"]}</span></div>' if event.get('description') else ''}
         </div>
+        
+        {f'''
+        <!-- Show reserved equipment for game nights -->
+        {f"""
+        <div class="reserved-equipment">
+            <h4>🔴 Currently Reserved:</h4>
+            {chr(10).join([f'<div class="reserved-item">{res["player_name"]}</div>' for res in equipment_reservations if res["player_name"] in [eq for eq in ["PlayStation 5 - Station 1", "PlayStation 5 - Station 2", "Xbox Series X - Station 1", "Xbox Series X - Station 2", "Nintendo Switch - Station 1", "Nintendo Switch - Station 2", "Gaming PC - Station 1", "Gaming PC - Station 2", "Racing Sim Rig", "VR Setup (Meta Quest)", "Retro Gaming Corner", "Table for Board Games"]]])}
+            {('<div style="color: #aaa; font-style: italic; margin-top: 10px;">No equipment reserved yet</div>' if not reserved_equipment else '')}
+        </div>
+        """ if reserved_equipment or not equipment_reservations else ""}
+        
+        {f"""
+        <div class="available-equipment">
+            <h4>🟢 Available Equipment:</h4>
+            {chr(10).join([f'<div class="available-item">{eq}</div>' for eq in available_equipment])}
+            {('<div style="color: #aaa; font-style: italic; margin-top: 10px;">All equipment is currently reserved</div>' if not available_equipment else '')}
+        </div>
+        """ if available_equipment or not available_equipment else ""}
+        ''' if is_game_night else ''}
         
         <form class="form-container" id="registrationForm">
             <div class="form-row">
@@ -1959,17 +2137,43 @@ def event_signup_page(event_id):
                 <input type="email" id="email" name="email" required>
             </div>
             
+            {f'''
+            <div class="form-group">
+                <label for="equipmentChoice">Choose Equipment/Station *</label>
+                <select id="equipmentChoice" name="equipmentChoice" required>
+                    <option value="">-- Select Equipment --</option>
+                    {chr(10).join([f'<option value="{eq}">{eq}</option>' for eq in available_equipment])}
+                    {('<option value="waiting_list">⏳ Join Waiting List</option>' if not available_equipment else '')}
+                </select>
+            </div>
+            ''' if is_game_night else f'''
             <div class="form-group">
                 <label for="playerName">Player/Gamer Name</label>
                 <input type="text" id="playerName" name="playerName" placeholder="Your gaming handle or preferred name">
             </div>
+            '''}
+            
+            {f'''
+            <div class="checkbox-group">
+                <input type="checkbox" id="subscribeNewsletter" name="subscribeNewsletter">
+                <label for="subscribeNewsletter" class="checkbox-label">
+                    <strong>📧 Subscribe to SideQuest Newsletter</strong><br>
+                    Get updates about upcoming events, special offers, and gaming news. You can unsubscribe at any time.
+                </label>
+            </div>
+            ''' if requires_optin else ''}
             
             <button type="submit" class="submit-btn" id="submitBtn">
-                {'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}
+                {button_text}
             </button>
         </form>
         
         <div id="message" class="message"></div>
+        
+        <div class="privacy-notice">
+            🔒 <strong>Privacy:</strong> Your information is used only for this {"equipment reservation" if is_game_night else "event registration"}. 
+            {f"Newsletter subscription is optional and separate." if requires_optin else "We will not add you to any mailing lists without explicit consent."}
+        </div>
     </div>
     
     <script>
@@ -1979,18 +2183,35 @@ def event_signup_page(event_id):
             const firstName = document.getElementById('firstName').value.trim();
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
+            
+            {f'''
+            const equipmentChoice = document.getElementById('equipmentChoice').value;
+            const playerName = equipmentChoice; // Use equipment as the "player name"
+            ''' if is_game_night else '''
             const playerName = document.getElementById('playerName').value.trim() || `${{firstName}} ${{lastName}}`;
+            '''}
+            
+            const subscribeNewsletter = {f"document.getElementById('subscribeNewsletter').checked" if requires_optin else "false"};
             
             const messageDiv = document.getElementById('message');
             const submitButton = document.getElementById('submitBtn');
             
+            // Validation
             if (!firstName || !lastName || !email) {{
                 messageDiv.className = 'message error show';
                 messageDiv.innerHTML = '❌ Please fill in all required fields';
                 return;
             }}
             
-            submitButton.innerHTML = 'Registering...';
+            {f'''
+            if (!equipmentChoice) {{
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Please select equipment or join the waiting list';
+                return;
+            }}
+            ''' if is_game_night else ''}
+            
+            submitButton.innerHTML = '{"Reserving Equipment..." if is_game_night else "Registering..."}';
             submitButton.disabled = true;
             
             try {{
@@ -2001,7 +2222,9 @@ def event_signup_page(event_id):
                         email, 
                         player_name: playerName,
                         first_name: firstName,
-                        last_name: lastName
+                        last_name: lastName,
+                        subscribe_newsletter: subscribeNewsletter,
+                        event_type: '{event['event_type']}'
                     }})
                 }});
                 
@@ -2009,28 +2232,50 @@ def event_signup_page(event_id):
                 
                 if (data.success) {{
                     messageDiv.className = 'message success show';
-                    messageDiv.innerHTML = `🎉 Registration successful!<br>
-                        <strong>Confirmation Code: ${{data.confirmation_code}}</strong><br>
-                        Please save this code and bring it to the event.`;
+                    let message = `🎉 {success_message}<br>
+                        <strong>Confirmation Code: ${{data.confirmation_code}}</strong><br>`;
+                    
+                    {f'''
+                    if (equipmentChoice === 'waiting_list') {{
+                        message += 'You have been added to the waiting list. We will contact you if equipment becomes available.';
+                    }} else {{
+                        message += `Your equipment (${{equipmentChoice}}) is reserved! Please arrive on time.`;
+                    }}
+                    ''' if is_game_night else '''
+                    message += 'Please save this code and bring it to the event.';
+                    '''}
+                    
+                    if (subscribeNewsletter && data.newsletter_subscribed) {{
+                        message += '<br><br>✅ You have been subscribed to our newsletter.';
+                    }}
+                    
+                    messageDiv.innerHTML = message;
                     
                     document.getElementById('registrationForm').reset();
-                    submitButton.innerHTML = '✅ Registered!';
+                    submitButton.innerHTML = '✅ {"Equipment Reserved!" if is_game_night else "Registered!"}';
                 }} else {{
                     messageDiv.className = 'message error show';
-                    messageDiv.innerHTML = '❌ ' + (data.error || 'Registration failed');
-                    submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
+                    messageDiv.innerHTML = '❌ ' + (data.error || '{"Reservation" if is_game_night else "Registration"} failed');
+                    submitButton.innerHTML = '{button_text}';
                     submitButton.disabled = false;
                 }}
             }} catch (error) {{
                 messageDiv.className = 'message error show';
                 messageDiv.innerHTML = '❌ Connection error. Please try again.';
-                submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
+                submitButton.innerHTML = '{button_text}';
                 submitButton.disabled = false;
             }}
         }});
     </script>
 </body>
 </html>'''
+        
+        return event_signup_html
+        
+    except Exception as e:
+        print(f"Error in event signup page: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return f"Error loading event: {str(e)}", 500
         
         return event_signup_html
         

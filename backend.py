@@ -896,7 +896,6 @@ def log_response_info(response):
 # =============================
 
 @app.route('/health', methods=['GET'])
-@app.route('/health', methods=['GET'])
 def health_check():
     """Enhanced health check with Brevo sync status"""
     try:
@@ -2157,7 +2156,7 @@ def event_signup_page(event_id):
             <div class="checkbox-group">
                 <input type="checkbox" id="subscribeNewsletter" name="subscribeNewsletter">
                 <label for="subscribeNewsletter" class="checkbox-label">
-                    <strong>📧 Subscribe to SideQuest Newsletter</strong><br>
+                    <strong>Subscribe to SideQuest Newsletter</strong><br>
                     Get updates about upcoming events, special offers, and gaming news. You can unsubscribe at any time.
                 </label>
             </div>

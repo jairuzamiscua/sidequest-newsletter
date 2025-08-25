@@ -1995,10 +1995,24 @@ def event_signup_page(event_id):
                 const data = await response.json();
                 
                 if (data.success) {{
-                    messageDiv.className = 'message success show';
-                    messageDiv.innerHTML = `🎉 Registration successful!<br>
+                    let successMessage = `🎉 Registration successful!<br>
                         <strong>Confirmation Code: ${{data.confirmation_code}}</strong><br>
                         Please save this code and bring it to the event.`;
+                    
+                    // Add Discord invitation for tournaments
+                    if (data.show_discord && data.discord_invite) {{
+                        successMessage += `<br><br>
+                            <div style="background: #5865F2; color: white; padding: 15px; border-radius: 10px; margin-top: 15px;">
+                                <strong>🎮 Join our Discord community!</strong><br>
+                                <a href="${{data.discord_invite}}" target="_blank" style="color: #fff; text-decoration: underline; font-weight: bold;">
+                                    ${{data.discord_invite}}
+                                </a><br>
+                                <small>Connect with other tournament players and get updates!</small>
+                            </div>`;
+                    }}
+                    
+                    messageDiv.className = 'message success show';
+                    messageDiv.innerHTML = successMessage;
                     
                     document.getElementById('registrationForm').reset();
                     submitButton.innerHTML = '✅ Registered!';
@@ -2008,11 +2022,6 @@ def event_signup_page(event_id):
                     submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
                     submitButton.disabled = false;
                 }}
-            }} catch (error) {{
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ Connection error. Please try again.';
-                submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
-                submitButton.disabled = false;
             }}
         }});
     </script>
@@ -3297,13 +3306,32 @@ def register_public(event_id):
             conn.commit()
             log_activity(f"Public registration: {first_name} {last_name} ({email}) for event: {event_check['title']} (Code: {confirmation_code})", "success")
             
-            return jsonify({
+            # Get full event details including event_type
+            full_event = execute_query_one(
+                "SELECT event_type, title FROM events WHERE id = %s", 
+                (event_id,)
+            )
+            
+            # Check if tournament
+            is_tournament = (
+                full_event.get('event_type') == 'tournament' or
+                'tournament' in full_event.get('title', '').lower() or
+                any(game in full_event.get('title', '').lower() for game in ['valorant', 'fortnite', 'rocket league', 'competition'])
+            )
+            
+            response_data = {
                 "success": True,
                 "message": "Registration successful!",
                 "confirmation_code": confirmation_code,
                 "event_title": event_check['title'],
                 "player_name": player_name
-            })
+            }
+            
+            if is_tournament:
+                response_data["discord_invite"] = "https://discord.gg/ZJp3hhe6Cr"
+                response_data["show_discord"] = True
+                
+            return jsonify(response_data)
         else:
             conn.rollback()
             return jsonify({"success": False, "error": "Registration failed"}), 500

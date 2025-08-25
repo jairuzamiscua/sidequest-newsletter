@@ -2100,24 +2100,7 @@ def event_signup_page(event_id):
             {f'<div class="detail-row"><span class="detail-label">📝 Description</span><span class="detail-value">{event["description"]}</span></div>' if event.get('description') else ''}
         </div>
         
-        {f'''
-        <!-- Show reserved equipment for game nights -->
-        {f"""
-        <div class="reserved-equipment">
-            <h4>🔴 Currently Reserved:</h4>
-            {chr(10).join([f'<div class="reserved-item">{res["player_name"]}</div>' for res in equipment_reservations if res["player_name"] in [eq for eq in ["PlayStation 5 - Station 1", "PlayStation 5 - Station 2", "Xbox Series X - Station 1", "Xbox Series X - Station 2", "Nintendo Switch - Station 1", "Nintendo Switch - Station 2", "Gaming PC - Station 1", "Gaming PC - Station 2", "Racing Sim Rig", "VR Setup (Meta Quest)", "Retro Gaming Corner", "Table for Board Games"]]])}
-            {('<div style="color: #aaa; font-style: italic; margin-top: 10px;">No equipment reserved yet</div>' if not reserved_equipment else '')}
-        </div>
-        """ if reserved_equipment or not equipment_reservations else ""}
-        
-        {f"""
-        <div class="available-equipment">
-            <h4>🟢 Available Equipment:</h4>
-            {chr(10).join([f'<div class="available-item">{eq}</div>' for eq in available_equipment])}
-            {('<div style="color: #aaa; font-style: italic; margin-top: 10px;">All equipment is currently reserved</div>' if not available_equipment else '')}
-        </div>
-        """ if available_equipment or not available_equipment else ""}
-        ''' if is_game_night else ''}
+        {'' if not is_game_night else ''}
         
         <form class="form-container" id="registrationForm">
             <div class="form-row">

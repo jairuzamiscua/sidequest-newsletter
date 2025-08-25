@@ -1960,94 +1960,95 @@ def event_signup_page(event_id):
     </div>
     
     <script>
-    document.getElementById('registrationForm').addEventListener('submit', async (e) => {
-        console.log('Form submission started');
-        e.preventDefault();
-        
-        const firstName = document.getElementById('firstName').value.trim();
-        const lastName = document.getElementById('lastName').value.trim();
-        const email = document.getElementById('email').value.trim();
-        const playerName = document.getElementById('playerName').value.trim() || `${firstName} ${lastName}`;
-        
-        console.log('Form data collected:', { firstName, lastName, email, playerName });
-        
-        const messageDiv = document.getElementById('message');
-        const submitButton = document.getElementById('submitBtn');
-        
-        if (!firstName || !lastName || !email) {
-            console.log('Validation failed - missing required fields');
-            messageDiv.className = 'message error show';
-            messageDiv.innerHTML = '❌ Please fill in all required fields';
-            return;
-        }
-        
-        console.log('Validation passed, making API request...');
-        
-        submitButton.innerHTML = 'Registering...';
-        submitButton.disabled = true;
-        
-        try {
-            const requestUrl = `/api/events/{event_id}/register-public`;
-            console.log('Request URL:', requestUrl);
+        document.getElementById('registrationForm').addEventListener('submit', async (e) => {{
+            console.log('🔍 Form submission started');
+            e.preventDefault();
             
-            const requestData = { 
-                email, 
-                player_name: playerName,
-                first_name: firstName,
-                last_name: lastName
-            };
-            console.log('Request data:', requestData);
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const playerName = document.getElementById('playerName').value.trim() || `${{firstName}} ${{lastName}}`;
             
-            const response = await fetch(requestUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestData)
-            });
+            console.log('🔍 Form data collected:', {{ firstName, lastName, email, playerName }});
             
-            console.log('Response status:', response.status);
-            console.log('Response ok:', response.ok);
+            const messageDiv = document.getElementById('message');
+            const submitButton = document.getElementById('submitBtn');
             
-            const data = await response.json();
-            console.log('Response data:', data);
-            
-            if (data.success) {
-                let successMessage = `🎉 Registration successful!<br>
-                    <strong>Confirmation Code: ${data.confirmation_code}</strong><br>
-                    Please save this code and bring it to the event.`;
-                
-                if (data.show_discord && data.discord_invite) {
-                    successMessage += `<br><br>
-                        <div style="background: #5865F2; color: white; padding: 15px; border-radius: 10px; margin-top: 15px;">
-                            <strong>🎮 Join our Discord community!</strong><br>
-                            <a href="${data.discord_invite}" target="_blank" style="color: #fff; text-decoration: underline; font-weight: bold;">
-                                ${data.discord_invite}
-                            </a><br>
-                            <small>Connect with other tournament players and get updates!</small>
-                        </div>`;
-                }
-                
-                messageDiv.className = 'message success show';
-                messageDiv.innerHTML = successMessage;
-                
-                document.getElementById('registrationForm').reset();
-                submitButton.innerHTML = '✅ Registered!';
-                
-                console.log('Success message displayed');
-            } else {
-                console.log('Registration failed:', data.error);
+            if (!firstName || !lastName || !email) {{
+                console.log('❌ Validation failed - missing required fields');
                 messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ ' + (data.error || 'Registration failed');
-                submitButton.innerHTML = 'Register for Event';
+                messageDiv.innerHTML = '❌ Please fill in all required fields';
+                return;
+            }}
+            
+            console.log('✅ Validation passed, making API request...');
+            
+            submitButton.innerHTML = 'Registering...';
+            submitButton.disabled = true;
+            
+            try {{
+                const requestUrl = '/api/events/{event_id}/register-public';
+                console.log('🔍 Request URL:', requestUrl);
+                
+                const requestData = {{ 
+                    email, 
+                    player_name: playerName,
+                    first_name: firstName,
+                    last_name: lastName
+                }};
+                console.log('🔍 Request data:', requestData);
+                
+                const response = await fetch(requestUrl, {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify(requestData)
+                }});
+                
+                console.log('🔍 Response status:', response.status);
+                console.log('🔍 Response ok:', response.ok);
+                
+                const data = await response.json();
+                console.log('🔍 Response data:', data);
+                
+                if (data.success) {{
+                    let successMessage = `🎉 Registration successful!<br>
+                        <strong>Confirmation Code: ${{data.confirmation_code}}</strong><br>
+                        Please save this code and bring it to the event.`;
+                    
+                    // Add Discord invitation for tournaments
+                    if (data.show_discord && data.discord_invite) {{
+                        successMessage += `<br><br>
+                            <div style="background: #5865F2; color: white; padding: 15px; border-radius: 10px; margin-top: 15px;">
+                                <strong>🎮 Join our Discord community!</strong><br>
+                                <a href="${{data.discord_invite}}" target="_blank" style="color: #fff; text-decoration: underline; font-weight: bold;">
+                                    ${{data.discord_invite}}
+                                </a><br>
+                                <small>Connect with other tournament players and get updates!</small>
+                            </div>`;
+                    }}
+                    
+                    messageDiv.className = 'message success show';
+                    messageDiv.innerHTML = successMessage;
+                    
+                    document.getElementById('registrationForm').reset();
+                    submitButton.innerHTML = '✅ Registered!';
+                    
+                    console.log('✅ Success message displayed');
+                }} else {{
+                    console.log('❌ Registration failed:', data.error);
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = '❌ ' + (data.error || 'Registration failed');
+                    submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
+                    submitButton.disabled = false;
+                }}
+            }} catch (error) {{
+                console.error('❌ Network error:', error);
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Network error. Please try again later.';
+                submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
                 submitButton.disabled = false;
-            }
-        } catch (error) {
-            console.error('Network error:', error);
-            messageDiv.className = 'message error show';
-            messageDiv.innerHTML = '❌ Network error. Please try again.';
-            submitButton.innerHTML = 'Register for Event';
-            submitButton.disabled = false;
-        }
-    });
+            }}
+        }});
     </script>
 </body>
 </html>'''

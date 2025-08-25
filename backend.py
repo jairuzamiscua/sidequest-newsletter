@@ -3353,6 +3353,166 @@ def register_public(event_id):
         if conn:
             conn.close()
 
+# Add this debug endpoint to your backend.py to check what's happening
+
+@app.route('/api/events/<int:event_id>/debug-registration', methods=['POST'])
+def debug_registration(event_id):
+    """Debug endpoint to check registration flow step by step"""
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        
+        debug_info = {
+            "step_1_event_lookup": None,
+            "step_2_existing_check": None,
+            "step_3_capacity_check": None,
+            "step_4_subscriber_add": None,
+            "step_5_registration_insert": None,
+            "final_result": None
+        }
+        
+        # Step 1: Check if event exists
+        event_check = execute_query_one("""
+            SELECT id, title, capacity, event_type, status
+            FROM events 
+            WHERE id = %s
+        """, (event_id,))
+        
+        debug_info["step_1_event_lookup"] = {
+            "found": event_check is not None,
+            "event_data": dict(event_check) if event_check else None
+        }
+        
+        if not event_check:
+            return jsonify({"success": False, "debug": debug_info, "error": "Event not found"})
+        
+        # Step 2: Check existing registration
+        existing_registration = execute_query_one(
+            "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
+            (event_id, email)
+        )
+        
+        debug_info["step_2_existing_check"] = {
+            "already_registered": existing_registration is not None,
+            "registration_id": existing_registration['id'] if existing_registration else None
+        }
+        
+        # Step 3: Check capacity
+        current_count = execute_query_one(
+            "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
+            (event_id,)
+        )
+        
+        debug_info["step_3_capacity_check"] = {
+            "event_capacity": event_check['capacity'],
+            "current_registrations": current_count['count'] if current_count else 0,
+            "has_space": event_check['capacity'] == 0 or (current_count and current_count['count'] < event_check['capacity'])
+        }
+        
+        # Step 4: Check if subscriber exists
+        subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
+        debug_info["step_4_subscriber_add"] = {
+            "subscriber_exists": subscriber_check is not None
+        }
+        
+        # Step 5: Try to insert registration (dry run)
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            
+            # Generate test confirmation code
+            import random
+            import string
+            test_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            
+            try:
+                register_query = """
+                    INSERT INTO event_registrations (event_id, subscriber_email, player_name, confirmation_code)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id, confirmation_code
+                """
+                
+                cursor.execute(register_query, (event_id, email, f"Test User", test_code))
+                result = cursor.fetchone()
+                
+                if result:
+                    conn.rollback()  # Don't actually save the test registration
+                    debug_info["step_5_registration_insert"] = {
+                        "can_insert": True,
+                        "test_id": result['id'] if result else None,
+                        "test_code": result['confirmation_code'] if result else None
+                    }
+                else:
+                    debug_info["step_5_registration_insert"] = {
+                        "can_insert": False,
+                        "error": "No result returned from insert"
+                    }
+                    
+            except Exception as e:
+                conn.rollback()
+                debug_info["step_5_registration_insert"] = {
+                    "can_insert": False,
+                    "error": str(e)
+                }
+                
+            cursor.close()
+            conn.close()
+        
+        # Final summary
+        debug_info["final_result"] = {
+            "should_work": all([
+                debug_info["step_1_event_lookup"]["found"],
+                not debug_info["step_2_existing_check"]["already_registered"],
+                debug_info["step_3_capacity_check"]["has_space"],
+                debug_info["step_5_registration_insert"]["can_insert"]
+            ])
+        }
+        
+        return jsonify({
+            "success": True,
+            "event_id": event_id,
+            "email": email,
+            "debug": debug_info
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "debug": debug_info
+        }), 500
+
+
+# Also add this endpoint to check what's in your database
+@app.route('/api/events/<int:event_id>/check-data', methods=['GET'])
+def check_event_data(event_id):
+    """Check what's actually in the database for this event"""
+    try:
+        # Get event details
+        event = execute_query_one("SELECT * FROM events WHERE id = %s", (event_id,))
+        
+        # Get all registrations for this event
+        registrations = execute_query(
+            "SELECT * FROM event_registrations WHERE event_id = %s ORDER BY registered_at DESC",
+            (event_id,)
+        )
+        
+        # Get recent subscribers
+        recent_subscribers = execute_query(
+            "SELECT * FROM subscribers WHERE date_added > NOW() - INTERVAL '24 hours' ORDER BY date_added DESC LIMIT 10"
+        )
+        
+        return jsonify({
+            "success": True,
+            "event": dict(event) if event else None,
+            "registrations": [dict(r) for r in registrations] if registrations else [],
+            "registration_count": len(registrations) if registrations else 0,
+            "recent_subscribers": [dict(s) for s in recent_subscribers] if recent_subscribers else []
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 
 # =============================

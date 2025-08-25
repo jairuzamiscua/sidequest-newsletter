@@ -1429,8 +1429,11 @@ def admin_dashboard():
 
 # Replace your signup_page() function with this updated version:
 
+# 4. UPDATE THE MAIN SIGNUP PAGE - Replace the existing signup_page() function
+
 @app.route('/signup')
 def signup_page():
+    """GDPR-compliant main signup page"""
     signup_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1466,6 +1469,39 @@ def signup_page():
             box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
             background: #2a2a2a; 
         }
+        
+        .consent-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: rgba(255, 215, 0, 0.1);
+            border: 2px solid #FFD700;
+            border-radius: 12px;
+        }
+        
+        .consent-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #FFD700;
+            flex-shrink: 0;
+        }
+        
+        .consent-label {
+            color: #ffffff;
+            font-size: 14px;
+            line-height: 1.5;
+            cursor: pointer;
+            flex: 1;
+        }
+        
+        .consent-label strong {
+            color: #FFD700;
+        }
+        
         .submit-btn { 
             width: 100%; 
             padding: 18px 25px; 
@@ -1495,6 +1531,21 @@ def signup_page():
         .footer-links { margin-top: 30px; padding-top: 20px; border-top: 1px solid #444; font-size: 12px; color: #888; text-align: center; }
         .footer-links a { color: #FFD700; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
         .optional { color: #aaa; font-size: 12px; margin-left: 5px; }
+        
+        .privacy-notice {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: #cccccc;
+            text-align: left;
+        }
+        
+        .privacy-notice strong {
+            color: #FFD700;
+        }
     </style>
 </head>
 <body>
@@ -1525,6 +1576,14 @@ def signup_page():
                 <input type="text" id="gamingHandle" name="gamingHandle" placeholder="Your gamer tag">
             </div>
             
+            <div class="consent-group">
+                <input type="checkbox" id="explicitConsent" name="explicitConsent" required>
+                <label for="explicitConsent" class="consent-label">
+                    <strong>📧 I agree to receive the SideQuest newsletter</strong><br>
+                    I consent to receiving updates about gaming events, special offers, and news. I understand I can unsubscribe at any time and my data will be processed according to the privacy policy.
+                </label>
+            </div>
+            
             <button type="submit" class="submit-btn" id="submitBtn">Level Up Your Inbox</button>
         </form>
         
@@ -1541,9 +1600,14 @@ def signup_page():
             </ul>
         </div>
         
+        <div class="privacy-notice">
+            🔒 <strong>Your Privacy Matters:</strong> We only use your information to send you the newsletter you've requested. We never share your data with third parties and you can unsubscribe at any time. See our <a href="#" style="color: #FFD700;">privacy policy</a> for full details.
+        </div>
+        
         <div class="footer-links">
             <a href="https://sidequesthub.com">SideQuest Hub</a> • 
-            <a href="#" onclick="showPrivacyInfo()">Privacy</a>
+            <a href="#" onclick="showPrivacyInfo()">Privacy Policy</a> •
+            <a href="#" onclick="showUnsubscribeInfo()">Unsubscribe</a>
         </div>
     </div>
     
@@ -1555,6 +1619,7 @@ def signup_page():
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
             const gamingHandle = document.getElementById('gamingHandle').value.trim();
+            const explicitConsent = document.getElementById('explicitConsent').checked;
             const messageDiv = document.getElementById('message');
             const submitButton = document.getElementById('submitBtn');
             
@@ -1562,6 +1627,12 @@ def signup_page():
             if (!firstName || !lastName || !email) {
                 messageDiv.className = 'message error show';
                 messageDiv.innerHTML = '❌ Please fill in all required fields';
+                return;
+            }
+            
+            if (!explicitConsent) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Please agree to receive our newsletter to continue';
                 return;
             }
             
@@ -1583,7 +1654,8 @@ def signup_page():
                         lastName, 
                         email, 
                         gamingHandle: gamingHandle || null,
-                        source: 'signup_page_enhanced' 
+                        source: 'signup_page_enhanced',
+                        explicit_consent: true
                     })
                 });
                 
@@ -1591,7 +1663,9 @@ def signup_page():
                 
                 if (data.success) {
                     messageDiv.className = 'message success show';
-                    messageDiv.innerHTML = `🎮 Welcome to SideQuest, ${firstName}! Check your email for confirmation.`;
+                    messageDiv.innerHTML = `🎮 Welcome to SideQuest, ${firstName}! 
+                        <br>✅ Newsletter subscription confirmed
+                        <br>📧 Check your email for a welcome message`;
                     
                     // Clear form
                     document.getElementById('signupForm').reset();
@@ -1616,7 +1690,26 @@ def signup_page():
         });
         
         function showPrivacyInfo() {
-            alert('We respect your privacy! Your information is only used for gaming updates and is never shared with third parties.');
+            alert(`🔒 Privacy Policy Summary:
+
+✅ We only collect the information you provide (name, email, gaming handle)
+✅ We use it only to send you our newsletter and event updates  
+✅ We never sell or share your data with third parties
+✅ You can unsubscribe at any time using the link in our emails
+✅ We use Brevo for email delivery (GDPR compliant)
+✅ We store your data securely and delete it if you unsubscribe
+
+For our full privacy policy, visit our website or email us.`);
+        }
+        
+        function showUnsubscribeInfo() {
+            alert(`📧 To Unsubscribe:
+
+1. Click the unsubscribe link in any of our emails
+2. Email us directly at unsubscribe@sidequesthub.com  
+3. Contact our admin team
+
+Your data will be removed from our systems within 7 days.`);
         }
     </script>
 </body>

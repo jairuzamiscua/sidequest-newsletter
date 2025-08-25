@@ -1623,6 +1623,409 @@ def signup_page():
 </html>'''
     return signup_html
 
+# Add this route to your backend.py file after the existing /signup route
+
+@app.route('/signup/event/<int:event_id>')
+def event_signup_page(event_id):
+    """Event-specific signup page"""
+    try:
+        # Get event details
+        conn = get_db_connection()
+        if not conn:
+            return "Database connection failed", 500
+            
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                e.*,
+                COUNT(r.id) as registration_count,
+                CASE 
+                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
+                    ELSE NULL
+                END as spots_available
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.id = %s
+            GROUP BY e.id
+        """, (event_id,))
+        
+        event_data = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not event_data:
+            return "Event not found", 404
+        
+        # Convert to dictionary for easier access
+        event = dict(event_data)
+        
+        # Format date/time
+        event_date = event['date_time']
+        if event_date:
+            formatted_date = event_date.strftime('%A, %B %d, %Y')
+            formatted_time = event_date.strftime('%I:%M %p')
+        else:
+            formatted_date = "TBD"
+            formatted_time = "TBD"
+        
+        # Check if event is full
+        is_full = event['capacity'] > 0 and event['registration_count'] >= event['capacity']
+        
+        # Generate the HTML for event-specific signup
+        event_signup_html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register for {event['title']} - SideQuest</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); 
+            color: #ffffff; 
+            min-height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 20px; 
+        }}
+        
+        .container {{ 
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5); 
+            border: 2px solid #FFD700; 
+            max-width: 600px; 
+            width: 100%; 
+            text-align: center; 
+            position: relative; 
+            overflow: hidden; 
+        }}
+        
+        .container::before {{ 
+            content: ''; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            height: 6px; 
+            background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%); 
+        }}
+        
+        .logo {{ 
+            width: 60px; 
+            height: 60px; 
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
+            border-radius: 12px; 
+            margin: 0 auto 20px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: 900; 
+            color: #1a1a1a; 
+            font-size: 18px; 
+        }}
+        
+        .event-badge {{
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }}
+        
+        .badge-tournament {{ background: #FF6B35; color: white; }}
+        .badge-game_night {{ background: #4ECDC4; color: #1a1a1a; }}
+        .badge-special {{ background: #8B5CF6; color: white; }}
+        .badge-birthday {{ background: #FF69B4; color: white; }}
+        
+        h1 {{ 
+            font-size: 2rem; 
+            margin-bottom: 10px; 
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            background-clip: text; 
+            font-weight: 800; 
+        }}
+        
+        .event-details {{ 
+            background: #1a1a1a; 
+            border-radius: 15px; 
+            padding: 25px; 
+            margin: 25px 0; 
+            text-align: left; 
+        }}
+        
+        .detail-row {{ 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 12px; 
+            padding-bottom: 8px; 
+            border-bottom: 1px solid #444; 
+        }}
+        
+        .detail-row:last-child {{ border-bottom: none; margin-bottom: 0; }}
+        
+        .detail-label {{ 
+            color: #FFD700; 
+            font-weight: 600; 
+        }}
+        
+        .detail-value {{ 
+            color: #ffffff; 
+            font-weight: 500; 
+        }}
+        
+        .form-container {{ 
+            margin: 30px 0; 
+            text-align: left; 
+        }}
+        
+        .form-row {{ 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 15px; 
+            margin-bottom: 20px; 
+        }}
+        
+        .form-group {{ 
+            margin-bottom: 20px; 
+        }}
+        
+        label {{ 
+            display: block; 
+            margin-bottom: 8px; 
+            color: #FFD700; 
+            font-weight: 600; 
+            font-size: 14px; 
+        }}
+        
+        input[type="text"], input[type="email"] {{ 
+            width: 100%; 
+            padding: 16px 20px; 
+            border: 2px solid #444; 
+            border-radius: 12px; 
+            font-size: 16px; 
+            background: #1a1a1a; 
+            color: #ffffff; 
+            transition: all 0.3s ease; 
+            font-weight: 500; 
+        }}
+        
+        input[type="text"]:focus, input[type="email"]:focus {{ 
+            outline: none; 
+            border-color: #FFD700; 
+            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
+            background: #2a2a2a; 
+        }}
+        
+        .submit-btn {{ 
+            width: 100%; 
+            padding: 18px 25px; 
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
+            border: none; 
+            border-radius: 12px; 
+            color: #1a1a1a; 
+            font-size: 16px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            transition: all 0.3s ease; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3); 
+        }}
+        
+        .submit-btn:hover {{ 
+            transform: translateY(-2px); 
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4); 
+        }}
+        
+        .submit-btn:disabled {{ 
+            opacity: 0.7; 
+            cursor: not-allowed; 
+            transform: none; 
+        }}
+        
+        .message {{ 
+            margin-top: 20px; 
+            padding: 15px 20px; 
+            border-radius: 10px; 
+            font-weight: 500; 
+            opacity: 0; 
+            transition: all 0.3s ease; 
+        }}
+        
+        .message.show {{ opacity: 1; }}
+        
+        .message.success {{ 
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); 
+            color: #1a1a1a; 
+            border: 2px solid #00ff88; 
+        }}
+        
+        .message.error {{ 
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%); 
+            color: #ffffff; 
+            border: 2px solid #ff6b35; 
+        }}
+        
+        .capacity-warning {{
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }}
+        
+        .spots-remaining {{
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: inline-block;
+            margin-bottom: 20px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">SQ</div>
+        
+        <span class="event-badge badge-{event['event_type']}">{event['event_type'].replace('_', ' ').upper()}</span>
+        
+        <h1>{event['title']}</h1>
+        
+        {f'<div class="spots-remaining">⚡ Only {event["spots_available"]} spots left!</div>' if event['capacity'] > 0 and event['spots_available'] <= 5 and event['spots_available'] > 0 else ''}
+        
+        {'<div class="capacity-warning">❌ This event is currently full. You can still register for the waiting list.</div>' if is_full else ''}
+        
+        <div class="event-details">
+            <div class="detail-row">
+                <span class="detail-label">📅 Date</span>
+                <span class="detail-value">{formatted_date}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">🕒 Time</span>
+                <span class="detail-value">{formatted_time}</span>
+            </div>
+            {f'<div class="detail-row"><span class="detail-label">🎮 Game</span><span class="detail-value">{event["game_title"]}</span></div>' if event.get('game_title') else ''}
+            <div class="detail-row">
+                <span class="detail-label">👥 Capacity</span>
+                <span class="detail-value">{f"{event['registration_count']}/{event['capacity']}" if event['capacity'] > 0 else f"{event['registration_count']} registered"}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">💰 Entry Fee</span>
+                <span class="detail-value">{"£{:.2f}".format(event['entry_fee']) if event['entry_fee'] > 0 else 'FREE'}</span>
+            </div>
+            {f'<div class="detail-row"><span class="detail-label">📝 Description</span><span class="detail-value">{event["description"]}</span></div>' if event.get('description') else ''}
+        </div>
+        
+        <form class="form-container" id="registrationForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="firstName">First Name *</label>
+                    <input type="text" id="firstName" name="firstName" required>
+                </div>
+                <div class="form-group">
+                    <label for="lastName">Last Name *</label>
+                    <input type="text" id="lastName" name="lastName" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="playerName">Player/Gamer Name</label>
+                <input type="text" id="playerName" name="playerName" placeholder="Your gaming handle or preferred name">
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">
+                {'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}
+            </button>
+        </form>
+        
+        <div id="message" class="message"></div>
+    </div>
+    
+    <script>
+        document.getElementById('registrationForm').addEventListener('submit', async (e) => {{
+            e.preventDefault();
+            
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const playerName = document.getElementById('playerName').value.trim() || `${{firstName}} ${{lastName}}`;
+            
+            const messageDiv = document.getElementById('message');
+            const submitButton = document.getElementById('submitBtn');
+            
+            if (!firstName || !lastName || !email) {{
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Please fill in all required fields';
+                return;
+            }}
+            
+            submitButton.innerHTML = 'Registering...';
+            submitButton.disabled = true;
+            
+            try {{
+                const response = await fetch('/api/events/{event_id}/register-public', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ 
+                        email, 
+                        player_name: playerName,
+                        first_name: firstName,
+                        last_name: lastName
+                    }})
+                }});
+                
+                const data = await response.json();
+                
+                if (data.success) {{
+                    messageDiv.className = 'message success show';
+                    messageDiv.innerHTML = `🎉 Registration successful!<br>
+                        <strong>Confirmation Code: ${{data.confirmation_code}}</strong><br>
+                        Please save this code and bring it to the event.`;
+                    
+                    document.getElementById('registrationForm').reset();
+                    submitButton.innerHTML = '✅ Registered!';
+                }} else {{
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = '❌ ' + (data.error || 'Registration failed');
+                    submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
+                    submitButton.disabled = false;
+                }}
+            }} catch (error) {{
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Connection error. Please try again.';
+                submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
+                submitButton.disabled = false;
+            }}
+        }});
+    </script>
+</body>
+</html>'''
+        
+        return event_signup_html
+        
+    except Exception as e:
+        print(f"Error in event signup page: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return f"Error loading event: {str(e)}", 500
+
 # Add the login template
 LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
@@ -2808,15 +3211,19 @@ def get_public_event(event_id):
         log_error(f"Error getting public event {event_id}: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
+# Add this API route to handle public registrations (if not already present)
+
 @app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
 def register_public(event_id):
-    """Public registration endpoint with email confirmation"""
+    """Public registration endpoint with first/last name support"""
     conn = None
     cursor = None
     try:
         data = request.json or {}
         email = data.get('email', '').strip().lower()
         player_name = data.get('player_name', '').strip()
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
         
         # Validation
         if not email:
@@ -2825,8 +3232,12 @@ def register_public(event_id):
         if not is_valid_email(email):
             return jsonify({"success": False, "error": "Invalid email format"}), 400
             
+        if not first_name or not last_name:
+            return jsonify({"success": False, "error": "First and last name are required"}), 400
+        
+        # Use full name as player_name if not provided
         if not player_name:
-            return jsonify({"success": False, "error": "Player name is required"}), 400
+            player_name = f"{first_name} {last_name}"
         
         # Check if event exists
         event_check = execute_query_one("""
@@ -2855,11 +3266,11 @@ def register_public(event_id):
             if current_count and current_count['count'] >= event_check['capacity']:
                 return jsonify({"success": False, "error": "Event is at full capacity"}), 400
         
-        # Auto-add to subscribers if not exists
+        # Auto-add to subscribers with names if not exists
         subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
         if not subscriber_check:
-            if add_subscriber_to_db(email, 'event_registration'):
-                log_activity(f"Auto-added {email} to subscribers via public event registration", "info")
+            if add_subscriber_to_db(email, 'event_registration', first_name, last_name):
+                log_activity(f"Auto-added {first_name} {last_name} ({email}) to subscribers via event registration", "info")
         
         # Generate confirmation code
         import random
@@ -2884,7 +3295,7 @@ def register_public(event_id):
         
         if result:
             conn.commit()
-            log_activity(f"Public registration: {email} for event: {event_check['title']} (Code: {confirmation_code})", "success")
+            log_activity(f"Public registration: {first_name} {last_name} ({email}) for event: {event_check['title']} (Code: {confirmation_code})", "success")
             
             return jsonify({
                 "success": True,
@@ -2907,7 +3318,7 @@ def register_public(event_id):
         if cursor:
             cursor.close()
         if conn:
-            conn.close()      
+            conn.close()
 
 
 

@@ -1440,9 +1440,11 @@ def admin_dashboard():
 
 
 # Replace your signup_page() function with this updated version:
+# 4. UPDATE THE MAIN SIGNUP PAGE - Replace the existing signup_page() function
 
 @app.route('/signup')
 def signup_page():
+    """GDPR-compliant main signup page"""
     signup_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1478,6 +1480,39 @@ def signup_page():
             box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
             background: #2a2a2a; 
         }
+        
+        .consent-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: rgba(255, 215, 0, 0.1);
+            border: 2px solid #FFD700;
+            border-radius: 12px;
+        }
+        
+        .consent-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #FFD700;
+            flex-shrink: 0;
+        }
+        
+        .consent-label {
+            color: #ffffff;
+            font-size: 14px;
+            line-height: 1.5;
+            cursor: pointer;
+            flex: 1;
+        }
+        
+        .consent-label strong {
+            color: #FFD700;
+        }
+        
         .submit-btn { 
             width: 100%; 
             padding: 18px 25px; 
@@ -1507,6 +1542,21 @@ def signup_page():
         .footer-links { margin-top: 30px; padding-top: 20px; border-top: 1px solid #444; font-size: 12px; color: #888; text-align: center; }
         .footer-links a { color: #FFD700; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
         .optional { color: #aaa; font-size: 12px; margin-left: 5px; }
+        
+        .privacy-notice {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: #cccccc;
+            text-align: left;
+        }
+        
+        .privacy-notice strong {
+            color: #FFD700;
+        }
     </style>
 </head>
 <body>
@@ -1537,6 +1587,14 @@ def signup_page():
                 <input type="text" id="gamingHandle" name="gamingHandle" placeholder="Your gamer tag">
             </div>
             
+            <div class="consent-group">
+                <input type="checkbox" id="explicitConsent" name="explicitConsent" required>
+                <label for="explicitConsent" class="consent-label">
+                    <strong>📧 I agree to receive the SideQuest newsletter</strong><br>
+                    I consent to receiving updates about gaming events, special offers, and news. I understand I can unsubscribe at any time and my data will be processed according to the privacy policy.
+                </label>
+            </div>
+            
             <button type="submit" class="submit-btn" id="submitBtn">Level Up Your Inbox</button>
         </form>
         
@@ -1553,9 +1611,14 @@ def signup_page():
             </ul>
         </div>
         
+        <div class="privacy-notice">
+            🔒 <strong>Your Privacy Matters:</strong> We only use your information to send you the newsletter you've requested. We never share your data with third parties and you can unsubscribe at any time. See our <a href="#" style="color: #FFD700;">privacy policy</a> for full details.
+        </div>
+        
         <div class="footer-links">
             <a href="https://sidequesthub.com">SideQuest Hub</a> • 
-            <a href="#" onclick="showPrivacyInfo()">Privacy</a>
+            <a href="#" onclick="showPrivacyInfo()">Privacy Policy</a> •
+            <a href="#" onclick="showUnsubscribeInfo()">Unsubscribe</a>
         </div>
     </div>
     
@@ -1567,6 +1630,7 @@ def signup_page():
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
             const gamingHandle = document.getElementById('gamingHandle').value.trim();
+            const explicitConsent = document.getElementById('explicitConsent').checked;
             const messageDiv = document.getElementById('message');
             const submitButton = document.getElementById('submitBtn');
             
@@ -1574,6 +1638,12 @@ def signup_page():
             if (!firstName || !lastName || !email) {
                 messageDiv.className = 'message error show';
                 messageDiv.innerHTML = '❌ Please fill in all required fields';
+                return;
+            }
+            
+            if (!explicitConsent) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Please agree to receive our newsletter to continue';
                 return;
             }
             
@@ -1595,7 +1665,8 @@ def signup_page():
                         lastName, 
                         email, 
                         gamingHandle: gamingHandle || null,
-                        source: 'signup_page_enhanced' 
+                        source: 'signup_page_enhanced',
+                        explicit_consent: true
                     })
                 });
                 
@@ -1603,7 +1674,9 @@ def signup_page():
                 
                 if (data.success) {
                     messageDiv.className = 'message success show';
-                    messageDiv.innerHTML = `🎮 Welcome to SideQuest, ${firstName}! Check your email for confirmation.`;
+                    messageDiv.innerHTML = `🎮 Welcome to SideQuest, ${firstName}! 
+                        <br>✅ Newsletter subscription confirmed
+                        <br>📧 Check your email for a welcome message`;
                     
                     // Clear form
                     document.getElementById('signupForm').reset();
@@ -1628,771 +1701,38 @@ def signup_page():
         });
         
         function showPrivacyInfo() {
-            alert('We respect your privacy! Your information is only used for gaming updates and is never shared with third parties.');
+            alert(`🔒 Privacy Policy Summary:
+
+✅ We only collect the information you provide (name, email, gaming handle)
+✅ We use it only to send you our newsletter and event updates  
+✅ We never sell or share your data with third parties
+✅ You can unsubscribe at any time using the link in our emails
+✅ We use Brevo for email delivery (GDPR compliant)
+✅ We store your data securely and delete it if you unsubscribe
+
+For our full privacy policy, visit our website or email us.`);
+        }
+        
+        function showUnsubscribeInfo() {
+            alert(`📧 To Unsubscribe:
+
+1. Click the unsubscribe link in any of our emails
+2. Email us directly at unsubscribe@sidequesthub.com  
+3. Contact our admin team
+
+Your data will be removed from our systems within 7 days.`);
         }
     </script>
 </body>
 </html>'''
     return signup_html
 
+
  # Add this route to your backend.py file after the existing /signup route
 
 # 1. UPDATE THE EVENT SIGNUP PAGE to handle equipment reservations
 
-@app.route('/signup/event/<int:event_id>')
-def event_signup_page(event_id):
-    """Event-specific signup page with equipment reservation for game nights"""
-    try:
-        # Get event details
-        conn = get_db_connection()
-        if not conn:
-            return "Database connection failed", 500
-            
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT 
-                e.*,
-                COUNT(r.id) as registration_count,
-                CASE 
-                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
-                    ELSE NULL
-                END as spots_available
-            FROM events e
-            LEFT JOIN event_registrations r ON e.id = r.event_id
-            WHERE e.id = %s
-            GROUP BY e.id
-        """, (event_id,))
-        
-        event_data = cursor.fetchone()
-        
-        # For game nights, also get existing reservations to show what's available
-        equipment_reservations = []
-        if event_data and event_data['event_type'] == 'game_night':
-            cursor.execute("""
-                SELECT player_name, notes
-                FROM event_registrations 
-                WHERE event_id = %s AND player_name IS NOT NULL
-                ORDER BY registered_at ASC
-            """, (event_id,))
-            equipment_reservations = cursor.fetchall()
-        
-        cursor.close()
-        conn.close()
-        
-        if not event_data:
-            return "Event not found", 404
-        
-        # Convert to dictionary for easier access
-        event = dict(event_data)
-        
-        # Format date/time
-        event_date = event['date_time']
-        if event_date:
-            formatted_date = event_date.strftime('%A, %B %d, %Y')
-            formatted_time = event_date.strftime('%I:%M %p')
-        else:
-            formatted_date = "TBD"
-            formatted_time = "TBD"
-        
-        # Check if event is full
-        is_full = event['capacity'] > 0 and event['registration_count'] >= event['capacity']
-        
-        # Determine if this event type requires newsletter opt-in
-        requires_optin = event['event_type'] in ['tournament', 'special']
-        is_game_night = event['event_type'] == 'game_night'
-        
 
-
-        # Available gaming equipment/stations (CORRECTED FOR YOUR ACTUAL SETUP)
-        available_equipment = [
-            "PlayStation 5 - Station 1",
-            "PlayStation 5 - Station 2",
-            "PlayStation 5 - Station 3", 
-            "PlayStation 5 - Station 4",
-            "Driving Rig - Station 1",
-            "Driving Rig - Station 2",
-            "VR Setup (Meta Quest)",
-            "Racing Rig - Station 1",
-            "Racing Rig - Station 2",
-            "Table for Board Games",
-            "General Gaming Area"
-        ]
-        
-        # Remove already reserved equipment
-        reserved_equipment = [res['player_name'] for res in equipment_reservations if res['player_name'] in available_equipment]
-        available_equipment = [eq for eq in available_equipment if eq not in reserved_equipment]
-        
-        # Set appropriate labels based on event type
-        if is_game_night:
-            page_title = f"Reserve Equipment - {event['title']}"
-            action_word = "Reserve"
-            button_text = "🎮 Reserve Equipment"
-            success_message = "Reservation confirmed!"
-            capacity_label = "Equipment Reserved"
-        else:
-            page_title = f"Register for {event['title']}"
-            action_word = "Register"
-            button_text = "🎮 Register for Event"
-            success_message = "Registration successful!"
-            capacity_label = "Registered"
-        
-        # Generate the HTML for event-specific signup
-        event_signup_html = f'''<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{page_title} - SideQuest</title>
-    <style>
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); 
-            color: #ffffff; 
-            min-height: 100vh; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            padding: 20px; 
-        }}
-        
-        .container {{ 
-            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); 
-            padding: 40px; 
-            border-radius: 20px; 
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5); 
-            border: 2px solid #FFD700; 
-            max-width: 600px; 
-            width: 100%; 
-            text-align: center; 
-            position: relative; 
-            overflow: hidden; 
-        }}
-        
-        .container::before {{ 
-            content: ''; 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            height: 6px; 
-            background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%); 
-        }}
-        
-        .logo {{ 
-            width: 60px; 
-            height: 60px; 
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
-            border-radius: 12px; 
-            margin: 0 auto 20px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-weight: 900; 
-            color: #1a1a1a; 
-            font-size: 18px; 
-        }}
-        
-        .event-badge {{
-            display: inline-block;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            margin-bottom: 20px;
-        }}
-        
-        .badge-tournament {{ background: #FF6B35; color: white; }}
-        .badge-game_night {{ background: #4ECDC4; color: #1a1a1a; }}
-        .badge-special {{ background: #8B5CF6; color: white; }}
-        .badge-birthday {{ background: #FF69B4; color: white; }}
-        
-        h1 {{ 
-            font-size: 2rem; 
-            margin-bottom: 10px; 
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
-            -webkit-background-clip: text; 
-            -webkit-text-fill-color: transparent; 
-            background-clip: text; 
-            font-weight: 800; 
-        }}
-        
-        .event-details {{ 
-            background: #1a1a1a; 
-            border-radius: 15px; 
-            padding: 25px; 
-            margin: 25px 0; 
-            text-align: left; 
-        }}
-        
-        .detail-row {{ 
-            display: flex; 
-            justify-content: space-between; 
-            margin-bottom: 12px; 
-            padding-bottom: 8px; 
-            border-bottom: 1px solid #444; 
-        }}
-        
-        .detail-row:last-child {{ border-bottom: none; margin-bottom: 0; }}
-        
-        .detail-label {{ 
-            color: #FFD700; 
-            font-weight: 600; 
-        }}
-        
-        .detail-value {{ 
-            color: #ffffff; 
-            font-weight: 500; 
-        }}
-        
-        .reserved-equipment {{
-            background: #2a2a2a;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: left;
-        }}
-        
-        .reserved-equipment h4 {{
-            color: #FFD700;
-            margin-bottom: 10px;
-            font-size: 1rem;
-        }}
-        
-        .reserved-item {{
-            color: #ff6b35;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-            padding-left: 15px;
-            position: relative;
-        }}
-        
-        .reserved-item::before {{
-            content: '🔴';
-            position: absolute;
-            left: 0;
-        }}
-        
-        .available-equipment {{
-            background: #1a1a1a;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: left;
-        }}
-        
-        .available-equipment h4 {{
-            color: #00ff88;
-            margin-bottom: 10px;
-            font-size: 1rem;
-        }}
-        
-        .available-item {{
-            color: #00ff88;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-            padding-left: 15px;
-            position: relative;
-        }}
-        
-        .available-item::before {{
-            content: '🟢';
-            position: absolute;
-            left: 0;
-        }}
-        
-        .form-container {{ 
-            margin: 30px 0; 
-            text-align: left; 
-        }}
-        
-        .form-row {{ 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 15px; 
-            margin-bottom: 20px; 
-        }}
-        
-        .form-group {{ 
-            margin-bottom: 20px; 
-        }}
-        
-        label {{ 
-            display: block; 
-            margin-bottom: 8px; 
-            color: #FFD700; 
-            font-weight: 600; 
-            font-size: 14px; 
-        }}
-        
-        input[type="text"], input[type="email"], select {{ 
-            width: 100%; 
-            padding: 16px 20px; 
-            border: 2px solid #444; 
-            border-radius: 12px; 
-            font-size: 16px; 
-            background: #1a1a1a; 
-            color: #ffffff; 
-            transition: all 0.3s ease; 
-            font-weight: 500; 
-        }}
-        
-        input[type="text"]:focus, input[type="email"]:focus, select:focus {{ 
-            outline: none; 
-            border-color: #FFD700; 
-            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
-            background: #2a2a2a; 
-        }}
-        
-        select {{
-            cursor: pointer;
-        }}
-        
-        select option {{
-            background: #1a1a1a;
-            color: #ffffff;
-        }}
-        
-        .checkbox-group {{
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            margin-bottom: 20px;
-            padding: 20px;
-            background: #1a1a1a;
-            border-radius: 12px;
-            border: 2px solid #444;
-        }}
-        
-        .checkbox-group input[type="checkbox"] {{
-            width: 20px;
-            height: 20px;
-            margin: 0;
-            cursor: pointer;
-            accent-color: #FFD700;
-        }}
-        
-        .checkbox-label {{
-            color: #cccccc;
-            font-size: 14px;
-            line-height: 1.5;
-            cursor: pointer;
-            flex: 1;
-        }}
-        
-        .checkbox-label strong {{
-            color: #FFD700;
-        }}
-        
-        .submit-btn {{ 
-            width: 100%; 
-            padding: 18px 25px; 
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
-            border: none; 
-            border-radius: 12px; 
-            color: #1a1a1a; 
-            font-size: 16px; 
-            font-weight: 700; 
-            cursor: pointer; 
-            transition: all 0.3s ease; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3); 
-        }}
-        
-        .submit-btn:hover {{ 
-            transform: translateY(-2px); 
-            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4); 
-        }}
-        
-        .submit-btn:disabled {{ 
-            opacity: 0.7; 
-            cursor: not-allowed; 
-            transform: none; 
-        }}
-        
-        .message {{ 
-            margin-top: 20px; 
-            padding: 15px 20px; 
-            border-radius: 10px; 
-            font-weight: 500; 
-            opacity: 0; 
-            transition: all 0.3s ease; 
-        }}
-        
-        .message.show {{ opacity: 1; }}
-        
-        .message.success {{ 
-            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); 
-            color: #1a1a1a; 
-            border: 2px solid #00ff88; 
-        }}
-        
-        .message.error {{ 
-            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%); 
-            color: #ffffff; 
-            border: 2px solid #ff6b35; 
-        }}
-        
-        .capacity-warning {{
-            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-weight: 600;
-        }}
-        
-        .spots-remaining {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            display: inline-block;
-            margin-bottom: 20px;
-        }}
-        
-        .privacy-notice {{
-            background: rgba(255, 215, 0, 0.1);
-            border: 1px solid #FFD700;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
-            font-size: 0.85rem;
-            color: #cccccc;
-            text-align: left;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">SQ</div>
-        
-        <span class="event-badge badge-{event['event_type']}">{("GAME NIGHT" if is_game_night else event['event_type'].replace('_', ' ').upper())}</span>
-        
-        <h1>{event['title']}</h1>
-        
-        {f'<div class="spots-remaining">⚡ Only {event["spots_available"]} spots left!</div>' if event['capacity'] > 0 and event['spots_available'] <= 5 and event['spots_available'] > 0 and not is_game_night else ''}
-        
-        {'<div class="capacity-warning">❌ All equipment is currently reserved. You can still make a reservation for the waiting list.</div>' if is_full and is_game_night else ''}
-        
-        <div class="event-details">
-            <div class="detail-row">
-                <span class="detail-label">📅 Date</span>
-                <span class="detail-value">{formatted_date}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">🕒 Time</span>
-                <span class="detail-value">{formatted_time}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">🎮 {capacity_label}</span>
-                <span class="detail-value">{event['registration_count']}{f"/{event['capacity']}" if event['capacity'] > 0 else ""}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">💰 {"Hourly Rate" if is_game_night else "Entry Fee"}</span>
-                <span class="detail-value">{"£{:.2f}".format(event['entry_fee']) if event['entry_fee'] > 0 else 'FREE'}</span>
-            </div>
-            {f'<div class="detail-row"><span class="detail-label">📝 Description</span><span class="detail-value">{event["description"]}</span></div>' if event.get('description') else ''}
-        </div>
-        
-        {'' if not is_game_night else ''}
-        
-        <form class="form-container" id="registrationForm">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="firstName">First Name *</label>
-                    <input type="text" id="firstName" name="firstName" required>
-                </div>
-                <div class="form-group">
-                    <label for="lastName">Last Name *</label>
-                    <input type="text" id="lastName" name="lastName" required>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="email">Email Address *</label>
-                <input type="email" id="email" name="email" required>
-            </div>
-            
-            {f'''
-            <div class="form-group">
-                <label for="equipmentChoice">Choose Equipment/Station *</label>
-                <select id="equipmentChoice" name="equipmentChoice" required>
-                    <option value="">-- Select Equipment --</option>
-                    {chr(10).join([f'<option value="{eq}">{eq}</option>' for eq in available_equipment])}
-                    {('<option value="waiting_list">⏳ Join Waiting List</option>' if not available_equipment else '')}
-                </select>
-            </div>
-            ''' if is_game_night else f'''
-            <div class="form-group">
-                <label for="playerName">Player/Gamer Name</label>
-                <input type="text" id="playerName" name="playerName" placeholder="Your gaming handle or preferred name">
-            </div>
-            '''}
-            
-            {f'''
-            <div class="checkbox-group">
-                <input type="checkbox" id="subscribeNewsletter" name="subscribeNewsletter">
-                <label for="subscribeNewsletter" class="checkbox-label">
-                    <strong>Subscribe to SideQuest Newsletter</strong><br>
-                    Get updates about upcoming events, special offers, and gaming news. You can unsubscribe at any time.
-                </label>
-            </div>
-            ''' if requires_optin else ''}
-            
-            <button type="submit" class="submit-btn" id="submitBtn">
-                {button_text}
-            </button>
-        </form>
-        
-        <div id="message" class="message"></div>
-        
-        <div class="privacy-notice">
-            🔒 <strong>Privacy:</strong> Your information is used only for this {"equipment reservation" if is_game_night else "event registration"}. 
-            {f"Newsletter subscription is optional and separate." if requires_optin else "We will not add you to any mailing lists without explicit consent."}
-        </div>
-    </div>
-    
-    <script>
-        document.getElementById('registrationForm').addEventListener('submit', async (e) => {{
-            e.preventDefault();
-            
-            const firstName = document.getElementById('firstName').value.trim();
-            const lastName = document.getElementById('lastName').value.trim();
-            const email = document.getElementById('email').value.trim();
-            
-            {f'''
-            const equipmentChoice = document.getElementById('equipmentChoice').value;
-            const playerName = equipmentChoice; // Use equipment as the "player name"
-            ''' if is_game_night else '''
-            const playerName = document.getElementById('playerName').value.trim() || `${{firstName}} ${{lastName}}`;
-            '''}
-            
-            const subscribeNewsletter = {f"document.getElementById('subscribeNewsletter').checked" if requires_optin else "false"};
-            
-            const messageDiv = document.getElementById('message');
-            const submitButton = document.getElementById('submitBtn');
-            
-            // Validation
-            if (!firstName || !lastName || !email) {{
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ Please fill in all required fields';
-                return;
-            }}
-            
-            {f'''
-            if (!equipmentChoice) {{
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ Please select equipment or join the waiting list';
-                return;
-            }}
-            ''' if is_game_night else ''}
-            
-            submitButton.innerHTML = '{"Reserving Equipment..." if is_game_night else "Registering..."}';
-            submitButton.disabled = true;
-            
-            try {{
-                const response = await fetch('/api/events/{event_id}/register-public', {{
-                    method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ 
-                        email, 
-                        player_name: playerName,
-                        first_name: firstName,
-                        last_name: lastName,
-                        subscribe_newsletter: subscribeNewsletter,
-                        event_type: '{event['event_type']}'
-                    }})
-                }});
-                
-                const data = await response.json();
-                
-                if (data.success) {{
-                    messageDiv.className = 'message success show';
-                    let message = `🎉 {success_message}<br>
-                        <strong>Confirmation Code: ${{data.confirmation_code}}</strong><br>`;
-                    
-                    {f'''
-                    if (equipmentChoice === 'waiting_list') {{
-                        message += 'You have been added to the waiting list. We will contact you if equipment becomes available.';
-                    }} else {{
-                        message += `Your equipment (${{equipmentChoice}}) is reserved! Please arrive on time.`;
-                    }}
-                    ''' if is_game_night else '''
-                    message += 'Please save this code and bring it to the event.';
-                    '''}
-                    
-                    if (subscribeNewsletter && data.newsletter_subscribed) {{
-                        message += '<br><br>✅ You have been subscribed to our newsletter.';
-                    }}
-                    
-                    messageDiv.innerHTML = message;
-                    
-                    document.getElementById('registrationForm').reset();
-                    submitButton.innerHTML = '✅ {"Equipment Reserved!" if is_game_night else "Registered!"}';
-                }} else {{
-                    messageDiv.className = 'message error show';
-                    messageDiv.innerHTML = '❌ ' + (data.error || '{"Reservation" if is_game_night else "Registration"} failed');
-                    submitButton.innerHTML = '{button_text}';
-                    submitButton.disabled = false;
-                }}
-            }} catch (error) {{
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ Connection error. Please try again.';
-                submitButton.innerHTML = '{button_text}';
-                submitButton.disabled = false;
-            }}
-        }});
-    </script>
-</body>
-</html>'''
-        
-        return event_signup_html
-        
-    except Exception as e:
-        print(f"Error in event signup page: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
-        return f"Error loading event: {str(e)}", 500
-        
-        return event_signup_html
-        
-    except Exception as e:
-        print(f"Error in event signup page: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
-        return f"Error loading event: {str(e)}", 500   
-
-# Add the login template
-LOGIN_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SideQuest Admin Login</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            color: #ffffff;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .login-container {
-            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-            border: 2px solid #FFD700;
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
-        }
-        .logo {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            border-radius: 12px;
-            margin: 0 auto 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #1a1a1a;
-            font-weight: 900;
-            font-size: 18px;
-        }
-        h1 {
-            color: #FFD700;
-            margin-bottom: 30px;
-            font-size: 1.8rem;
-        }
-        .form-group {
-            margin-bottom: 25px;
-            text-align: left;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #FFD700;
-            font-weight: 600;
-        }
-        input {
-            width: 100%;
-            padding: 14px 18px;
-            border: 2px solid #444;
-            border-radius: 10px;
-            background: #1a1a1a;
-            color: #ffffff;
-            font-size: 16px;
-            transition: all 0.3s ease;
-        }
-        input:focus {
-            outline: none;
-            border-color: #FFD700;
-            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
-        }
-        .btn {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            border: none;
-            border-radius: 10px;
-            font-weight: 700;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
-        }
-        .error {
-            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
-            color: #ffffff;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-weight: 500;
-        }
-        .footer {
-            margin-top: 30px;
-            color: #aaa;
-            font-size: 0.9rem;
-        }
-    </style>
-</head>
-<body>
-    <div class="login-container">
-        <div class="logo">SQ</div>
-        <h1>Admin Login</h1>
-        
-        ERROR_PLACEHOLDER
-        
-        <form method="POST">
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required autofocus>
-            </div>
-            <button type="submit" class="btn">🔓 Access Dashboard</button>
-        </form>
-        
-        <div class="footer">
-            <p>SideQuest Gaming Cafe</p>
-            <p>Canterbury Admin Panel</p>
-        </div>
-    </div>
-</body>
-</html>
-'''
 
 # Error handlers
 @app.errorhandler(400)

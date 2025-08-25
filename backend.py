@@ -3646,19 +3646,20 @@ def get_analytics_kpis():
         # Revenue KPIs
         revenue_kpis = execute_query_one(f"""
             SELECT 
-                COALESCE(SUM(e.entry_fee * reg_counts.registration_count), 0) as total_revenue,
-                COALESCE(AVG(e.entry_fee * reg_counts.registration_count), 0) as avg_revenue_per_event,
+                COALESCE(SUM(e.entry_fee * attended_counts.attended_count), 0) as total_revenue,
+                COALESCE(AVG(e.entry_fee * attended_counts.attended_count), 0) as avg_revenue_per_event,
                 COUNT(CASE WHEN e.entry_fee > 0 THEN 1 END) as paid_events,
-                COALESCE(SUM(CASE WHEN e.entry_fee > 0 THEN e.entry_fee * reg_counts.registration_count END), 0) as paid_events_revenue
+                COALESCE(SUM(CASE WHEN e.entry_fee > 0 THEN e.entry_fee * attended_counts.attended_count END), 0) as paid_events_revenue
             FROM events e
             LEFT JOIN (
-                SELECT event_id, COUNT(*) as registration_count
+                SELECT event_id, 
+                    COUNT(CASE WHEN attended = true THEN 1 END) as attended_count,
+                    COUNT(*) as total_registrations
                 FROM event_registrations
                 GROUP BY event_id
-            ) reg_counts ON e.id = reg_counts.event_id
+            ) attended_counts ON e.id = attended_counts.event_id
             WHERE e.date_time >= CURRENT_DATE - INTERVAL '{days} days'
         """)
-        
         # Engagement KPIs
         engagement_kpis = execute_query_one(f"""
             SELECT 
@@ -3699,26 +3700,67 @@ def get_analytics_kpis():
         
         # Growth trend data (last 30 days)
         growth_data = execute_query(f"""
+            WITH RECURSIVE date_series AS (
+                -- Generate a series of dates for the last N days
+                SELECT CURRENT_DATE - INTERVAL '{days} days' AS date_val
+                UNION ALL
+                SELECT date_val + INTERVAL '1 day'
+                FROM date_series
+                WHERE date_val < CURRENT_DATE
+            ),
+            daily_signups AS (
+                SELECT 
+                    DATE(date_added) as signup_date,
+                    COUNT(*) as new_subscribers
+                FROM subscribers 
+                WHERE date_added >= CURRENT_DATE - INTERVAL '{days} days'
+                GROUP BY DATE(date_added)
+            ),
+            cumulative_data AS (
+                SELECT 
+                    ds.date_val as date,
+                    COALESCE(ds_signup.new_subscribers, 0) as new_subscribers,
+                    (
+                        SELECT COUNT(*) 
+                        FROM subscribers s 
+                        WHERE DATE(s.date_added) <= ds.date_val
+                    ) as cumulative_subscribers
+                FROM date_series ds
+                LEFT JOIN daily_signups ds_signup ON ds.date_val = ds_signup.signup_date
+                ORDER BY ds.date_val
+            )
             SELECT 
-                DATE(date_added) as date,
-                COUNT(*) as new_subscribers,
-                SUM(COUNT(*)) OVER (ORDER BY DATE(date_added)) as cumulative_subscribers
-            FROM subscribers 
-            WHERE date_added >= CURRENT_DATE - INTERVAL '30 days'
-            GROUP BY DATE(date_added)
+                date,
+                new_subscribers,
+                cumulative_subscribers
+            FROM cumulative_data
             ORDER BY date
         """)
         
         # Event registration trend
         registration_trend = execute_query(f"""
+            WITH RECURSIVE date_series AS (
+                SELECT CURRENT_DATE - INTERVAL '{days} days' AS date_val
+                UNION ALL
+                SELECT date_val + INTERVAL '1 day'
+                FROM date_series
+                WHERE date_val < CURRENT_DATE
+            ),
+            daily_registrations AS (
+                SELECT 
+                    DATE(r.registered_at) as reg_date,
+                    COUNT(*) as registrations
+                FROM event_registrations r
+                JOIN events e ON r.event_id = e.id
+                WHERE r.registered_at >= CURRENT_DATE - INTERVAL '{days} days'
+                GROUP BY DATE(r.registered_at)
+            )
             SELECT 
-                DATE(r.registered_at) as date,
-                COUNT(*) as registrations
-            FROM event_registrations r
-            JOIN events e ON r.event_id = e.id
-            WHERE r.registered_at >= CURRENT_DATE - INTERVAL '30 days'
-            GROUP BY DATE(r.registered_at)
-            ORDER BY date
+                ds.date_val as date,
+                COALESCE(dr.registrations, 0) as registrations
+            FROM date_series ds
+            LEFT JOIN daily_registrations dr ON ds.date_val = dr.reg_date
+            ORDER BY ds.date_val
         """)
         
         # Calculate growth rates

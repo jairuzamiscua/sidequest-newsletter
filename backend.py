@@ -3302,22 +3302,32 @@ def register_public(event_id):
         cursor.execute(register_query, (event_id, email, player_name, confirmation_code))
         result = cursor.fetchone()
         
-        if result:
+      if result:
             conn.commit()
             log_activity(f"Public registration: {first_name} {last_name} ({email}) for event: {event_check['title']} (Code: {confirmation_code})", "success")
             
-            # Get full event details including event_type
-            full_event = execute_query_one(
-                "SELECT event_type, title FROM events WHERE id = %s", 
-                (event_id,)
-            )
-            
-            # Check if tournament
-            is_tournament = (
-                full_event.get('event_type') == 'tournament' or
-                'tournament' in full_event.get('title', '').lower() or
-                any(game in full_event.get('title', '').lower() for game in ['valorant', 'fortnite', 'rocket league', 'competition'])
-            )
+            # Check if tournament using the event_check we already have
+            is_tournament = False
+            try:
+                # Try to get event_type from database
+                cursor.execute("SELECT event_type FROM events WHERE id = %s", (event_id,))
+                event_type_result = cursor.fetchone()
+                
+                if event_type_result:
+                    event_type = event_type_result['event_type']
+                    title = event_check['title'].lower()
+                    
+                    is_tournament = (
+                        event_type == 'tournament' or
+                        'tournament' in title or
+                        'valorant' in title or
+                        'fortnite' in title or
+                        'rocket league' in title or
+                        'competition' in title
+                    )
+            except Exception as e:
+                log_error(f"Error checking tournament status: {e}")
+                # Default to False if check fails
             
             response_data = {
                 "success": True,

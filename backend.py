@@ -896,6 +896,7 @@ def log_response_info(response):
 # =============================
 
 @app.route('/health', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health_check():
     """Enhanced health check with Brevo sync status"""
     try:
@@ -1006,28 +1007,17 @@ def get_subscribers():
         print(f"Subscribers error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
 
-
+@app.route('/subscribe', methods=['POST'])
 @app.route('/subscribe', methods=['POST'])
 def add_subscriber():
-    """Enhanced subscribe route with name fields and better error handling"""
+    """Enhanced subscribe route with name fields and better Brevo sync"""
     try:
         data = request.json or {}
-        
-        # FIXED: Safely handle None values with proper fallbacks
-        email = (data.get('email') or '').strip().lower() if data.get('email') else ''
-        source = (data.get('source') or 'manual').strip()
-        
-        # Handle name fields safely - they might be None or missing
-        first_name = (data.get('firstName') or '').strip() if data.get('firstName') else ''
-        last_name = (data.get('lastName') or '').strip() if data.get('lastName') else ''
-        gaming_handle = (data.get('gamingHandle') or '').strip() if data.get('gamingHandle') else ''
-        
-        # Convert empty strings to None for database storage
-        first_name = first_name if first_name else None
-        last_name = last_name if last_name else None
-        gaming_handle = gaming_handle if gaming_handle else None
-        
-        print(f"DEBUG: Received data - email: '{email}', firstName: '{first_name}', lastName: '{last_name}', gamingHandle: '{gaming_handle}', source: '{source}'")
+        email = str(data.get('email', '')).strip().lower()
+        source = data.get('source', 'manual')
+        first_name = data.get('firstName', '').strip()  # Note: matches frontend
+        last_name = data.get('lastName', '').strip()    # Note: matches frontend
+        gaming_handle = data.get('gamingHandle', '').strip() or None
         
         # Enhanced validation
         if not email:
@@ -1039,10 +1029,10 @@ def add_subscriber():
         if source in ['signup_page_enhanced', 'admin_manual'] and (not first_name or not last_name):
             return jsonify({"success": False, "error": "First name and last name are required"}), 400
             
-        if first_name and len(first_name) < 2:
+        if first_name and len(first_name.strip()) < 2:
             return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
             
-        if last_name and len(last_name) < 2:
+        if last_name and len(last_name.strip()) < 2:
             return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
         
         # Name validation regex
@@ -1081,7 +1071,7 @@ def add_subscriber():
             brevo_result = add_to_brevo_contact(email, brevo_attributes)
             
             # Enhanced logging with names
-            subscriber_info = f"{first_name} {last_name}".strip() if first_name and last_name else email
+            subscriber_info = f"{first_name} {last_name}" if first_name and last_name else email
             log_activity(f"New subscriber added: {subscriber_info} ({email}) - Source: {source}", "success")
             
             return jsonify({
@@ -1098,10 +1088,8 @@ def add_subscriber():
             
     except Exception as e:
         error_msg = f"Error adding subscriber: {str(e)}"
-        print(f"SUBSCRIBE ERROR: {error_msg}")
-        print(f"SUBSCRIBE ERROR TRACEBACK: {traceback.format_exc()}")
         log_error(error_msg)
-        return jsonify({"success": False, "error": "Server error occurred"}), 500
+        return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/unsubscribe', methods=['POST'])
 def remove_subscriber():
@@ -1440,11 +1428,9 @@ def admin_dashboard():
 
 
 # Replace your signup_page() function with this updated version:
-# 4. UPDATE THE MAIN SIGNUP PAGE - Replace the existing signup_page() function
 
 @app.route('/signup')
 def signup_page():
-    """GDPR-compliant main signup page"""
     signup_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1480,39 +1466,6 @@ def signup_page():
             box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
             background: #2a2a2a; 
         }
-        
-        .consent-group {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            margin-bottom: 25px;
-            padding: 20px;
-            background: rgba(255, 215, 0, 0.1);
-            border: 2px solid #FFD700;
-            border-radius: 12px;
-        }
-        
-        .consent-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            margin: 0;
-            cursor: pointer;
-            accent-color: #FFD700;
-            flex-shrink: 0;
-        }
-        
-        .consent-label {
-            color: #ffffff;
-            font-size: 14px;
-            line-height: 1.5;
-            cursor: pointer;
-            flex: 1;
-        }
-        
-        .consent-label strong {
-            color: #FFD700;
-        }
-        
         .submit-btn { 
             width: 100%; 
             padding: 18px 25px; 
@@ -1542,21 +1495,6 @@ def signup_page():
         .footer-links { margin-top: 30px; padding-top: 20px; border-top: 1px solid #444; font-size: 12px; color: #888; text-align: center; }
         .footer-links a { color: #FFD700; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
         .optional { color: #aaa; font-size: 12px; margin-left: 5px; }
-        
-        .privacy-notice {
-            background: #1a1a1a;
-            border: 1px solid #444;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
-            font-size: 0.85rem;
-            color: #cccccc;
-            text-align: left;
-        }
-        
-        .privacy-notice strong {
-            color: #FFD700;
-        }
     </style>
 </head>
 <body>
@@ -1587,14 +1525,6 @@ def signup_page():
                 <input type="text" id="gamingHandle" name="gamingHandle" placeholder="Your gamer tag">
             </div>
             
-            <div class="consent-group">
-                <input type="checkbox" id="explicitConsent" name="explicitConsent" required>
-                <label for="explicitConsent" class="consent-label">
-                    <strong>📧 I agree to receive the SideQuest newsletter</strong><br>
-                    I consent to receiving updates about gaming events, special offers, and news. I understand I can unsubscribe at any time and my data will be processed according to the privacy policy.
-                </label>
-            </div>
-            
             <button type="submit" class="submit-btn" id="submitBtn">Level Up Your Inbox</button>
         </form>
         
@@ -1611,14 +1541,9 @@ def signup_page():
             </ul>
         </div>
         
-        <div class="privacy-notice">
-            🔒 <strong>Your Privacy Matters:</strong> We only use your information to send you the newsletter you've requested. We never share your data with third parties and you can unsubscribe at any time. See our <a href="#" style="color: #FFD700;">privacy policy</a> for full details.
-        </div>
-        
         <div class="footer-links">
             <a href="https://sidequesthub.com">SideQuest Hub</a> • 
-            <a href="#" onclick="showPrivacyInfo()">Privacy Policy</a> •
-            <a href="#" onclick="showUnsubscribeInfo()">Unsubscribe</a>
+            <a href="#" onclick="showPrivacyInfo()">Privacy</a>
         </div>
     </div>
     
@@ -1630,7 +1555,6 @@ def signup_page():
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
             const gamingHandle = document.getElementById('gamingHandle').value.trim();
-            const explicitConsent = document.getElementById('explicitConsent').checked;
             const messageDiv = document.getElementById('message');
             const submitButton = document.getElementById('submitBtn');
             
@@ -1638,12 +1562,6 @@ def signup_page():
             if (!firstName || !lastName || !email) {
                 messageDiv.className = 'message error show';
                 messageDiv.innerHTML = '❌ Please fill in all required fields';
-                return;
-            }
-            
-            if (!explicitConsent) {
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ Please agree to receive our newsletter to continue';
                 return;
             }
             
@@ -1665,8 +1583,7 @@ def signup_page():
                         lastName, 
                         email, 
                         gamingHandle: gamingHandle || null,
-                        source: 'signup_page_enhanced',
-                        explicit_consent: true
+                        source: 'signup_page_enhanced' 
                     })
                 });
                 
@@ -1674,9 +1591,7 @@ def signup_page():
                 
                 if (data.success) {
                     messageDiv.className = 'message success show';
-                    messageDiv.innerHTML = `🎮 Welcome to SideQuest, ${firstName}! 
-                        <br>✅ Newsletter subscription confirmed
-                        <br>📧 Check your email for a welcome message`;
+                    messageDiv.innerHTML = `🎮 Welcome to SideQuest, ${firstName}! Check your email for confirmation.`;
                     
                     // Clear form
                     document.getElementById('signupForm').reset();
@@ -1701,38 +1616,140 @@ def signup_page():
         });
         
         function showPrivacyInfo() {
-            alert(`🔒 Privacy Policy Summary:
-
-✅ We only collect the information you provide (name, email, gaming handle)
-✅ We use it only to send you our newsletter and event updates  
-✅ We never sell or share your data with third parties
-✅ You can unsubscribe at any time using the link in our emails
-✅ We use Brevo for email delivery (GDPR compliant)
-✅ We store your data securely and delete it if you unsubscribe
-
-For our full privacy policy, visit our website or email us.`);
-        }
-        
-        function showUnsubscribeInfo() {
-            alert(`📧 To Unsubscribe:
-
-1. Click the unsubscribe link in any of our emails
-2. Email us directly at unsubscribe@sidequesthub.com  
-3. Contact our admin team
-
-Your data will be removed from our systems within 7 days.`);
+            alert('We respect your privacy! Your information is only used for gaming updates and is never shared with third parties.');
         }
     </script>
 </body>
 </html>'''
     return signup_html
 
-
- # Add this route to your backend.py file after the existing /signup route
-
-# 1. UPDATE THE EVENT SIGNUP PAGE to handle equipment reservations
-
-
+# Add the login template
+LOGIN_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SideQuest Admin Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 2px solid #FFD700;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 12px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1a1a1a;
+            font-weight: 900;
+            font-size: 18px;
+        }
+        h1 {
+            color: #FFD700;
+            margin-bottom: 30px;
+            font-size: 1.8rem;
+        }
+        .form-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #FFD700;
+            font-weight: 600;
+        }
+        input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #444;
+            border-radius: 10px;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+        }
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+        }
+        .error {
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">SQ</div>
+        <h1>Admin Login</h1>
+        
+        ERROR_PLACEHOLDER
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autofocus>
+            </div>
+            <button type="submit" class="btn">🔓 Access Dashboard</button>
+        </form>
+        
+        <div class="footer">
+            <p>SideQuest Gaming Cafe</p>
+            <p>Canterbury Admin Panel</p>
+        </div>
+    </div>
+</body>
+</html>
+'''
 
 # Error handlers
 @app.errorhandler(400)
@@ -2791,19 +2808,15 @@ def get_public_event(event_id):
         log_error(f"Error getting public event {event_id}: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
-# Add this API route to handle public registrations (if not already present)
-
 @app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
 def register_public(event_id):
-    """Public registration endpoint with first/last name support"""
+    """Public registration endpoint with email confirmation"""
     conn = None
     cursor = None
     try:
         data = request.json or {}
         email = data.get('email', '').strip().lower()
         player_name = data.get('player_name', '').strip()
-        first_name = data.get('first_name', '').strip()
-        last_name = data.get('last_name', '').strip()
         
         # Validation
         if not email:
@@ -2812,12 +2825,8 @@ def register_public(event_id):
         if not is_valid_email(email):
             return jsonify({"success": False, "error": "Invalid email format"}), 400
             
-        if not first_name or not last_name:
-            return jsonify({"success": False, "error": "First and last name are required"}), 400
-        
-        # Use full name as player_name if not provided
         if not player_name:
-            player_name = f"{first_name} {last_name}"
+            return jsonify({"success": False, "error": "Player name is required"}), 400
         
         # Check if event exists
         event_check = execute_query_one("""
@@ -2846,11 +2855,11 @@ def register_public(event_id):
             if current_count and current_count['count'] >= event_check['capacity']:
                 return jsonify({"success": False, "error": "Event is at full capacity"}), 400
         
-        # Auto-add to subscribers with names if not exists
+        # Auto-add to subscribers if not exists
         subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
         if not subscriber_check:
-            if add_subscriber_to_db(email, 'event_registration', first_name, last_name):
-                log_activity(f"Auto-added {first_name} {last_name} ({email}) to subscribers via event registration", "info")
+            if add_subscriber_to_db(email, 'event_registration'):
+                log_activity(f"Auto-added {email} to subscribers via public event registration", "info")
         
         # Generate confirmation code
         import random
@@ -2875,7 +2884,7 @@ def register_public(event_id):
         
         if result:
             conn.commit()
-            log_activity(f"Public registration: {first_name} {last_name} ({email}) for event: {event_check['title']} (Code: {confirmation_code})", "success")
+            log_activity(f"Public registration: {email} for event: {event_check['title']} (Code: {confirmation_code})", "success")
             
             return jsonify({
                 "success": True,
@@ -2898,7 +2907,8 @@ def register_public(event_id):
         if cursor:
             cursor.close()
         if conn:
-            conn.close()
+            conn.close()      
+
 
 
 

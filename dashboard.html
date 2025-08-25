@@ -2418,141 +2418,120 @@
 
     // Create event card as DOM element (not HTML string)
     function createEventCardElement(event) {
-        const card = document.createElement('div');
-        const isGameNight = event.event_type === 'game_night';
-        
-        card.className = `event-card ${event.event_type || event.type || ''}`;
-        card.onclick = () => showEventDetails(event.id);
-        
-        // Handle date formatting
-        let eventDate;
-        const possibleDateFields = [
-            event.date_time, 
-            event.start_time, 
-            event.startDate, 
-            event.start
-        ];
-        
-        for (const dateField of possibleDateFields) {
-            if (dateField) {
-                eventDate = new Date(dateField);
-                if (!isNaN(eventDate.getTime())) {
-                    break;
-                }
-            }
+      const card = document.createElement('div');
+      card.className = `event-card ${event.event_type || event.type || ''}`;
+      card.onclick = () => showEventDetails(event.id);
+      
+      // Handle multiple possible date field names and formats
+      let eventDate;
+      const possibleDateFields = [
+        event.date_time, 
+        event.start_time, 
+        event.startDate, 
+        event.start
+      ];
+      
+      for (const dateField of possibleDateFields) {
+        if (dateField) {
+          eventDate = new Date(dateField);
+          if (!isNaN(eventDate.getTime())) {
+            break; // Valid date found
+          }
         }
-        
-        if (!eventDate || isNaN(eventDate.getTime())) {
-            eventDate = new Date();
-            console.warn('Invalid or missing date for event:', event);
-        }
-        
-        const dateStr = eventDate.toLocaleDateString('en-GB', { 
-            weekday: 'short', 
-            day: 'numeric', 
-            month: 'short' 
-        });
-        const timeStr = eventDate.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-        
-        // Handle capacity calculation for different event types
-        const registrations = event.attendeeCount || 
-                              event.registrations || 
-                              event.current_attendees || 
-                              event.registration_count || 
-                              event.attendees_count || 0;
-                              
-        const capacity = event.maxAttendees || 
-                        event.capacity || 
-                        event.max_capacity || 
-                        event.event_capacity || 0;
-        
-        // Different labels for game nights vs other events
-        let capacityText, actionButton1, actionButton2;
-        
-        if (isGameNight) {
-            capacityText = capacity > 0 ? `${registrations}/${capacity} equipment reserved` : `${registrations} reservations`;
-            actionButton1 = 'VIEW RESERVATIONS';
-            actionButton2 = 'RESERVE EQUIPMENT';
-        } else {
-            capacityText = capacity > 0 ? `${registrations}/${capacity} registered` : `${registrations} registered`;
-            actionButton1 = 'QUICK REGISTER';
-            actionButton2 = 'VIEW ATTENDEES';
-        }
-        
-        const capacityPercent = capacity > 0 ? Math.min((registrations / capacity) * 100, 100) : 0;
+      }
+      
+      // Fallback if no valid date found
+      if (!eventDate || isNaN(eventDate.getTime())) {
+        eventDate = new Date();
+        console.warn('Invalid or missing date for event:', event);
+      }
+      
+      const dateStr = eventDate.toLocaleDateString('en-GB', { 
+        weekday: 'short', 
+        day: 'numeric', 
+        month: 'short' 
+      });
+      const timeStr = eventDate.toLocaleTimeString('en-GB', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      // FIXED: Handle capacity calculation properly with MORE field name variations
+      const registrations = event.attendeeCount || 
+                          event.registrations || 
+                          event.current_attendees || 
+                          event.registration_count || 
+                          event.attendees_count || 0;
+                          
+      const capacity = event.maxAttendees || 
+                      event.capacity || 
+                      event.max_capacity || 
+                      event.event_capacity || 0;
+                      
+      const capacityText = capacity > 0 ? `${registrations}/${capacity}` : `${registrations} registered`;
+      const capacityPercent = capacity > 0 ? Math.min((registrations / capacity) * 100, 100) : 0;
 
-        const eventType = event.event_type || event.type || 'special';
-        const eventTitle = event.title || event.name || 'Untitled Event';
-        const gameTitle = event.game_title || event.game || event.gameTitle;
-        const entryFee = parseFloat(event.entry_fee || event.fee || event.price || 0);
+      // Handle different event type field names
+      const eventType = event.event_type || event.type || 'special';
+      const eventTitle = event.title || event.name || 'Untitled Event';
+      const gameTitle = event.game_title || event.game || event.gameTitle;
+      const entryFee = parseFloat(event.entry_fee || event.fee || event.price || 0);
+      
+      // Build the card content
+      card.innerHTML = `
+        <div class="event-header">
+          <div>
+            <h3 class="event-title">${escapeHtml(eventTitle)}</h3>
+            ${gameTitle ? `<div class="event-game-subtitle">${escapeHtml(gameTitle)}</div>` : ''}
+          </div>
+          <span class="event-badge badge-${eventType}">${eventType.replace('_', ' ').toUpperCase()}</span>
+        </div>
         
-        // Build the card content
-        card.innerHTML = `
-            <div class="event-header">
-                <div>
-                    <h3 class="event-title">${escapeHtml(eventTitle)}</h3>
-                    ${gameTitle ? `<div class="event-game-subtitle">${escapeHtml(gameTitle)}</div>` : ''}
-                </div>
-                <span class="event-badge badge-${eventType}">${isGameNight ? 'GAME NIGHT' : eventType.replace('_', ' ').toUpperCase()}</span>
+        <div class="event-details">
+          <div class="event-detail">
+            <span class="event-detail-icon">📅</span>
+            ${dateStr}
+          </div>
+          <div class="event-detail">
+            <span class="event-detail-icon">🕒</span>
+            ${timeStr}
+          </div>
+          <div class="event-detail">
+            <span class="event-detail-icon">👥</span>
+            ${capacityText}
+          </div>
+          ${entryFee > 0 ? `
+            <div class="event-detail">
+              <span class="event-detail-icon">💰</span>
+              £${entryFee.toFixed(2)}
             </div>
-            
-            <div class="event-details">
-                <div class="event-detail">
-                    <span class="event-detail-icon">📅</span>
-                    ${dateStr}
-                </div>
-                <div class="event-detail">
-                    <span class="event-detail-icon">🕒</span>
-                    ${timeStr}
-                </div>
-                <div class="event-detail">
-                    <span class="event-detail-icon">${isGameNight ? '🎮' : '👥'}</span>
-                    ${capacityText}
-                </div>
-                ${entryFee > 0 ? `
-                    <div class="event-detail">
-                        <span class="event-detail-icon">💰</span>
-                        £${entryFee.toFixed(2)}${isGameNight ? '/hour' : ''}
-                    </div>
-                ` : ''}
-            </div>
-            
-            ${capacity > 0 ? `
-                <div class="capacity-bar">
-                    <div class="capacity-fill" style="width: ${Math.min(capacityPercent, 100)}%"></div>
-                    <div class="capacity-text">${Math.round(capacityPercent)}% ${isGameNight ? 'Reserved' : 'Full'}</div>
-                </div>
-            ` : ''}
-            
-            <div class="event-actions">
-                ${!isGameNight ? `
-                    <button class="btn btn-primary" onclick="quickRegister(${event.id}); event.stopPropagation();">
-                        ${actionButton1}
-                    </button>
-                    <button class="btn btn-success" onclick="viewAttendees(${event.id}); event.stopPropagation();">
-                        ${actionButton2}
-                    </button>
-                ` : `
-                    <button class="btn btn-success" onclick="viewEquipmentReservations(${event.id}); event.stopPropagation();">
-                        ${actionButton1}
-                    </button>
-                    <button class="btn btn-primary" onclick="reserveEquipment(${event.id}); event.stopPropagation();">
-                        ${actionButton2}
-                    </button>
-                `}
-                <button class="btn btn-secondary" onclick="editEvent(${event.id}); event.stopPropagation();">
-                    EDIT EVENT
-                </button>
-                <button class="btn btn-warning" onclick="sendEventMarketing(${event.id}); event.stopPropagation();">
-                    📊 MARKETING
-                </button>
-            </div>
-        `;
+          ` : ''}
+        </div>
         
-        return card;
+        ${capacity > 0 ? `
+          <div class="capacity-bar">
+            <div class="capacity-fill" style="width: ${Math.min(capacityPercent, 100)}%"></div>
+            <div class="capacity-text">${Math.round(capacityPercent)}% Full</div>
+          </div>
+        ` : ''}
+        
+        <div class="event-actions">
+          <button class="btn btn-primary" onclick="quickRegister(${event.id}); event.stopPropagation();">
+            QUICK REGISTER
+          </button>
+          <button class="btn btn-secondary" onclick="editEvent(${event.id}); event.stopPropagation();">
+            EDIT EVENT
+          </button>
+          <button class="btn btn-success" onclick="viewAttendees(${event.id}); event.stopPropagation();">
+            VIEW ATTENDEES
+          </button>
+          <button class="btn btn-warning" onclick="sendEventMarketing(${event.id}); event.stopPropagation();">
+            📊 MARKETING
+          </button>
+        </div>
+      `;
+      
+      return card;
     }
 
     // Helper function to escape HTML
@@ -2587,240 +2566,6 @@
         return false;
       }
     }
-
-    function showEquipmentReservationsModal(event, reservations) {
-        const modal = document.getElementById('eventModal');
-        const modalTitle = document.getElementById('modalEventTitle');
-        const modalContent = document.getElementById('modalEventContent');
-        
-        modalTitle.textContent = `🎮 Equipment Reservations: ${event.title}`;
-        
-        let content = `
-            <div style="margin-bottom: 20px;">
-                <p><strong>Total Reservations:</strong> ${reservations.length}</p>
-                <p><strong>Equipment Reserved:</strong> ${reservations.filter(r => r.player_name && r.player_name !== r.subscriber_email).length}</p>
-            </div>
-        `;
-        
-        if (reservations.length === 0) {
-            content += `
-                <div style="text-align: center; padding: 40px; color: #aaa;">
-                    <p>🎮 No equipment reservations yet</p>
-                    <button class="btn btn-primary mt-20" onclick="reserveEquipment(${event.id})">
-                        Make First Reservation
-                    </button>
-                </div>
-            `;
-        } else {
-            // Group by equipment type
-            const equipmentGroups = {};
-            reservations.forEach(reservation => {
-                const equipment = reservation.player_name || 'General Reservation';
-                if (!equipmentGroups[equipment]) {
-                    equipmentGroups[equipment] = [];
-                }
-                equipmentGroups[equipment].push(reservation);
-            });
-            
-            content += '<div class="equipment-reservations-list">';
-            
-            Object.keys(equipmentGroups).forEach(equipment => {
-                const reservationsForEquipment = equipmentGroups[equipment];
-                const isActualEquipment = equipment.includes('Station') || equipment.includes('Rig') || equipment.includes('Setup') || equipment.includes('Corner') || equipment.includes('Games');
-                
-                if (isActualEquipment) {
-                    content += `
-                        <div style="background: #2a2a2a; border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #FFD700;">
-                            <h4 style="color: #FFD700; margin-bottom: 10px;">🎮 ${equipment}</h4>
-                    `;
-                    
-                    reservationsForEquipment.forEach(reservation => {
-                        const reservedDate = reservation.registered_at ? 
-                            new Date(reservation.registered_at).toLocaleDateString() : 'Unknown';
-                        
-                        content += `
-                            <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div>
-                                        <div style="color: #ffffff; font-weight: 600;">${reservation.subscriber_email}</div>
-                                        <div style="color: #aaa; font-size: 0.9rem;">
-                                            Code: <strong style="color: #FFD700;">${reservation.confirmation_code}</strong> | 
-                                            Reserved: ${reservedDate}
-                                        </div>
-                                    </div>
-                                    <div style="display: flex; gap: 10px;">
-                                        ${!reservation.attended ? `
-                                            <button class="btn btn-success btn-sm" onclick="checkinEquipment(${event.id}, '${reservation.subscriber_email}')">
-                                                ✓ Check In
-                                            </button>
-                                        ` : `
-                                            <span style="color: #00ff88; font-weight: 600;">✅ Checked In</span>
-                                        `}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    
-                    content += '</div>';
-                }
-            });
-            
-            // Show general reservations (if any)
-            const generalReservations = reservations.filter(r => !r.player_name || r.player_name === r.subscriber_email);
-            if (generalReservations.length > 0) {
-                content += `
-                    <div style="background: #2a2a2a; border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 4px solid #8B5CF6;">
-                        <h4 style="color: #8B5CF6; margin-bottom: 10px;">📝 General Reservations</h4>
-                `;
-                
-                generalReservations.forEach(reservation => {
-                    const reservedDate = reservation.registered_at ? 
-                        new Date(reservation.registered_at).toLocaleDateString() : 'Unknown';
-                    
-                    content += `
-                        <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <div style="color: #ffffff; font-weight: 600;">${reservation.subscriber_email}</div>
-                                    <div style="color: #aaa; font-size: 0.9rem;">
-                                        Code: <strong style="color: #FFD700;">${reservation.confirmation_code}</strong> | 
-                                        Reserved: ${reservedDate}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                content += '</div>';
-            }
-            
-            content += '</div>';
-        }
-        
-        // Add action buttons
-        content += `
-            <div style="display: flex; gap: 10px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #444;">
-                <button class="btn btn-primary" onclick="reserveEquipment(${event.id})">
-                    🎮 New Reservation
-                </button>
-                <button class="btn btn-secondary" onclick="viewEquipmentReservations(${event.id})">
-                    🔄 Refresh
-                </button>
-                <button class="btn btn-secondary" onclick="closeEventModal()">
-                    Close
-                </button>
-            </div>
-        `;
-        
-        modalContent.innerHTML = content;
-        modal.style.display = 'flex';
-    }
-
-    async function checkinEquipment(eventId, email) {
-        try {
-            const response = await fetch(`${API_BASE}/api/events/${eventId}/checkin`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email })
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                showSuccess(`✅ Checked in ${email}`);
-                // Refresh the reservations modal
-                setTimeout(() => viewEquipmentReservations(eventId), 500);
-            } else {
-                alert('❌ Check-in failed: ' + (data.error || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('❌ Network error during check-in:', error);
-            alert('❌ Network error: ' + error.message);
-        }
-    }
-
-    function updateEventTypeFilter() {
-        const eventTypeFilter = document.getElementById('eventTypeFilter');
-        if (eventTypeFilter) {
-            eventTypeFilter.innerHTML = `
-                <option value="all">All Types</option>
-                <option value="tournament">Tournaments</option>
-                <option value="game_night">Game Nights (Equipment)</option>
-                <option value="special">Special Events</option>
-                <option value="birthday">Birthday Parties</option>
-            `;
-        }
-    }
-
-
-
-    // UPDATE THE DASHBOARD EQUIPMENT LIST TOO
-    // UPDATE THE DASHBOARD EQUIPMENT LIST TOO
-
-    async function reserveEquipment(eventId) {
-        const name = prompt('Enter customer name:');
-        if (!name) return;
-        
-        const email = prompt('Enter customer email:');
-        if (!email) return;
-        
-        // CORRECTED EQUIPMENT LIST FOR YOUR ACTUAL SETUP
-        const availableEquipment = [
-            "PlayStation 5 - Station 1",
-            "PlayStation 5 - Station 2",
-            "PlayStation 5 - Station 3", 
-            "PlayStation 5 - Station 4",
-            "Driving Rig - Station 1",
-            "Driving Rig - Station 2",
-            "VR Setup (Meta Quest)",
-            "Racing Rig - Station 1",
-            "Racing Rig - Station 2",
-            "Table for Board Games",
-            "General Gaming Area"
-        ];
-        
-        let equipmentOptions = "Choose equipment:\n\n";
-        availableEquipment.forEach((eq, index) => {
-            equipmentOptions += `${index + 1}. ${eq}\n`;
-        });
-        
-        const choice = prompt(equipmentOptions + `\nEnter number (1-${availableEquipment.length}):`);
-        if (!choice) return;
-        
-        const choiceIndex = parseInt(choice) - 1;
-        if (choiceIndex < 0 || choiceIndex >= availableEquipment.length) {
-            alert('Invalid choice');
-            return;
-        }
-        
-        const selectedEquipment = availableEquipment[choiceIndex];
-
-        try {
-            const response = await fetch(`${API_BASE}/api/events/${eventId}/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    email: email.trim().toLowerCase(),
-                    player_name: selectedEquipment
-                })
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                showSuccess(`✅ Reserved ${selectedEquipment} for ${name} - Code: ${data.confirmation_code}`);
-                loadEvents();
-            } else {
-                alert('❌ Error: ' + (data.error || 'Failed to reserve equipment'));
-            }
-        } catch (error) {
-            console.error('Error reserving equipment:', error);
-            alert('❌ Network error: ' + error.message);
-        }
-    }
-
 
     // Social proof badge display function
     function showBadge(message, type = 'urgency') {
@@ -4073,9 +3818,10 @@
 
     // Call initialization when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(() => {
-            updateEventTypeFilter();
-        }, 1000);
+      // Wait a bit to ensure main dashboard is initialized first
+      setTimeout(() => {
+        initializeEventManagement();
+      }, 500);
     });
 
     function fillFormWithEventData(event) {

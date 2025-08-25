@@ -238,47 +238,6 @@ def run_database_migrations():
     print("✅ All database migrations completed successfully")
     return True
 
-def add_name_columns():
-    """Add missing name columns to subscribers table"""
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return False
-            
-        cursor = conn.cursor()
-        
-        # Add the missing columns
-        cursor.execute('ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS first_name VARCHAR(100);')
-        cursor.execute('ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS last_name VARCHAR(100);')
-        cursor.execute('ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS gaming_handle VARCHAR(50);')
-        
-        # Add the computed full_name column
-        cursor.execute('''
-            ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS full_name VARCHAR(200) 
-            GENERATED ALWAYS AS (
-                CASE 
-                    WHEN first_name IS NOT NULL AND last_name IS NOT NULL 
-                    THEN CONCAT(first_name, ' ', last_name)
-                    ELSE COALESCE(first_name, email)
-                END
-            ) STORED;
-        ''')
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        print("✅ Added name columns to subscribers table")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error adding name columns: {e}")
-        return False
-
-# Call this function once when your app starts
-if __name__ == '__main__':
-    add_name_columns()  # Add this line before app.run()
-
 
 def verify_database_schema():
     """Verify that all required tables and columns exist"""
@@ -1048,17 +1007,28 @@ def get_subscribers():
         print(f"Subscribers error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
 
-@app.route('/subscribe', methods=['POST'])
+
 @app.route('/subscribe', methods=['POST'])
 def add_subscriber():
-    """Enhanced subscribe route with name fields and better Brevo sync"""
+    """Enhanced subscribe route with name fields and better error handling"""
     try:
         data = request.json or {}
-        email = str(data.get('email', '')).strip().lower()
-        source = data.get('source', 'manual')
-        first_name = data.get('firstName', '').strip()  # Note: matches frontend
-        last_name = data.get('lastName', '').strip()    # Note: matches frontend
-        gaming_handle = data.get('gamingHandle', '').strip() or None
+        
+        # FIXED: Safely handle None values with proper fallbacks
+        email = (data.get('email') or '').strip().lower() if data.get('email') else ''
+        source = (data.get('source') or 'manual').strip()
+        
+        # Handle name fields safely - they might be None or missing
+        first_name = (data.get('firstName') or '').strip() if data.get('firstName') else ''
+        last_name = (data.get('lastName') or '').strip() if data.get('lastName') else ''
+        gaming_handle = (data.get('gamingHandle') or '').strip() if data.get('gamingHandle') else ''
+        
+        # Convert empty strings to None for database storage
+        first_name = first_name if first_name else None
+        last_name = last_name if last_name else None
+        gaming_handle = gaming_handle if gaming_handle else None
+        
+        print(f"DEBUG: Received data - email: '{email}', firstName: '{first_name}', lastName: '{last_name}', gamingHandle: '{gaming_handle}', source: '{source}'")
         
         # Enhanced validation
         if not email:
@@ -1070,10 +1040,10 @@ def add_subscriber():
         if source in ['signup_page_enhanced', 'admin_manual'] and (not first_name or not last_name):
             return jsonify({"success": False, "error": "First name and last name are required"}), 400
             
-        if first_name and len(first_name.strip()) < 2:
+        if first_name and len(first_name) < 2:
             return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
             
-        if last_name and len(last_name.strip()) < 2:
+        if last_name and len(last_name) < 2:
             return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
         
         # Name validation regex
@@ -1112,7 +1082,7 @@ def add_subscriber():
             brevo_result = add_to_brevo_contact(email, brevo_attributes)
             
             # Enhanced logging with names
-            subscriber_info = f"{first_name} {last_name}" if first_name and last_name else email
+            subscriber_info = f"{first_name} {last_name}".strip() if first_name and last_name else email
             log_activity(f"New subscriber added: {subscriber_info} ({email}) - Source: {source}", "success")
             
             return jsonify({
@@ -1129,8 +1099,10 @@ def add_subscriber():
             
     except Exception as e:
         error_msg = f"Error adding subscriber: {str(e)}"
+        print(f"SUBSCRIBE ERROR: {error_msg}")
+        print(f"SUBSCRIBE ERROR TRACEBACK: {traceback.format_exc()}")
         log_error(error_msg)
-        return jsonify({"success": False, "error": error_msg}), 500
+        return jsonify({"success": False, "error": "Server error occurred"}), 500
 
 @app.route('/unsubscribe', methods=['POST'])
 def remove_subscriber():

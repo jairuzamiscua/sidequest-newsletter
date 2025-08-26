@@ -1602,7 +1602,7 @@ def signup_page():
     signup_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+   <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join SideQuest Newsletter</title>
     <style>
@@ -1676,8 +1676,8 @@ def signup_page():
             <div class="gdpr-consent">
                 <div class="gdpr-title">Data Protection & Privacy</div>
                 <div class="consent-checkbox">
-                    <input type="checkbox" id="gdprConsent" required>
-                    <div class="consent-text">
+                    <input type="checkbox" id="gdprConsent" name="gdprConsent" required>
+                    <label for="gdprConsent" class="consent-text">
                         I consent to SideQuest Gaming storing and processing my personal data to send me gaming event updates, newsletters, and promotional communications. I understand that:
                         <ul style="margin: 10px 0; padding-left: 20px;">
                             <li>My data will be stored securely and used only for gaming-related communications</li>
@@ -1685,7 +1685,7 @@ def signup_page():
                             <li>I can request deletion of my data at any time</li>
                         </ul>
                         I have read and agree to the <a href="/privacy" target="_blank">Privacy Policy</a>.
-                    </div>
+                    </label>
                 </div>
             </div>
             
@@ -1713,79 +1713,71 @@ def signup_page():
     </div>
     
     <script>
-        document.getElementById('signupForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+     document.getElementById('signupForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const firstName = document.getElementById('firstName').value.trim();
+        const lastName = document.getElementById('lastName').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const gamingHandle = document.getElementById('gamingHandle').value.trim();
+        const gdprConsent = document.getElementById('gdprConsent').checked;
+        const messageDiv = document.getElementById('message');
+        const submitButton = document.getElementById('submitBtn');
+        
+        // Validation
+        if (!firstName || !lastName || !email) {
+            messageDiv.className = 'message error show';
+            messageDiv.innerHTML = 'Please fill in all required fields';
+            return;
+        }
+        
+        if (!gdprConsent) {
+            messageDiv.className = 'message error show';
+            messageDiv.innerHTML = 'Please accept our privacy policy to continue';
+            return;
+        }
+        
+        if (firstName.length < 2 || lastName.length < 2) {
+            messageDiv.className = 'message error show';
+            messageDiv.innerHTML = 'Names must be at least 2 characters long';
+            return;
+        }
+        
+        submitButton.innerHTML = 'Joining Quest...';
+        submitButton.disabled = true;
+        
+        try {
+            const response = await fetch('/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    firstName, 
+                    lastName, 
+                    email, 
+                    gamingHandle: gamingHandle || null,
+                    gdprConsent: gdprConsent,
+                    source: 'signup_page_gdpr' 
+                })
+            });
             
-            const firstName = document.getElementById('firstName').value.trim();
-            const lastName = document.getElementById('lastName').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const gamingHandle = document.getElementById('gamingHandle').value.trim();
-            const gdprConsent = document.getElementById('gdprConsent').checked;
-            const messageDiv = document.getElementById('message');
-            const submitButton = document.getElementById('submitBtn');
+            const result = await response.json();
             
-            // Validation
-            if (!firstName || !lastName || !email) {
+            if (result.success) {
+                messageDiv.className = 'message success show';
+                messageDiv.innerHTML = `🎉 Welcome to the quest, ${firstName}! Check your email for confirmation.`;
+                document.getElementById('signupForm').reset();
+            } else {
                 messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ Please fill in all required fields';
-                return;
+                messageDiv.innerHTML = result.error || 'Something went wrong. Please try again.';
             }
-            
-            if (!gdprConsent) {
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ Please accept our privacy policy to continue';
-                return;
-            }
-            
-            if (firstName.length < 2 || lastName.length < 2) {
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ Names must be at least 2 characters long';
-                return;
-            }
-            
-            submitButton.innerHTML = 'Joining Quest...';
-            submitButton.disabled = true;
-            
-            try {
-                const response = await fetch('/subscribe', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        firstName, 
-                        lastName, 
-                        email, 
-                        gamingHandle: gamingHandle || null,
-                        gdprConsent: gdprConsent,
-                        source: 'signup_page_gdpr' 
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    messageDiv.className = 'message success show';
-                    messageDiv.innerHTML = `🎮 Welcome to SideQuest, ${firstName}! Check your email for confirmation.`;
-                    
-                    document.getElementById('signupForm').reset();
-                    
-                    submitButton.innerHTML = '✅ Quest Joined!';
-                    setTimeout(() => { 
-                        submitButton.innerHTML = 'Level Up Your Inbox'; 
-                        submitButton.disabled = false; 
-                    }, 3000);
-                } else {
-                    messageDiv.className = 'message error show';
-                    messageDiv.innerHTML = '❌ ' + (data.error || 'Something went wrong');
-                    submitButton.innerHTML = 'Level Up Your Inbox';
-                    submitButton.disabled = false;
-                }
-            } catch (error) {
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = '❌ Connection error. Please try again later.';
-                submitButton.innerHTML = 'Level Up Your Inbox';
-                submitButton.disabled = false;
-            }
-        });
+        } catch (error) {
+            messageDiv.className = 'message error show';
+            messageDiv.innerHTML = 'Network error. Please check your connection and try again.';
+        } finally {
+            submitButton.innerHTML = 'Level Up Your Inbox';
+            submitButton.disabled = false;
+        }
+    });
     </script>
 </body>
 </html>'''

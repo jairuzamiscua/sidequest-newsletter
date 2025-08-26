@@ -5366,8 +5366,21 @@
           subscriberGrowthChart.destroy();
         }
         
+        let chartConfig;
+        
         if (currentChartView === 'subscribers') {
           const subscriberData = trends.subscriber_growth || [];
+          
+          if (subscriberData.length === 0) {
+            // Show empty state
+            const chartCtx = ctx.getContext('2d');
+            chartCtx.clearRect(0, 0, ctx.width, ctx.height);
+            chartCtx.fillStyle = '#666';
+            chartCtx.font = '16px Arial';
+            chartCtx.textAlign = 'center';
+            chartCtx.fillText('No subscriber data available', ctx.width/2, ctx.height/2);
+            return;
+          }
           
           const labels = subscriberData.map(item => {
             const date = new Date(item.date);
@@ -5376,33 +5389,22 @@
           
           const newSubscribers = subscriberData.map(item => item.new_subscribers || 0);
           
-          // SAFE FIX: Calculate cumulative from the subscriber details we already have
+          // Calculate cumulative properly - start from current total and work backwards
+          const totalSubs = subscribers.length || 0;
+          let runningTotal = totalSubs;
           const cumulativeSubscribers = [];
           
-          if (subscriberDetails && subscriberDetails.length > 0 && subscriberData.length > 0) {
-            // Sort subscriber details by date
-            const sortedSubs = subscriberDetails.sort((a, b) => new Date(a.date_added) - new Date(b.date_added));
-            
-            subscriberData.forEach((dayData, index) => {
-              const dayDate = new Date(dayData.date);
-              dayDate.setHours(23, 59, 59, 999); // End of day
-              
-              // Count all subscribers up to this day
-              const subsUpToDay = sortedSubs.filter(sub => {
-                const subDate = new Date(sub.date_added);
-                return subDate <= dayDate;
-              }).length;
-              
-              cumulativeSubscribers.push(subsUpToDay);
-            });
-          } else {
-            // Fallback: use backend data if available
-            subscriberData.forEach(item => {
-              cumulativeSubscribers.push(item.cumulative_subscribers || 0);
-            });
+          // Work backwards from the end to calculate proper cumulative values
+          for (let i = subscriberData.length - 1; i >= 0; i--) {
+            cumulativeSubscribers.unshift(runningTotal);
+            runningTotal -= (subscriberData[i].new_subscribers || 0);
           }
           
-          const chartConfig = {
+          // Ensure we don't have negative values
+          const minValue = Math.max(0, Math.min(...cumulativeSubscribers));
+          const adjustedCumulative = cumulativeSubscribers.map(val => Math.max(minValue, val));
+          
+          chartConfig = {
             type: 'line',
             data: {
               labels: labels,
@@ -5423,7 +5425,7 @@
                 },
                 {
                   label: 'Total Subscribers',
-                  data: cumulativeSubscribers,
+                  data: adjustedCumulative,
                   borderColor: '#4ECDC4',
                   backgroundColor: 'rgba(78, 205, 196, 0.1)',
                   borderWidth: 3,
@@ -5484,7 +5486,7 @@
                   type: 'linear',
                   display: true,
                   position: 'right',
-                  beginAtZero: false, // Let it start from actual minimum
+                  beginAtZero: false,
                   grid: { drawOnChartArea: false },
                   ticks: { color: '#4ECDC4' },
                   title: {
@@ -5497,11 +5499,104 @@
             }
           };
           
-          subscriberGrowthChart = new Chart(ctx, chartConfig);
+        } else {
+          // Registrations view - FIX THE BROKEN CHART
+          const registrationData = trends.registration_trend || [];
+          
+          if (registrationData.length === 0) {
+            // Create empty chart with message
+            chartConfig = {
+              type: 'bar',
+              data: {
+                labels: ['No Data'],
+                datasets: [{
+                  label: 'Event Registrations',
+                  data: [0],
+                  backgroundColor: 'rgba(139, 92, 246, 0.3)',
+                  borderColor: '#8B5CF6',
+                  borderWidth: 2
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: true,
+                    labels: { color: '#8B5CF6', font: { weight: 'bold' } }
+                  }
+                },
+                scales: {
+                  x: { grid: { color: '#444' }, ticks: { color: '#cccccc' } },
+                  y: { 
+                    beginAtZero: true, 
+                    grid: { color: '#444' }, 
+                    ticks: { color: '#cccccc' },
+                    title: { display: true, text: 'Registrations', color: '#8B5CF6' }
+                  }
+                }
+              }
+            };
+          } else {
+            const labels = registrationData.map(item => {
+              const date = new Date(item.date);
+              return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+            });
+            
+            const registrations = registrationData.map(item => item.registrations || 0);
+            
+            chartConfig = {
+              type: 'bar',
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: 'Event Registrations',
+                  data: registrations,
+                  backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                  borderColor: '#8B5CF6',
+                  borderWidth: 2,
+                  borderRadius: 8,
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                      color: '#8B5CF6',
+                      font: { weight: 'bold' },
+                      usePointStyle: true
+                    }
+                  }
+                },
+                scales: {
+                  x: { grid: { color: '#444' }, ticks: { color: '#cccccc', maxRotation: 45 } },
+                  y: {
+                    beginAtZero: true,
+                    grid: { color: '#444' },
+                    ticks: { color: '#cccccc' },
+                    title: { display: true, text: 'Registrations', color: '#8B5CF6' }
+                  }
+                }
+              }
+            };
+          }
         }
-        // ... rest of function for registrations view
+        
+        subscriberGrowthChart = new Chart(ctx, chartConfig);
+        
       } catch (error) {
         console.error('Error updating main growth chart:', error);
+        // Show error in chart area
+        const chartCtx = ctx.getContext('2d');
+        chartCtx.clearRect(0, 0, ctx.width, ctx.height);
+        chartCtx.fillStyle = '#ff6b35';
+        chartCtx.font = '16px Arial';
+        chartCtx.textAlign = 'center';
+        chartCtx.fillText('Chart error - check console', ctx.width/2, ctx.height/2);
       }
     }
 

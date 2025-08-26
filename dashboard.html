@@ -5357,7 +5357,6 @@
       }
     }
     // Replace the chart data generation in updateMainGrowthChart function
-
     function updateMainGrowthChart(trends) {
       try {
         const ctx = document.getElementById('mainGrowthChart');
@@ -5366,8 +5365,6 @@
         if (subscriberGrowthChart) {
           subscriberGrowthChart.destroy();
         }
-        
-        let data, chartConfig;
         
         if (currentChartView === 'subscribers') {
           const subscriberData = trends.subscriber_growth || [];
@@ -5379,33 +5376,33 @@
           
           const newSubscribers = subscriberData.map(item => item.new_subscribers || 0);
           
-          // FIX: Calculate proper cumulative data that starts from beginning
+          // SAFE FIX: Calculate cumulative from the subscriber details we already have
           const cumulativeSubscribers = [];
-          let runningTotal = 0;
           
-          // If we have subscriber details, calculate starting total before the chart period
           if (subscriberDetails && subscriberDetails.length > 0 && subscriberData.length > 0) {
-            const chartStartDate = new Date(subscriberData[0].date);
-            const subscribersBeforeChart = subscriberDetails.filter(sub => {
-              const subDate = new Date(sub.date_added);
-              return subDate < chartStartDate;
-            }).length;
+            // Sort subscriber details by date
+            const sortedSubs = subscriberDetails.sort((a, b) => new Date(a.date_added) - new Date(b.date_added));
             
-            runningTotal = subscribersBeforeChart;
+            subscriberData.forEach((dayData, index) => {
+              const dayDate = new Date(dayData.date);
+              dayDate.setHours(23, 59, 59, 999); // End of day
+              
+              // Count all subscribers up to this day
+              const subsUpToDay = sortedSubs.filter(sub => {
+                const subDate = new Date(sub.date_added);
+                return subDate <= dayDate;
+              }).length;
+              
+              cumulativeSubscribers.push(subsUpToDay);
+            });
+          } else {
+            // Fallback: use backend data if available
+            subscriberData.forEach(item => {
+              cumulativeSubscribers.push(item.cumulative_subscribers || 0);
+            });
           }
           
-          // Build cumulative array with proper starting point
-          subscriberData.forEach((item, index) => {
-            runningTotal += (item.new_subscribers || 0);
-            cumulativeSubscribers.push(runningTotal);
-          });
-          
-          // If we still have flat data, use the cumulative field from backend if available
-          const backendCumulative = subscriberData.map(item => item.cumulative_subscribers || 0);
-          const finalCumulative = cumulativeSubscribers.some(val => val > 0) ? 
-                                  cumulativeSubscribers : backendCumulative;
-          
-          chartConfig = {
+          const chartConfig = {
             type: 'line',
             data: {
               labels: labels,
@@ -5426,12 +5423,12 @@
                 },
                 {
                   label: 'Total Subscribers',
-                  data: finalCumulative,
+                  data: cumulativeSubscribers,
                   borderColor: '#4ECDC4',
                   backgroundColor: 'rgba(78, 205, 196, 0.1)',
-                  borderWidth: 3, // Made thicker for better visibility
+                  borderWidth: 3,
                   fill: false,
-                  tension: 0.3, // Slightly more curved for smooth diagonal
+                  tension: 0.3,
                   pointBackgroundColor: '#4ECDC4',
                   pointBorderColor: '#1a1a1a',
                   pointBorderWidth: 2,
@@ -5462,18 +5459,7 @@
                   titleColor: '#FFD700',
                   bodyColor: '#ffffff',
                   borderColor: '#FFD700',
-                  borderWidth: 1,
-                  callbacks: {
-                    label: function(context) {
-                      const label = context.dataset.label || '';
-                      const value = context.parsed.y;
-                      if (label === 'Total Subscribers') {
-                        return `${label}: ${value} subscribers`;
-                      } else {
-                        return `${label}: +${value} new`;
-                      }
-                    }
-                  }
+                  borderWidth: 1
                 }
               },
               scales: {
@@ -5487,10 +5473,7 @@
                   position: 'left',
                   beginAtZero: true,
                   grid: { color: '#444' },
-                  ticks: { 
-                    color: '#cccccc',
-                    stepSize: 1 // Force integer steps for new subscribers
-                  },
+                  ticks: { color: '#cccccc' },
                   title: {
                     display: true,
                     text: 'New Subscribers',
@@ -5501,14 +5484,9 @@
                   type: 'linear',
                   display: true,
                   position: 'right',
-                  beginAtZero: false, // Allow it to start from actual minimum value
+                  beginAtZero: false, // Let it start from actual minimum
                   grid: { drawOnChartArea: false },
-                  ticks: { 
-                    color: '#4ECDC4',
-                    callback: function(value) {
-                      return Math.round(value); // Show only whole numbers
-                    }
-                  },
+                  ticks: { color: '#4ECDC4' },
                   title: {
                     display: true,
                     text: 'Total Subscribers',
@@ -5518,12 +5496,10 @@
               }
             }
           };
-        } else {
-          // ... rest of registrations view logic stays the same
+          
+          subscriberGrowthChart = new Chart(ctx, chartConfig);
         }
-        
-        subscriberGrowthChart = new Chart(ctx, chartConfig);
-        
+        // ... rest of function for registrations view
       } catch (error) {
         console.error('Error updating main growth chart:', error);
       }

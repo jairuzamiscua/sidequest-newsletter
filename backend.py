@@ -293,7 +293,114 @@ def verify_database_schema():
     except Exception as e:
         print(f"❌ Schema verification failed: {e}")
         return False
-       
+
+# NEW LINE OF CODE 20:29 26/08/2025 
+@app.route('/privacy')
+def privacy_policy():
+    """Privacy policy page"""
+    return render_template_string(PRIVACY_POLICY_TEMPLATE)
+
+@app.route('/api/gdpr/delete', methods=['POST'])
+def gdpr_delete_request():
+    """Handle GDPR data deletion requests"""
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        
+        if not email or not is_valid_email(email):
+            return jsonify({"success": False, "error": "Valid email required"}), 400
+        
+        # Remove from database
+        removed = remove_subscriber_from_db(email)
+        
+        if removed:
+            # Remove from Brevo
+            brevo_result = remove_from_brevo_contact(email)
+            
+            log_activity(f"GDPR deletion request processed for {email}", "info")
+            
+            return jsonify({
+                "success": True,
+                "message": "Your data has been deleted from our systems"
+            })
+        else:
+            return jsonify({
+                "success": False, 
+                "error": "Email not found in our records"
+            }), 404
+            
+    except Exception as e:
+        log_error(f"GDPR deletion error: {e}")
+        return jsonify({"success": False, "error": "Internal error"}), 500
+
+# Add privacy policy template
+PRIVACY_POLICY_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - SideQuest Gaming</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fff; }
+        h1, h2 { color: #FFD700; }
+        a { color: #FFD700; }
+        .contact { background: #2a2a2a; padding: 20px; border-radius: 10px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Privacy Policy</h1>
+    <p><strong>Last updated:</strong> {{ current_date }}</p>
+    
+    <h2>Data Controller</h2>
+    <div class="contact">
+        <p><strong>SideQuest Gaming Cafe</strong><br>
+        Canterbury, UK<br>
+        Email: privacy@sidequesthub.com</p>
+    </div>
+    
+    <h2>What Data We Collect</h2>
+    <ul>
+        <li>Name (first and last)</li>
+        <li>Email address</li>
+        <li>Gaming handle (optional)</li>
+        <li>Event registration data</li>
+    </ul>
+    
+    <h2>How We Use Your Data</h2>
+    <p>We use your data to:</p>
+    <ul>
+        <li>Send you gaming event notifications</li>
+        <li>Process event registrations</li>
+        <li>Send newsletters about gaming activities</li>
+        <li>Manage your account and preferences</li>
+    </ul>
+    
+    <h2>Third Party Services</h2>
+    <p>We use Brevo (formerly Sendinblue) to send emails. Your data is shared with them for this purpose.</p>
+    
+    <h2>Your Rights</h2>
+    <p>Under GDPR, you have the right to:</p>
+    <ul>
+        <li>Access your personal data</li>
+        <li>Rectify incorrect data</li>
+        <li>Erase your data (right to be forgotten)</li>
+        <li>Withdraw consent at any time</li>
+        <li>Data portability</li>
+    </ul>
+    
+    <h2>Data Retention</h2>
+    <p>We keep your data until you unsubscribe or request deletion.</p>
+    
+    <h2>Contact Us</h2>
+    <p>For privacy concerns: <a href="mailto:privacy@sidequesthub.com">privacy@sidequesthub.com</a></p>
+    
+    <div style="margin-top: 30px;">
+        <a href="/signup" style="background: #FFD700; color: #1a1a1a; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Back to Signup</a>
+    </div>
+</body>
+</html>
+'''
 
 # Update your init_database function to include migrations
 def init_database():
@@ -1009,89 +1116,24 @@ def get_subscribers():
 
 @app.route('/subscribe', methods=['POST'])
 def add_subscriber():
-    """Enhanced subscribe route with name fields and better Brevo sync"""
     try:
         data = request.json or {}
         email = str(data.get('email', '')).strip().lower()
         source = data.get('source', 'manual')
-        first_name = data.get('firstName', '').strip() if data.get('firstName') else ''
-        last_name = data.get('lastName', '').strip() if data.get('lastName') else ''
-        
-        # FIX: Handle None values properly for gaming handle
+        first_name = data.get('firstName', '').strip()
+        last_name = data.get('lastName', '').strip()
         gaming_handle_raw = data.get('gamingHandle')
         gaming_handle = gaming_handle_raw.strip() if gaming_handle_raw else None
         
-        # Enhanced validation
+        # GDPR compliance check
+        gdpr_consent = data.get('gdprConsent', False)
+        if not gdpr_consent:
+            return jsonify({"success": False, "error": "GDPR consent is required"}), 400
+        
+        # Rest of your existing validation...
         if not email:
             return jsonify({"success": False, "error": "Email is required"}), 400
-        if not is_valid_email(email):
-            return jsonify({"success": False, "error": "Invalid email format"}), 400
-            
-        # Validate name fields (required for enhanced signup)
-        if source in ['signup_page_enhanced', 'admin_manual'] and (not first_name or not last_name):
-            return jsonify({"success": False, "error": "First name and last name are required"}), 400
-            
-        if first_name and len(first_name.strip()) < 2:
-            return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
-            
-        if last_name and len(last_name.strip()) < 2:
-            return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
-        
-        # Name validation regex
-        if first_name or last_name:
-            import re
-            name_pattern = r'^[a-zA-Z\s\'-]+$'
-            if first_name and not re.match(name_pattern, first_name):
-                return jsonify({"success": False, "error": "Invalid characters in first name"}), 400
-            if last_name and not re.match(name_pattern, last_name):
-                return jsonify({"success": False, "error": "Invalid characters in last name"}), 400
-        
-        # Gaming handle validation
-        if gaming_handle and (len(gaming_handle) < 3 or len(gaming_handle) > 30):
-            return jsonify({"success": False, "error": "Gaming handle must be 3-30 characters"}), 400
-        
-        # Check if already exists
-        existing_subscribers = get_all_subscribers()
-        if any(sub['email'] == email for sub in existing_subscribers):
-            return jsonify({"success": False, "error": "Email already subscribed"}), 400
-        
-        # Add to database with name fields
-        if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle):
-            # Enhanced Brevo sync with names
-            brevo_attributes = {
-                'source': source,
-                'date_added': datetime.now().isoformat()
-            }
-            
-            if first_name:
-                brevo_attributes['first_name'] = first_name
-            if last_name:
-                brevo_attributes['last_name'] = last_name
-            if gaming_handle:
-                brevo_attributes['gaming_handle'] = gaming_handle
-            
-            brevo_result = add_to_brevo_contact(email, brevo_attributes)
-            
-            # Enhanced logging with names
-            subscriber_info = f"{first_name} {last_name}" if first_name and last_name else email
-            log_activity(f"New subscriber added: {subscriber_info} ({email}) - Source: {source}", "success")
-            
-            return jsonify({
-                "success": True,
-                "message": "Subscriber added successfully",
-                "email": email,
-                "name": f"{first_name} {last_name}".strip() if first_name or last_name else None,
-                "gaming_handle": gaming_handle,
-                "brevo_synced": brevo_result.get("success", False),
-                "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
-            })
-        else:
-            return jsonify({"success": False, "error": "Failed to add subscriber to database"}), 500
-            
-    except Exception as e:
-        error_msg = f"Error adding subscriber: {str(e)}"
-        log_error(error_msg)
-        return jsonify({"success": False, "error": error_msg}), 500
+        # ... continue with existing code
 
 @app.route('/unsubscribe', methods=['POST'])
 def remove_subscriber():

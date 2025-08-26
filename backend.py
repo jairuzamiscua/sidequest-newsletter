@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string, make_response
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # SINGLE APP CREATION - FIXED!
 app = Flask(__name__, static_folder="static")
@@ -32,6 +34,13 @@ CORS(app)
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') # Change this!
 if not ADMIN_PASSWORD:
     raise ValueError("ADMIN_PASSWORD environment variable is not set!")
+
+# Add the limiter RIGHT HERE, after app is created
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["1000 per day"]
+)
 
 # =============================
 # --- CONFIG & GLOBALS FIRST ---
@@ -3416,6 +3425,7 @@ def get_public_event(event_id):
 # Add this API route to handle public registrations (if not already present)
 
 @app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
+@limiter.limit("3 per hour")  # MOVED UP HERE - decorators go ABOVE the function
 def register_public(event_id):
     """Public registration endpoint with first/last name support"""
     conn = None

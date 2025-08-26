@@ -27,7 +27,9 @@ app = Flask(__name__, static_folder="static")
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'fallback-secret-key-change-in-production')
 CORS(app)
 
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest1234')  # Change this!
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') # Change this!
+if not ADMIN_PASSWORD:
+    raise ValueError("ADMIN_PASSWORD environment variable is not set!")
 
 # =============================
 # --- CONFIG & GLOBALS FIRST ---

@@ -1554,7 +1554,7 @@ def signup_page():
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #ffffff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .container { background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); padding: 50px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 2px solid #444; max-width: 500px; width: 100%; text-align: center; position: relative; overflow: hidden; }
+        .container { background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); padding: 50px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 2px solid #444; max-width: 600px; width: 100%; text-align: center; position: relative; overflow: hidden; }
         .container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%); }
         .logo { width: 60px; height: 60px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 12px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #1a1a1a; font-size: 18px; letter-spacing: -1px; box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3); }
         h1 { font-size: 2.5rem; margin-bottom: 15px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 800; }
@@ -1563,38 +1563,9 @@ def signup_page():
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; color: #FFD700; font-weight: 600; font-size: 14px; }
-        input[type="text"], input[type="email"] { 
-            width: 100%; 
-            padding: 16px 20px; 
-            border: 2px solid #444; 
-            border-radius: 12px; 
-            font-size: 16px; 
-            background: #1a1a1a; 
-            color: #ffffff; 
-            transition: all 0.3s ease; 
-            font-weight: 500; 
-        }
-        input[type="text"]:focus, input[type="email"]:focus { 
-            outline: none; 
-            border-color: #FFD700; 
-            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
-            background: #2a2a2a; 
-        }
-        .submit-btn { 
-            width: 100%; 
-            padding: 18px 25px; 
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
-            border: none; 
-            border-radius: 12px; 
-            color: #1a1a1a; 
-            font-size: 16px; 
-            font-weight: 700; 
-            cursor: pointer; 
-            transition: all 0.3s ease; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3); 
-        }
+        input[type="text"], input[type="email"] { width: 100%; padding: 16px 20px; border: 2px solid #444; border-radius: 12px; font-size: 16px; background: #1a1a1a; color: #ffffff; transition: all 0.3s ease; font-weight: 500; }
+        input[type="text"]:focus, input[type="email"]:focus { outline: none; border-color: #FFD700; box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); background: #2a2a2a; }
+        .submit-btn { width: 100%; padding: 18px 25px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border: none; border-radius: 12px; color: #1a1a1a; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3); }
         .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4); }
         .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
         .message { margin-top: 20px; padding: 15px 20px; border-radius: 10px; font-weight: 500; opacity: 0; transition: all 0.3s ease; }
@@ -1609,6 +1580,14 @@ def signup_page():
         .footer-links { margin-top: 30px; padding-top: 20px; border-top: 1px solid #444; font-size: 12px; color: #888; text-align: center; }
         .footer-links a { color: #FFD700; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
         .optional { color: #aaa; font-size: 12px; margin-left: 5px; }
+        
+        /* GDPR Consent Styling */
+        .gdpr-consent { background: #2a2a2a; border: 2px solid #444; border-radius: 12px; padding: 20px; margin: 25px 0; }
+        .consent-checkbox { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 15px; }
+        .consent-checkbox input[type="checkbox"] { margin-top: 2px; transform: scale(1.2); accent-color: #FFD700; }
+        .consent-text { font-size: 0.9rem; line-height: 1.5; color: #cccccc; }
+        .consent-text a { color: #FFD700; text-decoration: underline; }
+        .gdpr-title { color: #FFD700; font-weight: 700; font-size: 1rem; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -1639,6 +1618,23 @@ def signup_page():
                 <input type="text" id="gamingHandle" name="gamingHandle" placeholder="Your gamer tag">
             </div>
             
+            <!-- GDPR Consent Section -->
+            <div class="gdpr-consent">
+                <div class="gdpr-title">Data Protection & Privacy</div>
+                <div class="consent-checkbox">
+                    <input type="checkbox" id="gdprConsent" required>
+                    <div class="consent-text">
+                        I consent to SideQuest Gaming storing and processing my personal data to send me gaming event updates, newsletters, and promotional communications. I understand that:
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>My data will be stored securely and used only for gaming-related communications</li>
+                            <li>I can withdraw consent and unsubscribe at any time</li>
+                            <li>I can request deletion of my data at any time</li>
+                        </ul>
+                        I have read and agree to the <a href="/privacy" target="_blank">Privacy Policy</a>.
+                    </div>
+                </div>
+            </div>
+            
             <button type="submit" class="submit-btn" id="submitBtn">Level Up Your Inbox</button>
         </form>
         
@@ -1657,7 +1653,8 @@ def signup_page():
         
         <div class="footer-links">
             <a href="https://sidequesthub.com">SideQuest Hub</a> • 
-            <a href="#" onclick="showPrivacyInfo()">Privacy</a>
+            <a href="/privacy">Privacy Policy</a> •
+            <a href="mailto:privacy@sidequesthub.com">Contact Us</a>
         </div>
     </div>
     
@@ -1669,6 +1666,7 @@ def signup_page():
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
             const gamingHandle = document.getElementById('gamingHandle').value.trim();
+            const gdprConsent = document.getElementById('gdprConsent').checked;
             const messageDiv = document.getElementById('message');
             const submitButton = document.getElementById('submitBtn');
             
@@ -1676,6 +1674,12 @@ def signup_page():
             if (!firstName || !lastName || !email) {
                 messageDiv.className = 'message error show';
                 messageDiv.innerHTML = '❌ Please fill in all required fields';
+                return;
+            }
+            
+            if (!gdprConsent) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Please accept our privacy policy to continue';
                 return;
             }
             
@@ -1697,7 +1701,8 @@ def signup_page():
                         lastName, 
                         email, 
                         gamingHandle: gamingHandle || null,
-                        source: 'signup_page_enhanced' 
+                        gdprConsent: gdprConsent,
+                        source: 'signup_page_gdpr' 
                     })
                 });
                 
@@ -1707,7 +1712,6 @@ def signup_page():
                     messageDiv.className = 'message success show';
                     messageDiv.innerHTML = `🎮 Welcome to SideQuest, ${firstName}! Check your email for confirmation.`;
                     
-                    // Clear form
                     document.getElementById('signupForm').reset();
                     
                     submitButton.innerHTML = '✅ Quest Joined!';
@@ -1728,10 +1732,6 @@ def signup_page():
                 submitButton.disabled = false;
             }
         });
-        
-        function showPrivacyInfo() {
-            alert('We respect your privacy! Your information is only used for gaming updates and is never shared with third parties.');
-        }
     </script>
 </body>
 </html>'''

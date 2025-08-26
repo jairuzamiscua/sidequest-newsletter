@@ -356,7 +356,7 @@ PRIVACY_POLICY_TEMPLATE = '''
     <div class="contact">
         <p><strong>SideQuest Gaming Cafe</strong><br>
         Canterbury, UK<br>
-        Email: privacy@sidequesthub.com</p>
+        Email: marketing@sidequestcanterbury.com</p>
     </div>
     
     <h2>What Data We Collect</h2>
@@ -393,7 +393,7 @@ PRIVACY_POLICY_TEMPLATE = '''
     <p>We keep your data until you unsubscribe or request deletion.</p>
     
     <h2>Contact Us</h2>
-    <p>For privacy concerns: <a href="mailto:privacy@sidequesthub.com">privacy@sidequesthub.com</a></p>
+    <p>For privacy concerns: <a href="mailto:marketing@sidequestcanterbury.com">marketing@sidequescanterbury.com</a></p>
     
     <div style="margin-top: 30px;">
         <a href="/signup" style="background: #FFD700; color: #1a1a1a; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Back to Signup</a>
@@ -1708,7 +1708,7 @@ def signup_page():
         <div class="footer-links">
             <a href="https://sidequesthub.com">SideQuest Hub</a> • 
             <a href="/privacy">Privacy Policy</a> •
-            <a href="mailto:privacy@sidequesthub.com">Contact Us</a>
+            <a href="mailto:marketing@sidequestcanterbury">Contact Us</a>
         </div>
     </div>
     

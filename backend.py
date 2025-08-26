@@ -1008,16 +1008,18 @@ def get_subscribers():
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/subscribe', methods=['POST'])
-@app.route('/subscribe', methods=['POST'])
 def add_subscriber():
     """Enhanced subscribe route with name fields and better Brevo sync"""
     try:
         data = request.json or {}
         email = str(data.get('email', '')).strip().lower()
         source = data.get('source', 'manual')
-        first_name = data.get('firstName', '').strip()  # Note: matches frontend
-        last_name = data.get('lastName', '').strip()    # Note: matches frontend
-        gaming_handle = data.get('gamingHandle', '').strip() or None
+        first_name = data.get('firstName', '').strip() if data.get('firstName') else ''
+        last_name = data.get('lastName', '').strip() if data.get('lastName') else ''
+        
+        # FIX: Handle None values properly for gaming handle
+        gaming_handle_raw = data.get('gamingHandle')
+        gaming_handle = gaming_handle_raw.strip() if gaming_handle_raw else None
         
         # Enhanced validation
         if not email:

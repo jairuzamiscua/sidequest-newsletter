@@ -603,9 +603,7 @@ def admin_logout():
 # =============================
 # Database Helper Functions
 # =============================
-
-def add_subscriber_to_db(email, source='manual', first_name=None, last_name=None, gaming_handle=None, gdpr_consent=False):
-    """Add subscriber to database with GDPR consent tracking"""
+def add_subscriber_to_db(email, source, first_name=None, last_name=None, gaming_handle=None, gdpr_consent=False):
     try:
         conn = get_db_connection()
         if not conn:
@@ -613,7 +611,7 @@ def add_subscriber_to_db(email, source='manual', first_name=None, last_name=None
             return False
             
         cursor = conn.cursor()
-         print(f"🔍 Adding subscriber: {email} with consent: {gdpr_consent}")
+        print(f"🔍 Adding subscriber: {email} with consent: {gdpr_consent}")
         
         # Enhanced insert with GDPR fields
         cursor.execute("""

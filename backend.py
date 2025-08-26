@@ -1908,8 +1908,15 @@ def event_signup_page(event_id):
         
         {f'<div class="spots-remaining">⚡ Only {event["spots_available"]} spots left!</div>' if event['capacity'] > 0 and event['spots_available'] <= 5 and event['spots_available'] > 0 else ''}
         
-        {'<div class="capacity-warning">❌ This event is currently full. You can still register for the waiting list.</div>' if is_full else ''}
-        
+        {f'''
+        <div class="capacity-warning">
+            ❌ This event is currently full ({event['registration_count']}/{event['capacity']} registered).
+            <br><small style="color: #aaa; margin-top: 10px; display: block;">
+                Contact us directly if you'd like to be notified of cancellations.
+            </small>
+        </div>
+        ''' if is_full else ''}
+
         <div class="event-details">
             <div class="detail-row">
                 <span class="detail-label">📅 Date</span>
@@ -1954,7 +1961,15 @@ def event_signup_page(event_id):
             </div>
             
             <button type="submit" class="submit-btn" id="submitBtn">
-                {'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}
+                {f'''
+                <button type="button" class="submit-btn" disabled style="opacity: 0.5; cursor: not-allowed;">
+                    ❌ Event Full
+                </button>
+                ''' if is_full else '''
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    🎮 Register for Event  
+                </button>
+                '''}
             </button>
         </form>
         
@@ -1965,6 +1980,14 @@ def event_signup_page(event_id):
         document.getElementById('registrationForm').addEventListener('submit', async (e) => {{
             console.log('🔍 Form submission started');
             e.preventDefault();
+
+            const isEventFull = document.querySelector('.capacity-warning') !== null;
+            if (isEventFull) {
+                const messageDiv = document.getElementById('message');
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ This event is full. Registration is not available.';
+                return;
+            }
             
             const firstName = document.getElementById('firstName').value.trim();
             const lastName = document.getElementById('lastName').value.trim();

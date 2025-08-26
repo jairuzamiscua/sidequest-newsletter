@@ -37,8 +37,8 @@ if not ADMIN_PASSWORD:
 
 # Add the limiter RIGHT HERE, after app is created
 limiter = Limiter(
-    app,
-    key_func=get_remote_address,
+    key_func=get_remote_address,  # All named arguments
+    app=app,
     default_limits=["1000 per day"]
 )
 

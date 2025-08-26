@@ -1116,24 +1116,94 @@ def get_subscribers():
 
 @app.route('/subscribe', methods=['POST'])
 def add_subscriber():
+    """Enhanced subscribe route with name fields and GDPR compliance"""
     try:
         data = request.json or {}
         email = str(data.get('email', '')).strip().lower()
         source = data.get('source', 'manual')
         first_name = data.get('firstName', '').strip()
         last_name = data.get('lastName', '').strip()
+        
+        # FIX: Handle None values properly for gaming handle
         gaming_handle_raw = data.get('gamingHandle')
         gaming_handle = gaming_handle_raw.strip() if gaming_handle_raw else None
         
         # GDPR compliance check
         gdpr_consent = data.get('gdprConsent', False)
-        if not gdpr_consent:
+        if not gdpr_consent and source in ['signup_page_gdpr']:
             return jsonify({"success": False, "error": "GDPR consent is required"}), 400
         
-        # Rest of your existing validation...
+        # Enhanced validation
         if not email:
             return jsonify({"success": False, "error": "Email is required"}), 400
-        # ... continue with existing code
+        if not is_valid_email(email):
+            return jsonify({"success": False, "error": "Invalid email format"}), 400
+            
+        # Validate name fields for GDPR sources
+        if source in ['signup_page_gdpr', 'admin_manual'] and (not first_name or not last_name):
+            return jsonify({"success": False, "error": "First name and last name are required"}), 400
+            
+        if first_name and len(first_name.strip()) < 2:
+            return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
+            
+        if last_name and len(last_name.strip()) < 2:
+            return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
+        
+        # Name validation regex
+        if first_name or last_name:
+            import re
+            name_pattern = r'^[a-zA-Z\s\'-]+$'
+            if first_name and not re.match(name_pattern, first_name):
+                return jsonify({"success": False, "error": "Invalid characters in first name"}), 400
+            if last_name and not re.match(name_pattern, last_name):
+                return jsonify({"success": False, "error": "Invalid characters in last name"}), 400
+        
+        # Gaming handle validation
+        if gaming_handle and (len(gaming_handle) < 3 or len(gaming_handle) > 30):
+            return jsonify({"success": False, "error": "Gaming handle must be 3-30 characters"}), 400
+        
+        # Check if already exists
+        existing_subscribers = get_all_subscribers()
+        if any(sub['email'] == email for sub in existing_subscribers):
+            return jsonify({"success": False, "error": "Email already subscribed"}), 400
+        
+        # Add to database with name fields
+        if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle):
+            # Enhanced Brevo sync with names
+            brevo_attributes = {
+                'source': source,
+                'date_added': datetime.now().isoformat()
+            }
+            
+            if first_name:
+                brevo_attributes['first_name'] = first_name
+            if last_name:
+                brevo_attributes['last_name'] = last_name
+            if gaming_handle:
+                brevo_attributes['gaming_handle'] = gaming_handle
+            
+            brevo_result = add_to_brevo_contact(email, brevo_attributes)
+            
+            # Enhanced logging with names
+            subscriber_info = f"{first_name} {last_name}" if first_name and last_name else email
+            log_activity(f"New subscriber added: {subscriber_info} ({email}) - Source: {source}", "success")
+            
+            return jsonify({
+                "success": True,
+                "message": "Subscriber added successfully",
+                "email": email,
+                "name": f"{first_name} {last_name}".strip() if first_name or last_name else None,
+                "gaming_handle": gaming_handle,
+                "brevo_synced": brevo_result.get("success", False),
+                "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
+            })
+        else:
+            return jsonify({"success": False, "error": "Failed to add subscriber to database"}), 500
+            
+    except Exception as e:
+        error_msg = f"Error adding subscriber: {str(e)}"
+        log_error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/unsubscribe', methods=['POST'])
 def remove_subscriber():

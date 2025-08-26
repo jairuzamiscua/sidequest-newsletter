@@ -507,6 +507,7 @@ def init_database():
         conn.commit()
         cursor.close()
         conn.close()
+        add_gdpr_consent_column()
         
         print("✅ Database initialization completed")
         return True
@@ -603,8 +604,8 @@ def admin_logout():
 # Database Helper Functions
 # =============================
 
-def add_subscriber_to_db(email, source='manual', first_name=None, last_name=None, gaming_handle=None):
-    """Add subscriber to database with enhanced name fields"""
+def add_subscriber_to_db(email, source='manual', first_name=None, last_name=None, gaming_handle=None, gdpr_consent=False):
+    """Add subscriber to database with GDPR consent tracking"""
     try:
         conn = get_db_connection()
         if not conn:
@@ -612,15 +613,23 @@ def add_subscriber_to_db(email, source='manual', first_name=None, last_name=None
             
         cursor = conn.cursor()
         
-        # Enhanced insert with name fields
+        # Enhanced insert with GDPR fields
         cursor.execute("""
-            INSERT INTO subscribers (email, first_name, last_name, gaming_handle, source) 
-            VALUES (%s, %s, %s, %s, %s) 
+            INSERT INTO subscribers (
+                email, first_name, last_name, gaming_handle, source, 
+                gdpr_consent_given, consent_date
+            ) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s) 
             ON CONFLICT (email) DO UPDATE SET
                 first_name = COALESCE(subscribers.first_name, EXCLUDED.first_name),
                 last_name = COALESCE(subscribers.last_name, EXCLUDED.last_name),
-                gaming_handle = COALESCE(subscribers.gaming_handle, EXCLUDED.gaming_handle)
-        """, (email, first_name, last_name, gaming_handle, source))
+                gaming_handle = COALESCE(subscribers.gaming_handle, EXCLUDED.gaming_handle),
+                gdpr_consent_given = EXCLUDED.gdpr_consent_given,
+                consent_date = EXCLUDED.consent_date
+        """, (
+            email, first_name, last_name, gaming_handle, source,
+            gdpr_consent, datetime.now() if gdpr_consent else None
+        ))
         
         rows_affected = cursor.rowcount
         conn.commit()
@@ -1116,22 +1125,25 @@ def get_subscribers():
 
 @app.route('/subscribe', methods=['POST'])
 def add_subscriber():
-    """Enhanced subscribe route with name fields and GDPR compliance"""
+    """Enhanced subscribe route with GDPR compliance"""
     try:
         data = request.json or {}
         email = str(data.get('email', '')).strip().lower()
         source = data.get('source', 'manual')
         first_name = data.get('firstName', '').strip()
         last_name = data.get('lastName', '').strip()
-        
-        # FIX: Handle None values properly for gaming handle
         gaming_handle_raw = data.get('gamingHandle')
         gaming_handle = gaming_handle_raw.strip() if gaming_handle_raw else None
         
-        # GDPR compliance check
+        # GDPR COMPLIANCE CHECK - This is the key fix
         gdpr_consent = data.get('gdprConsent', False)
-        if not gdpr_consent and source in ['signup_page_gdpr']:
-            return jsonify({"success": False, "error": "GDPR consent is required"}), 400
+        
+        # Reject if no consent provided for sources that require it
+        if source in ['signup_page_gdpr', 'manual'] and not gdpr_consent:
+            return jsonify({
+                "success": False, 
+                "error": "GDPR consent is required to process your personal data"
+            }), 400
         
         # Enhanced validation
         if not email:
@@ -1140,7 +1152,7 @@ def add_subscriber():
             return jsonify({"success": False, "error": "Invalid email format"}), 400
             
         # Validate name fields for GDPR sources
-        if source in ['signup_page_gdpr', 'admin_manual'] and (not first_name or not last_name):
+        if source in ['signup_page_gdpr'] and (not first_name or not last_name):
             return jsonify({"success": False, "error": "First name and last name are required"}), 400
             
         if first_name and len(first_name.strip()) < 2:
@@ -1167,12 +1179,14 @@ def add_subscriber():
         if any(sub['email'] == email for sub in existing_subscribers):
             return jsonify({"success": False, "error": "Email already subscribed"}), 400
         
-        # Add to database with name fields
-        if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle):
-            # Enhanced Brevo sync with names
+        # Add to database with GDPR consent recorded
+        if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle, gdpr_consent):
+            # Enhanced Brevo sync with names and consent tracking
             brevo_attributes = {
                 'source': source,
-                'date_added': datetime.now().isoformat()
+                'date_added': datetime.now().isoformat(),
+                'gdpr_consent_given': 'yes' if gdpr_consent else 'no',
+                'consent_date': datetime.now().isoformat() if gdpr_consent else None
             }
             
             if first_name:
@@ -1184,9 +1198,10 @@ def add_subscriber():
             
             brevo_result = add_to_brevo_contact(email, brevo_attributes)
             
-            # Enhanced logging with names
+            # Enhanced logging with names and consent status
             subscriber_info = f"{first_name} {last_name}" if first_name and last_name else email
-            log_activity(f"New subscriber added: {subscriber_info} ({email}) - Source: {source}", "success")
+            consent_status = "with GDPR consent" if gdpr_consent else "without explicit consent"
+            log_activity(f"New subscriber added: {subscriber_info} ({email}) - Source: {source} - {consent_status}", "success")
             
             return jsonify({
                 "success": True,
@@ -1194,6 +1209,7 @@ def add_subscriber():
                 "email": email,
                 "name": f"{first_name} {last_name}".strip() if first_name or last_name else None,
                 "gaming_handle": gaming_handle,
+                "gdpr_consent_given": gdpr_consent,
                 "brevo_synced": brevo_result.get("success", False),
                 "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
             })
@@ -1204,6 +1220,44 @@ def add_subscriber():
         error_msg = f"Error adding subscriber: {str(e)}"
         log_error(error_msg)
         return jsonify({"success": False, "error": error_msg}), 500
+
+def add_gdpr_consent_column():
+    """Add GDPR consent tracking columns to subscribers table"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Add GDPR consent columns
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN gdpr_consent_given BOOLEAN DEFAULT FALSE;')
+            print("✅ Added gdpr_consent_given column")
+        except Exception:
+            print("ℹ️ gdpr_consent_given column already exists")
+            
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN consent_date TIMESTAMP;')
+            print("✅ Added consent_date column")
+        except Exception:
+            print("ℹ️ consent_date column already exists")
+            
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN consent_ip VARCHAR(45);')
+            print("✅ Added consent_ip column")
+        except Exception:
+            print("ℹ️ consent_ip column already exists")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"Error adding GDPR consent columns: {e}")
+        return False
+
 
 @app.route('/unsubscribe', methods=['POST'])
 def remove_subscriber():
@@ -1303,7 +1357,7 @@ def bulk_import():
                     errors.append(f"Already exists: {email}")
                     continue
                 
-                if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle):
+                if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle, False):
                     # Add to Brevo with names
                     brevo_attributes = {'source': source}
                     if first_name:
@@ -2860,7 +2914,7 @@ def register_for_event(event_id):
         # Auto-add to subscribers if not exists
         subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
         if not subscriber_check:
-            if add_subscriber_to_db(email, 'event_registration'):
+            if add_subscriber_to_db(email, 'event_registration', None, None, None, True):
                 log_activity(f"Auto-added {email} to subscribers via event registration", "info")
             else:
                 log_activity(f"Failed to auto-add {email} to subscribers, but allowing registration", "warning")
@@ -3417,7 +3471,7 @@ def register_public(event_id):
         # Auto-add to subscribers with names if not exists
         subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
         if not subscriber_check:
-            if add_subscriber_to_db(email, 'event_registration', first_name, last_name):
+            if add_subscriber_to_db(email, 'event_registration', first_name, last_name, None, True):
                 log_activity(f"Auto-added {first_name} {last_name} ({email}) to subscribers via event registration", "info")
         
         # Generate confirmation code

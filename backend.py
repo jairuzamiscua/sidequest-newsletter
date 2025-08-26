@@ -24,7 +24,9 @@ from flask_cors import CORS
 
 # SINGLE APP CREATION - FIXED!
 app = Flask(__name__, static_folder="static")
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'fallback-secret-key-change-in-production')
+app.secret_key = os.environ.get('FLASK_SECRET_KEY')
+if not app.secret_key:
+    raise ValueError("FLASK_SECRET_KEY environment variable must be set!")
 CORS(app)
 
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') # Change this!

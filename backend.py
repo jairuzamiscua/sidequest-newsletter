@@ -3722,6 +3722,7 @@ def get_analytics_kpis():
                 SELECT 
                     ds.date_val as date,
                     COALESCE(ds_signup.new_subscribers, 0) as new_subscribers,
+                    -- FIXED: Calculate true cumulative including subscribers before the chart period
                     (
                         SELECT COUNT(*) 
                         FROM subscribers s 
@@ -3737,7 +3738,7 @@ def get_analytics_kpis():
                 cumulative_subscribers
             FROM cumulative_data
             ORDER BY date
-        """)
+        """, (days,))
         
         # Event registration trend
         registration_trend = execute_query(f"""

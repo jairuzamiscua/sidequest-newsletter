@@ -19,7 +19,7 @@ from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from collections import defaultdict
-from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string
+from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string, make_response
 from flask_cors import CORS
 
 # SINGLE APP CREATION - FIXED!
@@ -609,9 +609,11 @@ def add_subscriber_to_db(email, source='manual', first_name=None, last_name=None
     try:
         conn = get_db_connection()
         if not conn:
+            print("❌ Database connection failed")
             return False
             
         cursor = conn.cursor()
+         print(f"🔍 Adding subscriber: {email} with consent: {gdpr_consent}")
         
         # Enhanced insert with GDPR fields
         cursor.execute("""
@@ -1781,7 +1783,11 @@ def signup_page():
     </script>
 </body>
 </html>'''
-    return signup_html
+    response = make_response(signup_html)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache' 
+    response.headers['Expires'] = '0'
+    return response
 
 # Add this route to your backend.py file after the existing /signup route
 

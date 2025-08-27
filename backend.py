@@ -583,29 +583,24 @@ def require_admin_auth(f):
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
-    """Admin login page"""
-    try:
-        if request.method == 'POST':
-            password = request.form.get('password', '')
-            print(f"Login attempt with password: '{password}'")  # Debug log
-            print(f"Expected password: '{ADMIN_PASSWORD}'")  # Debug log
-            
-            if password == ADMIN_PASSWORD:
-                session['admin_authenticated'] = True
-                print("Login successful - redirecting to /admin")  # Debug log
-                return redirect('/admin')
-            else:
-                print("Login failed - wrong password")  # Debug log
-                error_html = '<div class="error">Invalid password</div>'
-                return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', error_html)
+    if request.method == 'POST':
+        password = request.form.get('password', '')
         
-        # GET request - show login form
-        return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', '')
-        
-    except Exception as e:
-        print(f"Error in admin_login: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
-        return f"Login error: {str(e)}", 500
+        if password == ADMIN_PASSWORD:
+            session['admin_authenticated'] = True
+            session['last_activity'] = datetime.now().isoformat()
+            session.permanent = False
+            return redirect('/admin')
+        else:
+            error_html = '<div class="error">Invalid password</div>'
+            return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', error_html)
+    
+    # Show timeout message if redirected due to session expiry
+    timeout_msg = ''
+    if request.args.get('timeout'):
+        timeout_msg = '<div class="error">Session expired. Please log in again.</div>'
+    
+    return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', timeout_msg)
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -1005,8 +1000,23 @@ def get_signup_stats() -> dict:
 # =============================
 
 @app.before_request
-def log_request_info():
-    # Only log non-routine requests to avoid spam
+def before_request_handler():
+    # Session timeout check for admin routes
+    if request.path.startswith('/admin') and request.path != '/admin/login':
+        if not session.get('admin_authenticated'):
+            return redirect('/admin/login')
+        
+        # Check 30-minute timeout
+        last_activity = session.get('last_activity')
+        if last_activity:
+            last_time = datetime.fromisoformat(last_activity)
+            if datetime.now() - last_time > timedelta(minutes=30):
+                session.clear()
+                return redirect('/admin/login?timeout=1')
+        
+        session['last_activity'] = datetime.now().isoformat()
+    
+    # Log non-routine requests
     routine_paths = ['/subscribers', '/stats', '/activity', '/health']
     if request.path not in routine_paths:
         log_activity(f"Request to {request.path} [{request.method}]", "info")

@@ -4162,6 +4162,36 @@
       });
     });
 
+    document.addEventListener('DOMContentLoaded', async function() {
+        console.log('🔒 Initializing CSRF protection...');
+        
+        try {
+            // Pre-fetch CSRF token
+            await csrfManager.getToken();
+            console.log('✅ CSRF protection ready');
+            
+            // Set up token refresh every 30 minutes
+            setInterval(async () => {
+                try {
+                    await csrfManager.refreshToken();
+                    console.log('🔄 CSRF token refreshed automatically');
+                } catch (error) {
+                    console.error('❌ Failed to refresh CSRF token:', error);
+                }
+            }, 30 * 60 * 1000); // 30 minutes
+            
+            // Your existing dashboard initialization code
+            initializeTabs();
+            loadInitialData();
+            setupSearch();
+            startAutoRefresh();
+            
+        } catch (error) {
+            console.error('❌ Failed to initialize CSRF protection:', error);
+            alert('Security initialization failed. Please refresh the page.');
+        }
+    });
+
     
     // Global variables
     let subscribers = [];
@@ -4484,16 +4514,13 @@
                 return;
             }
 
-            const response = await fetch(`${API_BASE}/subscribe`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    email, 
-                    firstName,
-                    lastName,
-                    gamingHandle: gamingHandle || null,
-                    source: 'admin_manual' 
-                })
+            // USE SECURE API CALL with CSRF
+            const response = await securePost(`${API_BASE}/subscribe`, {
+                email, 
+                firstName,
+                lastName,
+                gamingHandle: gamingHandle || null,
+                source: 'admin_manual' 
             });
 
             if (!response.ok) {
@@ -4515,142 +4542,148 @@
             }
         } catch (error) {
             console.error('Error adding subscriber:', error);
-            alert('Network error. Please try again.');
+            
+            // Handle CSRF errors gracefully
+            if (error.message.includes('403') || error.message.includes('CSRF')) {
+                alert('Session expired. Please refresh the page and try again.');
+            } else {
+                alert('Network error. Please try again.');
+            }
         }
     }
+
 
     // Remove subscriber
-    async function removeSubscriber(email) {
-      try {
-        if (!confirm(`Remove ${email} from subscribers?`)) return;
+   async function removeSubscriber(email) {
+        try {
+            if (!confirm(`Remove ${email} from subscribers?`)) return;
 
-        const response = await fetch(`${API_BASE}/unsubscribe`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
+            // USE SECURE API CALL
+            const response = await securePost(`${API_BASE}/unsubscribe`, {
+                email
+            });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.success) {
-          await loadSubscribers();
-          await loadActivity();
-          showSuccess('Subscriber removed successfully!');
-        } else {
-          alert(data.error || 'Failed to remove subscriber');
-        }
-      } catch (error) {
-        console.error('Error removing subscriber:', error);
-        alert('Network error. Please try again.');
-      }
-    }
-
-    // Bulk import subscribers
-    async function bulkImport() {
-      try {
-        const textarea = document.getElementById('bulkEmails');
-        if (!textarea) {
-          console.error('Bulk emails textarea not found');
-          return;
-        }
-        
-        const emailText = textarea.value.trim();
-        
-        if (!emailText) {
-          alert('Please enter some email addresses');
-          return;
-        }
-        
-        const emails = emailText.split('\n')
-          .map(email => email.trim())
-          .filter(email => email && isValidEmail(email));
-        
-        if (emails.length === 0) {
-          alert('No valid email addresses found');
-          return;
-        }
-        
-        if (!confirm(`Import ${emails.length} email addresses?`)) return;
-        
-        const response = await fetch(`${API_BASE}/bulk-import`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emails, source: 'import' })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.success) {
-          textarea.value = '';
-          await loadSubscribers();
-          await loadActivity();
-          
-          let message = `Successfully imported ${data.added} subscribers.`;
-          if (data.errors && data.errors.length > 0) {
-            message += `\n\n${data.errors.length} errors occurred:\n${data.errors.slice(0, 5).join('\n')}`;
-            if (data.errors.length > 5) {
-              message += `\n... and ${data.errors.length - 5} more errors.`;
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
             }
-          }
-          alert(message);
-        } else {
-          alert(data.error || 'Failed to import subscribers');
+
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadSubscribers();
+                await loadActivity();
+                showSuccess('Subscriber removed successfully!');
+            } else {
+                alert(data.error || 'Failed to remove subscriber');
+            }
+        } catch (error) {
+            console.error('Error removing subscriber:', error);
+            handleApiError(error);
         }
-      } catch (error) {
-        console.error('Error importing subscribers:', error);
-        alert('Network error. Please try again.');
-      }
     }
+
+      // Bulk import subscribers
+      async function bulkImport() {
+        try {
+            const textarea = document.getElementById('bulkEmails');
+            if (!textarea) {
+                console.error('Bulk emails textarea not found');
+                return;
+            }
+            
+            const emailText = textarea.value.trim();
+            
+            if (!emailText) {
+                alert('Please enter some email addresses');
+                return;
+            }
+            
+            const emails = emailText.split('\n')
+                .map(email => email.trim())
+                .filter(email => email && isValidEmail(email));
+            
+            if (emails.length === 0) {
+                alert('No valid email addresses found');
+                return;
+            }
+            
+            if (!confirm(`Import ${emails.length} email addresses?`)) return;
+            
+            // USE SECURE API CALL
+            const response = await securePost(`${API_BASE}/bulk-import`, {
+                emails, 
+                source: 'import'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.success) {
+                textarea.value = '';
+                await loadSubscribers();
+                await loadActivity();
+                
+                let message = `Successfully imported ${data.added} subscribers.`;
+                if (data.errors && data.errors.length > 0) {
+                    message += `\n\n${data.errors.length} errors occurred:\n${data.errors.slice(0, 5).join('\n')}`;
+                    if (data.errors.length > 5) {
+                        message += `\n... and ${data.errors.length - 5} more errors.`;
+                    }
+                }
+                alert(message);
+            } else {
+                alert(data.error || 'Failed to import subscribers');
+            }
+        } catch (error) {
+            console.error('Error importing subscribers:', error);
+            handleApiError(error);
+        }
+    }
+
 
     // Manual Brevo sync
     async function manualBrevoSync() {
-      try {
-        if (!confirm('Manually sync all subscribers to Brevo?')) return;
-        
-        const button = event.target;
-        if (button) {
-          button.disabled = true;
-          button.innerHTML = '🔄 Syncing...';
-        }
-        
-        const response = await fetch(`${API_BASE}/sync-brevo`, {
-          method: 'POST'
-        });
+        try {
+            if (!confirm('Manually sync all subscribers to Brevo?')) return;
+            
+            const button = event.target;
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '🔄 Syncing...';
+            }
+            
+            // USE SECURE API CALL
+            const response = await securePost(`${API_BASE}/sync-brevo`);
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
 
-        const data = await response.json();
-        
-        if (data.success) {
-          await loadActivity();
-          let message = `Sync completed: ${data.synced} successful`;
-          if (data.errors > 0) {
-            message += `, ${data.errors} errors`;
-          }
-          alert(message);
-        } else {
-          alert(data.error || 'Sync failed');
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadActivity();
+                let message = `Sync completed: ${data.synced} successful`;
+                if (data.errors > 0) {
+                    message += `, ${data.errors} errors`;
+                }
+                alert(message);
+            } else {
+                alert(data.error || 'Sync failed');
+            }
+        } catch (error) {
+            console.error('Error syncing with Brevo:', error);
+            handleApiError(error);
+        } finally {
+            const button = event.target;
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '🔄 Manual Brevo Sync';
+            }
         }
-      } catch (error) {
-        console.error('Error syncing with Brevo:', error);
-        alert('Network error. Please try again.');
-      } finally {
-        const button = event.target;
-        if (button) {
-          button.disabled = false;
-          button.innerHTML = '🔄 Manual Brevo Sync';
-        }
-      }
     }
 
     async function syncToBrevoWithNames(subscriber) {
@@ -4692,67 +4725,64 @@
 
     // Send campaign
     async function sendCampaign() {
-      try {
-        const subject = document.getElementById('campaignSubject')?.value?.trim() || '';
-        const body = document.getElementById('campaignBody')?.value?.trim() || '';
-        const fromName = document.getElementById('fromName')?.value?.trim() || '';
-        
-        if (!subject || !body) {
-          alert('Please fill in both subject and email content');
-          return;
-        }
-        
-        if (subscribers.length === 0) {
-          alert('No subscribers to send campaign to');
-          return;
-        }
-        
-        if (!confirm(`Send campaign to ${subscribers.length} subscribers?`)) return;
-        
-        const button = event.target;
-        if (button) {
-          button.disabled = true;
-          button.innerHTML = '📧 Sending...';
-        }
-        
-        const response = await fetch(`${API_BASE}/send-campaign`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subject,
-            body,
-            fromName: fromName || 'SideQuest Mail',
-            recipients: subscribers
-          })
-        });
+        try {
+            const subject = document.getElementById('campaignSubject')?.value?.trim() || '';
+            const body = document.getElementById('campaignBody')?.value?.trim() || '';
+            const fromName = document.getElementById('fromName')?.value?.trim() || '';
+            
+            if (!subject || !body) {
+                alert('Please fill in both subject and email content');
+                return;
+            }
+            
+            if (subscribers.length === 0) {
+                alert('No subscribers to send campaign to');
+                return;
+            }
+            
+            if (!confirm(`Send campaign to ${subscribers.length} subscribers?`)) return;
+            
+            const button = event.target;
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '📧 Sending...';
+            }
+            
+            // USE SECURE API CALL
+            const response = await securePost(`${API_BASE}/send-campaign`, {
+                subject,
+                body,
+                fromName: fromName || 'SideQuest Mail',
+                recipients: subscribers
+            });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
 
-        const data = await response.json();
-        
-        if (data.success) {
-          await loadActivity();
-          alert(`Campaign sent successfully to ${data.sent} subscribers!`);
-          // Clear form
-          const subjectEl = document.getElementById('campaignSubject');
-          const bodyEl = document.getElementById('campaignBody');
-          if (subjectEl) subjectEl.value = '';
-          if (bodyEl) bodyEl.value = '';
-        } else {
-          alert(data.error || 'Failed to send campaign');
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadActivity();
+                alert(`Campaign sent successfully to ${data.sent} subscribers!`);
+                // Clear form
+                const subjectEl = document.getElementById('campaignSubject');
+                const bodyEl = document.getElementById('campaignBody');
+                if (subjectEl) subjectEl.value = '';
+                if (bodyEl) bodyEl.value = '';
+            } else {
+                alert(data.error || 'Failed to send campaign');
+            }
+        } catch (error) {
+            console.error('Error sending campaign:', error);
+            handleApiError(error);
+        } finally {
+            const button = event.target;
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = '📧 Send Campaign';
+            }
         }
-      } catch (error) {
-        console.error('Error sending campaign:', error);
-        alert('Network error. Please try again.');
-      } finally {
-        const button = event.target;
-        if (button) {
-          button.disabled = false;
-          button.innerHTML = '📧 Send Campaign';
-        }
-      }
     }
 
     // Refresh subscribers
@@ -4930,37 +4960,35 @@
     }
 
     async function clearAllData() {
-      try {
-        if (!confirm('⚠️ This will delete ALL subscribers permanently. Are you sure?')) return;
-        
-        const confirmation = prompt('Type "DELETE" to confirm this action:');
-        if (confirmation !== 'DELETE') return;
-        
-        const response = await fetch(`${API_BASE}/clear-data`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ confirmation: 'DELETE' })
-        });
+        try {
+            if (!confirm('⚠️ This will delete ALL subscribers permanently. Are you sure?')) return;
+            
+            const confirmation = prompt('Type "DELETE" to confirm this action:');
+            if (confirmation !== 'DELETE') return;
+            
+            // USE SECURE API CALL
+            const response = await securePost(`${API_BASE}/clear-data`, {
+                confirmation: 'DELETE'
+            });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
 
-        const data = await response.json();
-        
-        if (data.success) {
-          await loadInitialData();
-          alert(data.message);
-        } else {
-          alert(data.error || 'Failed to clear data');
+            const data = await response.json();
+            
+            if (data.success) {
+                await loadInitialData();
+                alert(data.message);
+            } else {
+                alert(data.error || 'Failed to clear data');
+            }
+        } catch (error) {
+            console.error('Error clearing data:', error);
+            handleApiError(error);
         }
-      } catch (error) {
-        console.error('Error clearing data:', error);
-        alert('Network error. Please try again.');
-      }
     }
 
-    // Render activity log
     function renderActivityLog() {
       try {
         const activityLogElement = document.getElementById('activityLog');
@@ -5026,7 +5054,22 @@
       }
     }
 
-    
+    function handleApiError(error) {
+        console.error('API Error:', error);
+        
+        if (error.message.includes('403')) {
+            alert('Session expired or security token invalid. Please refresh the page and try again.');
+            // Optionally auto-refresh the page
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else if (error.message.includes('401')) {
+            alert('Authentication failed. Please log in again.');
+            window.location.href = '/admin/login';
+        } else {
+            alert('Network error. Please check your connection and try again.');
+        }
+    }
 
     // Utility functions
     function isValidEmail(email) {

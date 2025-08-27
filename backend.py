@@ -17,7 +17,6 @@ import base64
 from functools import wraps
 from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
-import psycopg2.pool
 from datetime import datetime, timedelta
 from collections import defaultdict
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string, make_response
@@ -37,55 +36,15 @@ if not ADMIN_PASSWORD:
     raise ValueError("ADMIN_PASSWORD environment variable is not set!")
 
 # Add the limiter RIGHT HERE, after app is created
-# Update your limiter configuration
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=get_remote_address,  # All named arguments
     app=app,
-    default_limits=["1000 per day"],
-    storage_uri="redis://localhost:6379" if os.environ.get('REDIS_URL') else "memory://"
+    default_limits=["1000 per day"]
 )
-
-# ---- Database configuration ----
-DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # =============================
 # --- CONFIG & GLOBALS FIRST ---
 # =============================
-
-
-# Add this near the top after your imports
-class DatabaseManager:
-    def __init__(self):
-        self.pool = None
-        self._init_pool()
-    
-    def _init_pool(self):
-        try:
-            self.pool = psycopg2.pool.ThreadedConnectionPool(
-                1, 20,  # min 1, max 20 connections
-                DATABASE_URL,
-                cursor_factory=RealDictCursor
-            )
-            print("Database connection pool created")
-        except Exception as e:
-            print(f"Failed to create connection pool: {e}")
-            raise
-    
-    def get_connection(self):
-        if not self.pool:
-            return None
-        try:
-            return self.pool.getconn()
-        except Exception as e:
-            print(f"Error getting connection: {e}")
-            return None
-    
-    def return_connection(self, conn):
-        if self.pool and conn:
-            self.pool.putconn(conn)
-
-# Initialize the pool
-db_manager = DatabaseManager()
 
 try:
     import qrcode
@@ -110,17 +69,21 @@ AUTO_SYNC_TO_BREVO = os.environ.get("AUTO_SYNC_TO_BREVO", "true").lower() in {"1
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "jaiamiscua@gmail.com")
 SENDER_NAME = os.environ.get("SENDER_NAME", "SideQuest")
 
+# ---- Database configuration ----
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # =============================
 # Database Connection & Setup
 # =============================
 
 def get_db_connection():
-    """Get database connection from pool"""
-    return db_manager.get_connection()
-
-def return_db_connection(conn):
-    db_manager.return_connection(conn)
+    """Get database connection"""
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        return None
 
 # Replace your init_database() function with this updated version:
 
@@ -2498,6 +2461,7 @@ def execute_query(query, params=None, fetch=True):
             conn.close()
 
 def execute_query_one(query, params=None):
+    """Execute a query and return the first result"""
     conn = None
     cursor = None
     try:
@@ -2507,29 +2471,51 @@ def execute_query_one(query, params=None):
             return None
             
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        log_activity(f"Executing query: {query[:100]}..." if len(query) > 100 else query, "info")
+        log_activity(f"With params: {params}", "info")
+        
         cursor.execute(query, params)
         
+        # For INSERT/UPDATE/DELETE with RETURNING, we need to fetch the result
         if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')) and 'RETURNING' in query.upper():
             result = cursor.fetchone()
-            conn.commit()
+            conn.commit()  # Important: commit the transaction
+            log_activity(f"Query executed successfully, returning: {result}", "success")
             return dict(result) if result else None
+        
+        # For SELECT queries
         elif query.strip().upper().startswith('SELECT'):
             result = cursor.fetchone()
+            log_activity(f"Query executed successfully, returning: {result}", "success")
             return dict(result) if result else None
+        
+        # For other queries without RETURNING
         else:
             conn.commit()
+            log_activity(f"Query executed successfully, no return data", "success")
             return {"affected_rows": cursor.rowcount}
             
-    except Exception as e:
-        log_error(f"Database error: {e}")
+    except psycopg2.Error as e:
+        log_error(f"Database error in execute_query_one: {e}")
+        log_error(f"Query was: {query}")
+        log_error(f"Params were: {params}")
         if conn:
             conn.rollback()
         return None
+        
+    except Exception as e:
+        log_error(f"Unexpected error in execute_query_one: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        if conn:
+            conn.rollback()
+        return None
+        
     finally:
         if cursor:
             cursor.close()
         if conn:
-            return_db_connection(conn)  # Return to pool instead of closing
+            conn.close()
 
 # =============================
 # Event Management Routes

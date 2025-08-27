@@ -2782,7 +2782,6 @@ def execute_query_one(query, params=None):
 # =============================
 
 @app.route('/api/events', methods=['GET'])
-@csrf_required
 def get_events():
     """Get all events with optional filtering"""
     try:

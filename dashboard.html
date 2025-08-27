@@ -4808,29 +4808,31 @@
 
     // Update dashboard stats
     function updateStats() {
-      try {
-        const elements = {
-          totalSubscribers: document.getElementById('totalSubscribers'),
-          todaySignups: document.getElementById('todaySignups'),
-          thisWeekSignups: document.getElementById('thisWeekSignups'),
-          webSignups: document.getElementById('webSignups'),
-          manualSignups: document.getElementById('manualSignups'),
-          importSignups: document.getElementById('importSignups')
-        };
+        try {
+            const elements = {
+                totalSubscribers: document.getElementById('totalSubscribers'),
+                todaySignups: document.getElementById('todaySignups'),
+                thisWeekSignups: document.getElementById('thisWeekSignups'),
+                webSignups: document.getElementById('webSignups'),
+                manualSignups: document.getElementById('manualSignups'),
+                importSignups: document.getElementById('importSignups')
+            };
 
-        if (elements.totalSubscribers) elements.totalSubscribers.textContent = currentStats.total || 0;
-        if (elements.todaySignups) elements.todaySignups.textContent = currentStats.today || 0;
-        if (elements.thisWeekSignups) elements.thisWeekSignups.textContent = currentStats.week || 0;
-        
-        // Update source breakdown
-        const sources = currentStats.sources || {};
-        if (elements.webSignups) elements.webSignups.textContent = sources.web || 0;
-        if (elements.manualSignups) elements.manualSignups.textContent = sources.manual || 0;
-        if (elements.importSignups) elements.importSignups.textContent = sources.import || 0;
-      } catch (error) {
-        console.error('Error updating stats:', error);
-      }
+            // Add null checks
+            if (elements.totalSubscribers) elements.totalSubscribers.textContent = currentStats.total || 0;
+            if (elements.todaySignups) elements.todaySignups.textContent = currentStats.today || 0;
+            if (elements.thisWeekSignups) elements.thisWeekSignups.textContent = currentStats.week || 0;
+            
+            // Update source breakdown
+            const sources = currentStats.sources || {};
+            if (elements.webSignups) elements.webSignups.textContent = sources.web || 0;
+            if (elements.manualSignups) elements.manualSignups.textContent = sources.manual || 0;
+            if (elements.importSignups) elements.importSignups.textContent = sources.import || 0;
+        } catch (error) {
+            console.error('Error updating stats:', error);
+        }
     }
+
 
     // Update campaign recipient count
     function updateCampaignRecipientCount() {

@@ -2167,6 +2167,186 @@
     // Configuration
     const API_BASE = 'https://sidequest-newsletter-production.up.railway.app';
     
+    class CSRFManager {
+        constructor(apiBase = 'https://sidequest-newsletter-production.up.railway.app') {
+            this.apiBase = apiBase;
+            this.token = null;
+            this.tokenExpiry = null;
+            this.refreshPromise = null;
+        }
+
+        async getToken() {
+            // Return existing valid token
+            if (this.token && this.isTokenValid()) {
+                return this.token;
+            }
+
+            // Prevent multiple simultaneous requests
+            if (this.refreshPromise) {
+                return await this.refreshPromise;
+            }
+
+            // Fetch new token
+            this.refreshPromise = this.fetchNewToken();
+            const token = await this.refreshPromise;
+            this.refreshPromise = null;
+            
+            return token;
+        }
+
+        async fetchNewToken() {
+            try {
+                const response = await fetch(`${this.apiBase}/api/csrf-token`, {
+                    method: 'GET',
+                    credentials: 'include', // Important for session handling
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success && data.csrf_token) {
+                    this.token = data.csrf_token;
+                    this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; // 1 min buffer
+                    console.log('✅ CSRF token obtained successfully');
+                    return this.token;
+                } else {
+                    throw new Error(data.error || 'Failed to get CSRF token');
+                }
+            } catch (error) {
+                console.error('❌ CSRF token fetch failed:', error);
+                throw error;
+            }
+        }
+
+        isTokenValid() {
+            return this.token && this.tokenExpiry && Date.now() < this.tokenExpiry;
+        }
+
+        async refreshToken() {
+            try {
+                const response = await fetch(`${this.apiBase}/api/csrf-refresh`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.token || '' // Include current token if available
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success && data.csrf_token) {
+                    this.token = data.csrf_token;
+                    this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000;
+                    console.log('✅ CSRF token refreshed successfully');
+                    return this.token;
+                } else {
+                    throw new Error(data.error || 'Failed to refresh CSRF token');
+                }
+            } catch (error) {
+                console.error('❌ CSRF token refresh failed:', error);
+                // Fallback to getting a new token
+                return await this.fetchNewToken();
+            }
+        }
+
+        clearToken() {
+            this.token = null;
+            this.tokenExpiry = null;
+        }
+    }
+
+    // Create global instance
+    const csrfManager = new CSRFManager();
+
+    // Enhanced fetch wrapper with CSRF protection
+    async function secureApiCall(url, options = {}) {
+        try {
+            // Get CSRF token
+            const csrfToken = await csrfManager.getToken();
+            
+            // Prepare headers
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+                ...options.headers
+            };
+
+            // Make the request
+            const response = await fetch(url, {
+                ...options,
+                credentials: 'include', // Important for session cookies
+                headers
+            });
+
+            // Handle CSRF errors
+            if (response.status === 403) {
+                const errorData = await response.json().catch(() => ({}));
+                
+                if (errorData.code === 'CSRF_TOKEN_INVALID' || errorData.code === 'CSRF_TOKEN_MISSING') {
+                    console.log('🔄 CSRF token expired, refreshing...');
+                    
+                    // Clear old token and get new one
+                    csrfManager.clearToken();
+                    const newToken = await csrfManager.getToken();
+                    
+                    // Retry the request with new token
+                    return await fetch(url, {
+                        ...options,
+                        credentials: 'include',
+                        headers: {
+                            ...headers,
+                            'X-CSRFToken': newToken
+                        }
+                    });
+                }
+            }
+
+            return response;
+        } catch (error) {
+            console.error('❌ Secure API call failed:', error);
+            throw error;
+        }
+    }
+
+    // Convenience functions for common HTTP methods
+    async function securePost(url, data = {}) {
+        return await secureApiCall(url, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    async function securePut(url, data = {}) {
+        return await secureApiCall(url, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    }
+
+    async function secureDelete(url) {
+        return await secureApiCall(url, {
+            method: 'DELETE'
+        });
+    }
+
+    // Export for use in your existing code
+    window.csrfManager = csrfManager;
+    window.secureApiCall = secureApiCall;
+    window.securePost = securePost;
+    window.securePut = securePut;
+    window.secureDelete = secureDelete;
 
     let calendar;
 
@@ -5820,7 +6000,7 @@
         console.error('Error setting up enter key handler:', error);
       }
     });
-
+    
 
     
   </script>

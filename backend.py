@@ -2012,6 +2012,41 @@ def event_signup_page(event_id):
             background: #2a2a2a; 
         }}
         
+        /* GDPR Consent Styling */
+        .gdpr-consent {{
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }}
+
+        .gdpr-title {{
+            color: #FFD700;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }}
+
+        .consent-checkbox {{
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }}
+
+        .consent-checkbox input[type="checkbox"] {{
+            margin-top: 2px;
+            transform: scale(1.2);
+            accent-color: #FFD700;
+        }}
+
+        .consent-text {{
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #cccccc;
+            font-weight: normal;
+        }}
+        
         .submit-btn {{ 
             width: 100%; 
             padding: 18px 25px; 
@@ -2139,6 +2174,19 @@ def event_signup_page(event_id):
                 <input type="text" id="playerName" name="playerName" placeholder="Your gaming handle or preferred name">
             </div>
             
+            <!-- GDPR Consent Section -->
+            <div class="gdpr-consent">
+                <div class="gdpr-title">Newsletter Subscription (Optional)</div>
+                <div class="consent-checkbox">
+                    <input type="checkbox" id="emailConsent" name="emailConsent">
+                    <label for="emailConsent" class="consent-text">
+                        I want to receive gaming event updates, newsletters, and promotional communications from SideQuest Gaming. 
+                        I understand I can unsubscribe at any time.
+                        <br><small>Note: This is separate from your event registration and is optional.</small>
+                    </label>
+                </div>
+            </div>
+            
             <button type="submit" class="submit-btn" id="submitBtn">
                 {'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}
             </button>
@@ -2156,8 +2204,9 @@ def event_signup_page(event_id):
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
             const playerName = document.getElementById('playerName').value.trim() || `${{firstName}} ${{lastName}}`;
+            const emailConsent = document.getElementById('emailConsent').checked; // Add consent checkbox
             
-            console.log('🔍 Form data collected:', {{ firstName, lastName, email, playerName }});
+            console.log('🔍 Form data collected:', {{ firstName, lastName, email, playerName, emailConsent }});
             
             const messageDiv = document.getElementById('message');
             const submitButton = document.getElementById('submitBtn');
@@ -2182,7 +2231,8 @@ def event_signup_page(event_id):
                     email, 
                     player_name: playerName,
                     first_name: firstName,
-                    last_name: lastName
+                    last_name: lastName,
+                    email_consent: emailConsent  // Include consent in request
                 }};
                 console.log('🔍 Request data:', requestData);
                 
@@ -2247,7 +2297,7 @@ def event_signup_page(event_id):
         print(f"Error in event signup page: {e}")
         print(f"Traceback: {traceback.format_exc()}")
         return f"Error loading event: {str(e)}", 500
-
+        
 # Add the login template
 LOGIN_TEMPLATE = '''
 <!DOCTYPE html>

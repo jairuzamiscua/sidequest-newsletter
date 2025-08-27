@@ -2297,7 +2297,7 @@ def event_signup_page(event_id):
         print(f"Error in event signup page: {e}")
         print(f"Traceback: {traceback.format_exc()}")
         return f"Error loading event: {str(e)}", 500
-        
+
 # Add the login template
 LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
@@ -3487,137 +3487,146 @@ def get_public_event(event_id):
 
 @app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
 @limiter.limit("3 per hour")  # MOVED UP HERE - decorators go ABOVE the function
+@app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
+@limiter.limit("3 per hour")
 def register_public(event_id):
-    """Public registration endpoint with first/last name support"""
-    conn = None
-    cursor = None
     try:
         data = request.json or {}
         email = data.get('email', '').strip().lower()
         player_name = data.get('player_name', '').strip()
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
+        email_consent = data.get('email_consent', False)  # Get consent status
         
         # Validation
-        if not email:
-            return jsonify({"success": False, "error": "Email is required"}), 400
-            
-        if not is_valid_email(email):
-            return jsonify({"success": False, "error": "Invalid email format"}), 400
-            
-        if not first_name or not last_name:
-            return jsonify({"success": False, "error": "First and last name are required"}), 400
+        if not email or not player_name or not first_name or not last_name:
+            return jsonify({
+                "success": False, 
+                "error": "All fields except consent are required"
+            }), 400
         
-        # Use full name as player_name if not provided
-        if not player_name:
-            player_name = f"{first_name} {last_name}"
+        # Email validation
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            return jsonify({
+                "success": False, 
+                "error": "Please enter a valid email address"
+            }), 400
         
-        # Check if event exists
-        event_check = execute_query_one("""
-            SELECT id, title, capacity, date_time, status, event_type
-            FROM events 
-            WHERE id = %s
-        """, (event_id,))
-        
-        if not event_check:
-            return jsonify({"success": False, "error": "Event not found"}), 404
-        
-        # Check if already registered
-        existing_registration = execute_query_one(
-            "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
-            (event_id, email)
-        )
-        if existing_registration:
-            return jsonify({"success": False, "error": "You're already registered for this event"}), 400
-        
-        # Check capacity
-        if event_check['capacity'] > 0:
-            current_count = execute_query_one(
-                "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
-                (event_id,)
-            )
-            if current_count and current_count['count'] >= event_check['capacity']:
-                return jsonify({"success": False, "error": "Event is at full capacity"}), 400
-        
-        # Auto-add to subscribers with names if not exists
-        subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
-        if not subscriber_check:
-            if add_subscriber_to_db(email, 'event_registration', first_name, last_name, None, True):
-                log_activity(f"Auto-added {first_name} {last_name} ({email}) to subscribers via event registration", "info")
-        
-        # Generate confirmation code
-        import random
-        import string
-        confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-        
-        # Manual database handling for registration
+        # Get event details first
         conn = get_db_connection()
         if not conn:
             return jsonify({"success": False, "error": "Database connection failed"}), 500
             
         cursor = conn.cursor()
+        cursor.execute("SELECT * FROM events WHERE id = %s", (event_id,))
+        event = cursor.fetchone()
         
-        register_query = """
-            INSERT INTO event_registrations (event_id, subscriber_email, player_name, confirmation_code)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-        """
-        
-        cursor.execute(register_query, (event_id, email, player_name, confirmation_code))
-        result = cursor.fetchone()
-        
-        if result:
-            conn.commit()
-            log_activity(f"Public registration: {first_name} {last_name} ({email}) for event: {event_check['title']} (Code: {confirmation_code})", "success")
-            
-            # Check if tournament - use event_check that already includes event_type
-            is_tournament = False
-            try:
-                event_type = event_check.get('event_type', '').lower()
-                title = event_check['title'].lower()
-                
-                is_tournament = (
-                    event_type == 'tournament' or
-                    'tournament' in title or
-                    'valorant' in title or
-                    'fortnite' in title or
-                    'rocket league' in title or
-                    'competition' in title
-                )
-            except Exception as e:
-                log_error(f"Error checking tournament status: {e}")
-                is_tournament = False
-            
-            response_data = {
-                "success": True,
-                "message": "Registration successful!",
-                "confirmation_code": confirmation_code,
-                "event_title": event_check['title'],
-                "player_name": player_name
-            }
-            
-            if is_tournament:
-                response_data["discord_invite"] = "https://discord.gg/ZJp3hhe6Cr"
-                response_data["show_discord"] = True
-                
-            return jsonify(response_data)
-        else:
-            conn.rollback()
-            return jsonify({"success": False, "error": "Registration failed"}), 500
-            
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        log_error(f"Error in public registration for event {event_id}: {e}")
-        return jsonify({"success": False, "error": "Registration failed. Please try again."}), 500
-        
-    finally:
-        if cursor:
+        if not event:
             cursor.close()
-        if conn:
             conn.close()
-
-# Add this debug endpoint to your backend.py to check what's happening
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        # Check if user is already registered
+        cursor.execute("""
+            SELECT id FROM event_registrations 
+            WHERE event_id = %s AND email = %s
+        """, (event_id, email))
+        existing_registration = cursor.fetchone()
+        
+        if existing_registration:
+            cursor.close()
+            conn.close()
+            return jsonify({
+                "success": False, 
+                "error": "You are already registered for this event"
+            }), 400
+        
+        # Check capacity
+        cursor.execute("""
+            SELECT COUNT(*) as current_count FROM event_registrations 
+            WHERE event_id = %s
+        """, (event_id,))
+        current_count = cursor.fetchone()[0]
+        
+        is_waiting_list = False
+        if event['capacity'] > 0 and current_count >= event['capacity']:
+            is_waiting_list = True
+        
+        # Generate confirmation code
+        confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        # 1. REGISTER FOR EVENT (this always happens)
+        cursor.execute("""
+            INSERT INTO event_registrations 
+            (event_id, email, player_name, first_name, last_name, confirmation_code, registration_date, is_waiting_list)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s)
+        """, (event_id, email, player_name, first_name, last_name, confirmation_code, is_waiting_list))
+        conn.commit()
+        
+        # 2. NEWSLETTER SUBSCRIPTION (only if they consented)
+        if email_consent:  # Only proceed if they checked the consent box
+            # Check if they're already a subscriber
+            cursor.execute("SELECT email FROM subscribers WHERE email = %s", (email,))
+            existing_subscriber = cursor.fetchone()
+            
+            if not existing_subscriber:
+                # Add them to newsletter since they consented
+                try:
+                    cursor.execute("""
+                        INSERT INTO subscribers (email, first_name, last_name, source, subscription_date, active)
+                        VALUES (%s, %s, %s, %s, NOW(), TRUE)
+                    """, (email, first_name, last_name, 'event_registration'))
+                    conn.commit()
+                    log_activity(f"Added {first_name} {last_name} ({email}) to subscribers with consent via event registration", "info")
+                except Exception as e:
+                    log_activity(f"Failed to add subscriber: {str(e)}", "error")
+            else:
+                # Update existing subscriber to show they re-consented
+                cursor.execute("""
+                    UPDATE subscribers 
+                    SET subscription_date = NOW(), 
+                        source = 'event_registration_reconfirmed',
+                        active = TRUE,
+                        first_name = %s,
+                        last_name = %s
+                    WHERE email = %s
+                """, (first_name, last_name, email))
+                conn.commit()
+                log_activity(f"Updated existing subscriber consent: {first_name} {last_name} ({email})", "info")
+        else:
+            # Log that they registered without newsletter consent
+            log_activity(f"Event registration WITHOUT newsletter signup: {first_name} {last_name} ({email})", "info")
+        
+        cursor.close()
+        conn.close()
+        
+        # Prepare response
+        response_data = {
+            "success": True,
+            "confirmation_code": confirmation_code,
+            "is_waiting_list": is_waiting_list
+        }
+        
+        # Add Discord invite for tournaments
+        if event.get('event_type') == 'tournament':
+            response_data.update({
+                "show_discord": True,
+                "discord_invite": "https://discord.gg/your-server-link"
+            })
+        
+        # Log the registration
+        consent_msg = f" - Newsletter consent: {'YES' if email_consent else 'NO'}"
+        waitlist_msg = " - WAITING LIST" if is_waiting_list else ""
+        log_activity(f"Event registration: {first_name} {last_name} ({email}) for event {event.get('title', 'Unknown')} (ID: {event_id}){waitlist_msg}{consent_msg}", "info")
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        log_activity(f"Error in register_public: {str(e)}", "error")
+        return jsonify({
+            "success": False, 
+            "error": "Registration failed. Please try again later."
+        }), 500
 
 @app.route('/api/events/<int:event_id>/debug-registration', methods=['POST'])
 def debug_registration(event_id):

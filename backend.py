@@ -37,11 +37,16 @@ if not ADMIN_PASSWORD:
     raise ValueError("ADMIN_PASSWORD environment variable is not set!")
 
 # Add the limiter RIGHT HERE, after app is created
+# Update your limiter configuration
 limiter = Limiter(
-    key_func=get_remote_address,  # All named arguments
+    key_func=get_remote_address,
     app=app,
-    default_limits=["1000 per day"]
+    default_limits=["1000 per day"],
+    storage_uri="redis://localhost:6379" if os.environ.get('REDIS_URL') else "memory://"
 )
+
+# ---- Database configuration ----
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # =============================
 # --- CONFIG & GLOBALS FIRST ---
@@ -105,8 +110,6 @@ AUTO_SYNC_TO_BREVO = os.environ.get("AUTO_SYNC_TO_BREVO", "true").lower() in {"1
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "jaiamiscua@gmail.com")
 SENDER_NAME = os.environ.get("SENDER_NAME", "SideQuest")
 
-# ---- Database configuration ----
-DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # =============================
 # Database Connection & Setup

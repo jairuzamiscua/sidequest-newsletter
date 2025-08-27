@@ -3486,8 +3486,6 @@ def get_public_event(event_id):
 # Add this API route to handle public registrations (if not already present)
 
 @app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
-@limiter.limit("3 per hour")  # MOVED UP HERE - decorators go ABOVE the function
-@app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
 @limiter.limit("3 per hour")
 def register_public(event_id):
     try:

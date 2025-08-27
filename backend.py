@@ -2927,11 +2927,21 @@ def register_for_event(event_id):
         
         # Auto-add to subscribers if not exists
         subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
+        print(f"DEBUG: subscriber_check result: {subscriber_check}")
+
         if not subscriber_check:
-            if add_subscriber_to_db(email, 'event_registration', None, None, None, True):
-                log_activity(f"Auto-added {email} to subscribers via event registration", "info")
+            print(f"DEBUG: Attempting to add {email} to subscribers with names: {first_name}, {last_name}")
+            
+            result = add_subscriber_to_db(email, 'event_registration', first_name, last_name, None, True)
+            print(f"DEBUG: add_subscriber_to_db returned: {result}")
+            
+            if result:
+                log_activity(f"Auto-added {first_name} {last_name} ({email}) to subscribers via event registration", "info")
             else:
                 log_activity(f"Failed to auto-add {email} to subscribers, but allowing registration", "warning")
+                print(f"DEBUG: Subscriber addition failed for {email}")
+        else:
+            print(f"DEBUG: Subscriber {email} already exists, skipping addition")
 
         # Check if already registered
         existing_registration = execute_query_one(

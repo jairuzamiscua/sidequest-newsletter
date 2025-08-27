@@ -1147,7 +1147,6 @@ def get_subscribers():
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/subscribe', methods=['POST'])
-@validate_email_input
 def add_subscriber():
     """Enhanced subscribe route with GDPR compliance"""
     try:
@@ -1168,6 +1167,12 @@ def add_subscriber():
                 "success": False, 
                 "error": "GDPR consent is required to process your personal data"
             }), 400
+        
+        # Enhanced validation
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+        if not is_valid_email(email):
+            return jsonify({"success": False, "error": "Invalid email format"}), 400
             
         # Validate name fields for GDPR sources
         if source in ['signup_page_gdpr'] and (not first_name or not last_name):
@@ -3454,6 +3459,7 @@ def register_public(event_id):
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
         
+
             
         if not first_name or not last_name:
             return jsonify({"success": False, "error": "First and last name are required"}), 400

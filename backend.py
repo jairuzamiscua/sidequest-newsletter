@@ -14,7 +14,9 @@ import base64
 import qrcode
 import io
 import base64
+from itsdangerous import URLSafeTimedSerializer
 from functools import wraps
+import secrets
 from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
@@ -23,6 +25,10 @@ from flask import Flask, request, jsonify, send_from_directory, session, redirec
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect, validate_csrf, generate_csrf, CSRFError
+from flask_wtf import FlaskForm
+from wtforms import StringField, TextAreaField, IntegerField, DecimalField, SelectField, BooleanField, EmailField
+from wtforms.validators import DataRequired, Email, Length, Optional, NumberRange
 
 # SINGLE APP CREATION - FIXED!
 app = Flask(__name__, static_folder="static")
@@ -40,6 +46,14 @@ limiter = Limiter(
     key_func=get_remote_address,  # All named arguments
     app=app,
     default_limits=["1000 per day"]
+)
+
+csrf = CSRFProtect(app)
+app.config.update(
+    WTF_CSRF_TIME_LIMIT=3600,  # 1 hour token expiry
+    WTF_CSRF_SSL_STRICT=False,  # Set to True in production with HTTPS only
+    WTF_CSRF_CHECK_DEFAULT=False,  # Manual validation for API endpoints
+    WTF_CSRF_SECRET_KEY=app.secret_key  # Use same key as Flask session
 )
 
 # =============================
@@ -251,6 +265,185 @@ def run_database_migrations():
     print("✅ All database migrations completed successfully")
     return True
 
+#==============================
+# CSRF Protection and Forms 
+#==============================
+class SubscriberForm(FlaskForm):
+    """Form for adding subscribers with CSRF protection"""
+    email = EmailField('Email', validators=[DataRequired(), Email()])
+    firstName = StringField('First Name', validators=[DataRequired(), Length(min=2, max=100)])
+    lastName = StringField('Last Name', validators=[DataRequired(), Length(min=2, max=100)])
+    gamingHandle = StringField('Gaming Handle', validators=[Optional(), Length(min=3, max=50)])
+    gdprConsent = BooleanField('GDPR Consent', validators=[DataRequired()])
+    source = StringField('Source', default='manual')
+
+class EventForm(FlaskForm):
+    """Form for creating/updating events"""
+    title = StringField('Title', validators=[DataRequired(), Length(min=3, max=255)])
+    event_type = SelectField('Event Type', 
+                            choices=[('tournament', 'Tournament'), 
+                                   ('game_night', 'Game Night'),
+                                   ('special', 'Special Event'),
+                                   ('birthday', 'Birthday Party')],
+                            validators=[DataRequired()])
+    game_title = StringField('Game Title', validators=[Optional(), Length(max=255)])
+    date_time = StringField('Date Time', validators=[DataRequired()])  # Will be parsed as datetime
+    end_time = StringField('End Time', validators=[Optional()])
+    capacity = IntegerField('Capacity', validators=[Optional(), NumberRange(min=0, max=500)])
+    description = TextAreaField('Description', validators=[Optional(), Length(max=2000)])
+    entry_fee = DecimalField('Entry Fee', validators=[Optional(), NumberRange(min=0, max=1000)], places=2)
+    prize_pool = TextAreaField('Prize Pool', validators=[Optional(), Length(max=500)])
+    status = SelectField('Status', 
+                        choices=[('draft', 'Draft'), ('published', 'Published'), 
+                               ('cancelled', 'Cancelled'), ('completed', 'Completed')],
+                        default='draft')
+    image_url = StringField('Image URL', validators=[Optional(), Length(max=500)])
+    requirements = TextAreaField('Requirements', validators=[Optional(), Length(max=1000)])
+
+
+class EventRegistrationForm(FlaskForm):
+    """Form for event registration"""
+    email = EmailField('Email', validators=[DataRequired(), Email()])
+    player_name = StringField('Player Name', validators=[DataRequired(), Length(min=2, max=255)])
+    first_name = StringField('First Name', validators=[Optional(), Length(min=2, max=100)])
+    last_name = StringField('Last Name', validators=[Optional(), Length(min=2, max=100)])
+    email_consent = BooleanField('Email Consent', default=False)
+
+class AdminActionForm(FlaskForm):
+    """Form for admin actions like data clearing"""
+    confirmation = StringField('Confirmation', validators=[DataRequired()])
+    clear_brevo = BooleanField('Clear Brevo', default=False)
+
+class CampaignForm(FlaskForm):
+    """Form for sending email campaigns"""
+    subject = StringField('Subject', validators=[DataRequired(), Length(min=3, max=200)])
+    body = TextAreaField('Body', validators=[DataRequired(), Length(min=10, max=10000)])
+    fromName = StringField('From Name', default='SideQuest', validators=[Length(max=100)])
+
+
+def csrf_required(f):
+    """Decorator that validates CSRF token and form data"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            # Get CSRF token from multiple sources
+            csrf_token = (
+                request.headers.get('X-CSRFToken') or 
+                request.form.get('csrf_token') or 
+                (request.json.get('csrf_token') if request.json else None)
+            )
+            
+            if not csrf_token:
+                log_activity(f"CSRF token missing for {request.path} from {request.remote_addr}", "warning")
+                return jsonify({
+                    "success": False, 
+                    "error": "CSRF token required",
+                    "code": "CSRF_TOKEN_MISSING"
+                }), 400
+            
+            # Validate the token
+            validate_csrf(csrf_token)
+            
+            # Log successful validation for critical operations
+            if request.method in ['POST', 'PUT', 'DELETE']:
+                log_activity(f"CSRF validation passed for {request.method} {request.path}", "info")
+            
+            return f(*args, **kwargs)
+            
+        except CSRFError as e:
+            log_activity(f"CSRF validation failed for {request.path}: {str(e)}", "warning")
+            return jsonify({
+                "success": False,
+                "error": "Invalid or expired CSRF token",
+                "code": "CSRF_TOKEN_INVALID",
+                "message": "Please refresh the page and try again"
+            }), 403
+            
+        except Exception as e:
+            log_error(f"CSRF validation error: {e}")
+            return jsonify({
+                "success": False,
+                "error": "CSRF validation failed",
+                "code": "CSRF_VALIDATION_ERROR"
+            }), 500
+    
+    return decorated_function
+
+def csrf_form_required(form_class):
+    """Decorator that validates both CSRF token and form data using WTForms"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            try:
+                # Create form instance
+                if request.content_type == 'application/json':
+                    form = form_class(data=request.json)
+                else:
+                    form = form_class()
+                
+                # Validate form (includes CSRF validation)
+                if not form.validate():
+                    errors = {}
+                    for field, error_list in form.errors.items():
+                        errors[field] = error_list
+                    
+                    log_activity(f"Form validation failed for {request.path}: {errors}", "warning")
+                    return jsonify({
+                        "success": False,
+                        "error": "Form validation failed",
+                        "errors": errors
+                    }), 400
+                
+                # Pass validated form data to the route function
+                return f(form, *args, **kwargs)
+                
+            except Exception as e:
+                log_error(f"Form validation error: {e}")
+                return jsonify({
+                    "success": False,
+                    "error": "Form processing failed"
+                }), 500
+        
+        return decorated_function
+    return decorator
+
+@app.route('/api/csrf-token', methods=['GET'])
+def get_csrf_token():
+    """Generate and return CSRF token for API requests"""
+    try:
+        token = generate_csrf()
+        return jsonify({
+            "success": True,
+            "csrf_token": token,
+            "expires_in": 3600  # 1 hour
+        })
+    except Exception as e:
+        log_error(f"Error generating CSRF token: {e}")
+        return jsonify({"success": False, "error": "Failed to generate token"}), 500
+
+@app.route('/api/csrf-refresh', methods=['POST'])
+def refresh_csrf_token():
+    """Refresh CSRF token - useful for long-running sessions"""
+    try:
+        # Validate current token first
+        csrf_token = request.headers.get('X-CSRFToken')
+        if csrf_token:
+            try:
+                validate_csrf(csrf_token)
+            except:
+                pass  # Allow refresh even with expired token
+        
+        new_token = generate_csrf()
+        return jsonify({
+            "success": True,
+            "csrf_token": new_token,
+            "expires_in": 3600
+        })
+    except Exception as e:
+        log_error(f"Error refreshing CSRF token: {e}")
+        return jsonify({"success": False, "error": "Failed to refresh token"}), 500
+
+
 
 def verify_database_schema():
     """Verify that all required tables and columns exist"""
@@ -314,6 +507,7 @@ def privacy_policy():
     return render_template_string(PRIVACY_POLICY_TEMPLATE)
 
 @app.route('/api/gdpr/delete', methods=['POST'])
+@csrf_required
 def gdpr_delete_request():
     """Handle GDPR data deletion requests"""
     try:
@@ -1147,6 +1341,7 @@ def get_subscribers():
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/subscribe', methods=['POST'])
+@csrf_required
 def add_subscriber():
     """Enhanced subscribe route with GDPR compliance"""
     try:
@@ -1283,6 +1478,7 @@ def add_gdpr_consent_column():
 
 
 @app.route('/unsubscribe', methods=['POST'])
+@csrf_required
 def remove_subscriber():
     """🔥 ENHANCED: Remove subscriber from both database AND Brevo"""
     try:
@@ -1421,6 +1617,7 @@ def bulk_import():
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/sync-brevo', methods=['POST'])
+@csrf_required
 def manual_brevo_sync():
     """Enhanced manual Brevo sync with better feedback"""
     try:
@@ -1460,6 +1657,7 @@ def manual_brevo_sync():
         return jsonify({"success": False, "error": error_msg}), 500
 
 @app.route('/clear-data', methods=['POST'])
+@csrf_required
 def clear_all_data():
     """🔥 ENHANCED: Clear data from both database AND Brevo"""
     try:
@@ -1533,6 +1731,7 @@ def remove_from_brevo_list(email: str) -> dict:
 
 # Continue with remaining routes...
 @app.route('/send-campaign', methods=['POST'])
+@csrf_required
 def send_campaign():
     try:
         if not api_instance:
@@ -2583,6 +2782,7 @@ def execute_query_one(query, params=None):
 # =============================
 
 @app.route('/api/events', methods=['GET'])
+@csrf_required
 def get_events():
     """Get all events with optional filtering"""
     try:
@@ -2694,6 +2894,7 @@ def get_event(event_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events', methods=['POST'])
+@csrf_required
 def create_event():
     """Create a new event"""
     try:
@@ -2793,6 +2994,7 @@ def create_event():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events/<int:event_id>', methods=['DELETE'])
+@csrf_required
 def delete_event(event_id):
     """Delete an event"""
     try:
@@ -2842,6 +3044,7 @@ def delete_event(event_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events/<int:event_id>', methods=['PUT'])
+@csrf_required
 def update_event(event_id):
     """Update an existing event"""
     try:
@@ -2961,6 +3164,7 @@ def update_event(event_id):
 # Replace your register_for_event function with this fixed version:
 
 @app.route('/api/events/<int:event_id>/register', methods=['POST'])
+@csrf_required
 def register_for_event(event_id):
     """Register a subscriber for an event"""
     conn = None
@@ -3075,6 +3279,7 @@ def register_for_event(event_id):
 # Replace your get_event_attendees function with this FIXED version:
 
 @app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
+@csrf_required
 def get_event_attendees(event_id):
     """Get list of attendees for an event - FIXED VERSION"""
     try:

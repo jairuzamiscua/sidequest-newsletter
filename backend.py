@@ -1813,6 +1813,7 @@ def signup_page():
 # Add this route to your backend.py file after the existing /signup route
 
 @app.route('/signup/event/<int:event_id>')
+@limiter.limit("3 per hour")
 def event_signup_page(event_id):
     """Event-specific signup page"""
     try:

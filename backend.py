@@ -2893,7 +2893,6 @@ def get_event(event_id):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events', methods=['POST'])
-@csrf_required
 def create_event():
     """Create a new event"""
     try:

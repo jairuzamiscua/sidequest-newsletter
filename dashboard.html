@@ -3114,18 +3114,10 @@
 
         if (isEditing) {
               console.log('DEBUG: Making PUT request to update event:', currentEditingEventId);
-              response = await fetch(`${API_BASE}/api/events/${currentEditingEventId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(eventData)
-              });
+              response = await securePut(`${API_BASE}/api/events/${currentEditingEventId}`, eventData);
             } else {
               console.log('DEBUG: Making POST request to create new event');
-              response = await fetch(`${API_BASE}/api/events`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(eventData)
-              });
+              response = await securePost(`${API_BASE}/api/events`, eventData);
             }
 
       const data = await response.json();
@@ -3165,10 +3157,8 @@
       if (!email) return;
 
       try {
-        const response = await fetch(`${API_BASE}/api/events/${eventId}/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim().toLowerCase() })
+        const response = await securePost(`${API_BASE}/api/events/${eventId}/register`, {
+            email: email.trim().toLowerCase()
         });
 
         const data = await response.json();
@@ -3542,10 +3532,8 @@
       try {
         console.log(`🔍 Attempting check-in for Event ${eventId}, Email: ${email}`);
         
-        const response = await fetch(`${API_BASE}/api/events/${eventId}/checkin`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email })
+        const response = await securePost(`${API_BASE}/api/events/${eventId}/checkin`, {
+            email: email
         });
 
         console.log(`📡 Response status: ${response.status}`);
@@ -3711,11 +3699,7 @@
           };
 
           try {
-            const response = await fetch(`${API_BASE}/api/events`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(eventData)
-            });
+            response = await securePost(`${API_BASE}/api/events`, eventData);
 
             const data = await response.json();
             
@@ -3934,9 +3918,7 @@
       if (!confirm('Are you sure you want to delete this event?')) return;
       
       try {
-        const response = await fetch(`${API_BASE}/api/events/${eventId}`, {
-          method: 'DELETE'
-        });
+        const response = await secureDelete(`${API_BASE}/api/events/${eventId}`);
         
         const data = await response.json();
         

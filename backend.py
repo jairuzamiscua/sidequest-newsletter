@@ -1,6036 +1,4595 @@
-<!doctype html>
+from __future__ import annotations
+
+# =============================
+# SideQuest Newsletter Backend
+# With PostgreSQL Database Support
+# =============================
+
+import os
+import re
+import json
+import traceback
+import psycopg2
+import base64
+import qrcode
+import io
+import base64
+from itsdangerous import URLSafeTimedSerializer
+from functools import wraps
+import secrets
+from urllib.parse import quote
+from psycopg2.extras import RealDictCursor
+from datetime import datetime, timedelta
+from collections import defaultdict
+from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string, make_response
+from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect, validate_csrf, generate_csrf, CSRFError
+from flask_wtf import FlaskForm
+from wtforms import StringField, TextAreaField, IntegerField, DecimalField, SelectField, BooleanField, EmailField
+from wtforms.validators import DataRequired, Email, Length, Optional, NumberRange
+
+# SINGLE APP CREATION - FIXED!
+app = Flask(__name__, static_folder="static")
+app.secret_key = os.environ.get('FLASK_SECRET_KEY')
+if not app.secret_key:
+    raise ValueError("FLASK_SECRET_KEY environment variable must be set!")
+CORS(app)
+
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD') # Change this!
+if not ADMIN_PASSWORD:
+    raise ValueError("ADMIN_PASSWORD environment variable is not set!")
+
+# Add the limiter RIGHT HERE, after app is created
+limiter = Limiter(
+    key_func=get_remote_address,  # All named arguments
+    app=app,
+    default_limits=["1000 per day"]
+)
+
+csrf = CSRFProtect(app)
+app.config.update(
+    WTF_CSRF_TIME_LIMIT=3600,  # 1 hour token expiry
+    WTF_CSRF_SSL_STRICT=False,  # Set to True in production with HTTPS only
+    WTF_CSRF_CHECK_DEFAULT=False,  # Manual validation for API endpoints
+    WTF_CSRF_SECRET_KEY=app.secret_key  # Use same key as Flask session
+)
+
+# =============================
+# --- CONFIG & GLOBALS FIRST ---
+# =============================
+
+try:
+    import qrcode
+    QR_CODE_AVAILABLE = True
+    print("✅ QR code library available")
+except ImportError:
+    QR_CODE_AVAILABLE = False
+    print("⚠️ QR code library not available - using external service fallback")
+
+# ---- Brevo (Sendinblue) SDK ----
+try:
+    import sib_api_v3_sdk
+    from sib_api_v3_sdk.rest import ApiException  # type: ignore
+except Exception:  # pragma: no cover
+    sib_api_v3_sdk = None  # type: ignore
+    ApiException = Exception  # type: ignore
+
+# ---- Brevo settings ----
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+BREVO_LIST_ID = int(os.environ.get("BREVO_LIST_ID", 2))
+AUTO_SYNC_TO_BREVO = os.environ.get("AUTO_SYNC_TO_BREVO", "true").lower() in {"1", "true", "yes", "y"}
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "jaiamiscua@gmail.com")
+SENDER_NAME = os.environ.get("SENDER_NAME", "SideQuest")
+
+# ---- Database configuration ----
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# =============================
+# Database Connection & Setup
+# =============================
+
+def get_db_connection():
+    """Get database connection"""
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        return None
+
+# Replace your init_database() function with this updated version:
+
+# =============================
+# LONG-TERM DATABASE SOLUTION
+# =============================
+
+def get_current_schema_version():
+    """Get the current database schema version"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return 0
+            
+        cursor = conn.cursor()
+        
+        # Check if schema_version table exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'schema_version'
+            );
+        """)
+        
+        table_exists = cursor.fetchone()[0]
+        
+        if not table_exists:
+            # Create schema_version table
+            cursor.execute('''
+                CREATE TABLE schema_version (
+                    version INTEGER PRIMARY KEY,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    description TEXT
+                )
+            ''')
+            cursor.execute("INSERT INTO schema_version (version, description) VALUES (0, 'Initial schema')")
+            conn.commit()
+            cursor.close()
+            conn.close()
+            return 0
+        
+        # Get current version
+        cursor.execute("SELECT MAX(version) FROM schema_version")
+        version = cursor.fetchone()[0] or 0
+        
+        cursor.close()
+        conn.close()
+        return version
+        
+    except Exception as e:
+        print(f"Error getting schema version: {e}")
+        return 0
+
+def apply_migration(version, description, sql_commands):
+    """Apply a database migration"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        print(f"🔄 Applying migration {version}: {description}")
+        
+        # Execute all SQL commands
+        for sql in sql_commands:
+            print(f"   Executing: {sql[:100]}...")
+            cursor.execute(sql)
+        
+        # Record the migration
+        cursor.execute(
+            "INSERT INTO schema_version (version, description) VALUES (%s, %s)",
+            (version, description)
+        )
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        print(f"✅ Migration {version} applied successfully")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Migration {version} failed: {e}")
+        if conn:
+            conn.rollback()
+            conn.close()
+        return False
+
+def run_database_migrations():
+    """Run all pending database migrations"""
+    current_version = get_current_schema_version()
+    print(f"📊 Current database schema version: {current_version}")
+    
+    # Define all migrations
+    migrations = [
+        {
+            'version': 1,
+            'description': 'Add check_in_time column to event_registrations',
+            'sql': [
+                'ALTER TABLE event_registrations ADD COLUMN IF NOT EXISTS check_in_time TIMESTAMP;'
+            ]
+        },
+        {
+            'version': 2, 
+            'description': 'Add indexes for better performance',
+            'sql': [
+                'CREATE INDEX IF NOT EXISTS idx_event_registrations_attended ON event_registrations(attended);',
+                'CREATE INDEX IF NOT EXISTS idx_events_event_type ON events(event_type);',
+                'CREATE INDEX IF NOT EXISTS idx_subscribers_source ON subscribers(source);'
+            ]
+        },
+        {
+            'version': 3,
+            'description': 'Add updated_at triggers for events table',
+            'sql': [
+                '''CREATE OR REPLACE FUNCTION update_updated_at_column()
+                   RETURNS TRIGGER AS $$
+                   BEGIN
+                       NEW.updated_at = CURRENT_TIMESTAMP;
+                       RETURN NEW;
+                   END;
+                   $$ language 'plpgsql';''',
+                '''DROP TRIGGER IF EXISTS update_events_updated_at ON events;''',
+                '''CREATE TRIGGER update_events_updated_at 
+                   BEFORE UPDATE ON events 
+                   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();'''
+            ]
+        },
+        {
+            'version': 4,
+            'description': 'Add name fields to subscribers table',
+            'sql': [
+                'ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS first_name VARCHAR(100);',
+                'ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS last_name VARCHAR(100);',
+                'ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS gaming_handle VARCHAR(50);',
+                '''ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS full_name VARCHAR(200) 
+                   GENERATED ALWAYS AS (
+                       CASE 
+                           WHEN first_name IS NOT NULL AND last_name IS NOT NULL 
+                           THEN CONCAT(first_name, ' ', last_name)
+                           ELSE COALESCE(first_name, email)
+                       END
+                   ) STORED;''',
+                'CREATE INDEX IF NOT EXISTS idx_subscribers_first_name ON subscribers(first_name);',
+                'CREATE INDEX IF NOT EXISTS idx_subscribers_last_name ON subscribers(last_name);',
+                'CREATE INDEX IF NOT EXISTS idx_subscribers_full_name ON subscribers(full_name);'
+            ]
+        }
+        # Add more migrations here as needed
+    ]
+    
+    # Apply pending migrations
+    for migration in migrations:
+        if migration['version'] > current_version:
+            success = apply_migration(
+                migration['version'],
+                migration['description'], 
+                migration['sql']
+            )
+            if not success:
+                print(f"❌ Failed to apply migration {migration['version']}")
+                return False
+    
+    print("✅ All database migrations completed successfully")
+    return True
+
+#==============================
+# CSRF Protection and Forms 
+#==============================
+class SubscriberForm(FlaskForm):
+    """Form for adding subscribers with CSRF protection"""
+    email = EmailField('Email', validators=[DataRequired(), Email()])
+    firstName = StringField('First Name', validators=[DataRequired(), Length(min=2, max=100)])
+    lastName = StringField('Last Name', validators=[DataRequired(), Length(min=2, max=100)])
+    gamingHandle = StringField('Gaming Handle', validators=[Optional(), Length(min=3, max=50)])
+    gdprConsent = BooleanField('GDPR Consent', validators=[DataRequired()])
+    source = StringField('Source', default='manual')
+
+class EventForm(FlaskForm):
+    """Form for creating/updating events"""
+    title = StringField('Title', validators=[DataRequired(), Length(min=3, max=255)])
+    event_type = SelectField('Event Type', 
+                            choices=[('tournament', 'Tournament'), 
+                                   ('game_night', 'Game Night'),
+                                   ('special', 'Special Event'),
+                                   ('birthday', 'Birthday Party')],
+                            validators=[DataRequired()])
+    game_title = StringField('Game Title', validators=[Optional(), Length(max=255)])
+    date_time = StringField('Date Time', validators=[DataRequired()])  # Will be parsed as datetime
+    end_time = StringField('End Time', validators=[Optional()])
+    capacity = IntegerField('Capacity', validators=[Optional(), NumberRange(min=0, max=500)])
+    description = TextAreaField('Description', validators=[Optional(), Length(max=2000)])
+    entry_fee = DecimalField('Entry Fee', validators=[Optional(), NumberRange(min=0, max=1000)], places=2)
+    prize_pool = TextAreaField('Prize Pool', validators=[Optional(), Length(max=500)])
+    status = SelectField('Status', 
+                        choices=[('draft', 'Draft'), ('published', 'Published'), 
+                               ('cancelled', 'Cancelled'), ('completed', 'Completed')],
+                        default='draft')
+    image_url = StringField('Image URL', validators=[Optional(), Length(max=500)])
+    requirements = TextAreaField('Requirements', validators=[Optional(), Length(max=1000)])
+
+
+class EventRegistrationForm(FlaskForm):
+    """Form for event registration"""
+    email = EmailField('Email', validators=[DataRequired(), Email()])
+    player_name = StringField('Player Name', validators=[DataRequired(), Length(min=2, max=255)])
+    first_name = StringField('First Name', validators=[Optional(), Length(min=2, max=100)])
+    last_name = StringField('Last Name', validators=[Optional(), Length(min=2, max=100)])
+    email_consent = BooleanField('Email Consent', default=False)
+
+class AdminActionForm(FlaskForm):
+    """Form for admin actions like data clearing"""
+    confirmation = StringField('Confirmation', validators=[DataRequired()])
+    clear_brevo = BooleanField('Clear Brevo', default=False)
+
+class CampaignForm(FlaskForm):
+    """Form for sending email campaigns"""
+    subject = StringField('Subject', validators=[DataRequired(), Length(min=3, max=200)])
+    body = TextAreaField('Body', validators=[DataRequired(), Length(min=10, max=10000)])
+    fromName = StringField('From Name', default='SideQuest', validators=[Length(max=100)])
+
+
+def csrf_required(f):
+    """Decorator that validates CSRF token and form data"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            # Get CSRF token from multiple sources
+            csrf_token = (
+                request.headers.get('X-CSRFToken') or 
+                request.form.get('csrf_token') or 
+                (request.json.get('csrf_token') if request.json else None)
+            )
+            
+            if not csrf_token:
+                log_activity(f"CSRF token missing for {request.path} from {request.remote_addr}", "warning")
+                return jsonify({
+                    "success": False, 
+                    "error": "CSRF token required",
+                    "code": "CSRF_TOKEN_MISSING"
+                }), 400
+            
+            # Validate the token
+            validate_csrf(csrf_token)
+            
+            # Log successful validation for critical operations
+            if request.method in ['POST', 'PUT', 'DELETE']:
+                log_activity(f"CSRF validation passed for {request.method} {request.path}", "info")
+            
+            return f(*args, **kwargs)
+            
+        except CSRFError as e:
+            log_activity(f"CSRF validation failed for {request.path}: {str(e)}", "warning")
+            return jsonify({
+                "success": False,
+                "error": "Invalid or expired CSRF token",
+                "code": "CSRF_TOKEN_INVALID",
+                "message": "Please refresh the page and try again"
+            }), 403
+            
+        except Exception as e:
+            log_error(f"CSRF validation error: {e}")
+            return jsonify({
+                "success": False,
+                "error": "CSRF validation failed",
+                "code": "CSRF_VALIDATION_ERROR"
+            }), 500
+    
+    return decorated_function
+
+def csrf_form_required(form_class):
+    """Decorator that validates both CSRF token and form data using WTForms"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            try:
+                # Create form instance
+                if request.content_type == 'application/json':
+                    form = form_class(data=request.json)
+                else:
+                    form = form_class()
+                
+                # Validate form (includes CSRF validation)
+                if not form.validate():
+                    errors = {}
+                    for field, error_list in form.errors.items():
+                        errors[field] = error_list
+                    
+                    log_activity(f"Form validation failed for {request.path}: {errors}", "warning")
+                    return jsonify({
+                        "success": False,
+                        "error": "Form validation failed",
+                        "errors": errors
+                    }), 400
+                
+                # Pass validated form data to the route function
+                return f(form, *args, **kwargs)
+                
+            except Exception as e:
+                log_error(f"Form validation error: {e}")
+                return jsonify({
+                    "success": False,
+                    "error": "Form processing failed"
+                }), 500
+        
+        return decorated_function
+    return decorator
+
+@app.route('/api/csrf-token', methods=['GET'])
+def get_csrf_token():
+    """Generate and return CSRF token for API requests"""
+    try:
+        token = generate_csrf()
+        return jsonify({
+            "success": True,
+            "csrf_token": token,
+            "expires_in": 3600  # 1 hour
+        })
+    except Exception as e:
+        log_error(f"Error generating CSRF token: {e}")
+        return jsonify({"success": False, "error": "Failed to generate token"}), 500
+
+@app.route('/api/csrf-refresh', methods=['POST'])
+def refresh_csrf_token():
+    """Refresh CSRF token - useful for long-running sessions"""
+    try:
+        # Validate current token first
+        csrf_token = request.headers.get('X-CSRFToken')
+        if csrf_token:
+            try:
+                validate_csrf(csrf_token)
+            except:
+                pass  # Allow refresh even with expired token
+        
+        new_token = generate_csrf()
+        return jsonify({
+            "success": True,
+            "csrf_token": new_token,
+            "expires_in": 3600
+        })
+    except Exception as e:
+        log_error(f"Error refreshing CSRF token: {e}")
+        return jsonify({"success": False, "error": "Failed to refresh token"}), 500
+
+
+
+def verify_database_schema():
+    """Verify that all required tables and columns exist"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Check required tables
+        required_tables = ['subscribers', 'events', 'event_registrations', 'activity_log', 'schema_version']
+        
+        for table in required_tables:
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = %s
+                );
+            """, (table,))
+            
+            exists = cursor.fetchone()[0]
+            if not exists:
+                print(f"❌ Missing required table: {table}")
+                return False
+        
+        # Check required columns in event_registrations
+        required_columns = {
+            'event_registrations': ['id', 'event_id', 'subscriber_email', 'confirmation_code', 
+                                  'registered_at', 'attended', 'check_in_time', 'notes']
+        }
+        
+        for table, columns in required_columns.items():
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = %s
+            """, (table,))
+            
+            existing_columns = [row[0] for row in cursor.fetchall()]
+            
+            for column in columns:
+                if column not in existing_columns:
+                    print(f"❌ Missing column {column} in table {table}")
+                    return False
+        
+        cursor.close()
+        conn.close()
+        
+        print("✅ Database schema verification passed")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Schema verification failed: {e}")
+        return False
+
+# NEW LINE OF CODE 20:29 26/08/2025 
+@app.route('/privacy')
+def privacy_policy():
+    """Privacy policy page"""
+    return render_template_string(PRIVACY_POLICY_TEMPLATE)
+
+@app.route('/api/gdpr/delete', methods=['POST'])
+@csrf_required
+def gdpr_delete_request():
+    """Handle GDPR data deletion requests"""
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        
+        if not email or not is_valid_email(email):
+            return jsonify({"success": False, "error": "Valid email required"}), 400
+        
+        # Remove from database
+        removed = remove_subscriber_from_db(email)
+        
+        if removed:
+            # Remove from Brevo
+            brevo_result = remove_from_brevo_contact(email)
+            
+            log_activity(f"GDPR deletion request processed for {email}", "info")
+            
+            return jsonify({
+                "success": True,
+                "message": "Your data has been deleted from our systems"
+            })
+        else:
+            return jsonify({
+                "success": False, 
+                "error": "Email not found in our records"
+            }), 404
+            
+    except Exception as e:
+        log_error(f"GDPR deletion error: {e}")
+        return jsonify({"success": False, "error": "Internal error"}), 500
+
+# Add privacy policy template
+PRIVACY_POLICY_TEMPLATE = '''
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SideQuest Mail Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.14/index.global.min.js'></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-      color: #ffffff;
-      line-height: 1.6;
-      min-height: 100vh;
-    }
-    
-    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-    
-    /* Header */
-    .header {
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-      color: #1a1a1a;
-      padding: 25px;
-      border-radius: 15px;
-      margin-bottom: 30px;
-      box-shadow: 0 8px 32px rgba(255, 215, 0, 0.3);
-      border: 2px solid #FFD700;
-    }
-    
-    .header h1 { 
-      font-size: 2.8rem; 
-      margin-bottom: 8px; 
-      font-weight: 800;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .header p { 
-      font-size: 1.2rem; 
-      font-weight: 500;
-      opacity: 0.8;
-    }
-    
-    /* Logo placeholder */
-    .logo {
-      display: inline-block;
-      width: 45px;
-      height: 45px;
-      background: #1a1a1a;
-      border-radius: 8px;
-      margin-right: 15px;
-      vertical-align: middle;
-      position: relative;
-      border: 2px solid #1a1a1a;
-    }
-    
-    .logo::before {
-      content: "SQ";
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: #FFD700;
-      font-weight: 900;
-      font-size: 14px;
-      letter-spacing: -1px;
-    }
-    
-    /* Stats Grid */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
-    }
-    
-    .stat-card {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      padding: 25px;
-      border-radius: 15px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      border-left: 4px solid;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
-    }
-    
-    .stat-card.primary { border-left-color: #FFD700; }
-    .stat-card.success { border-left-color: #00ff88; }
-    .stat-card.warning { border-left-color: #ff6b35; }
-    .stat-card.info { border-left-color: #8b5cf6; }
-    
-    .stat-value {
-      font-size: 2.8rem;
-      font-weight: 900;
-      color: #FFD700;
-      margin-bottom: 8px;
-      text-shadow: 0 2px 4px rgba(255, 215, 0, 0.3);
-    }
-    
-    .stat-label {
-      color: #cccccc;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      font-weight: 600;
-    }
-    
-    /* Dashboard Grid */
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: 1fr 350px;
-      gap: 30px;
-      margin-bottom: 30px;
-    }
-    
-    /* Main Content */
-    .main-content {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      border: 1px solid #444;
-    }
-    
-    /* Sidebar */
-    .sidebar {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    
-    .card {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      padding: 25px;
-      border-radius: 15px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      border: 1px solid #444;
-    }
-    
-    .card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-      padding-bottom: 12px;
-      border-bottom: 2px solid #444;
-    }
-    
-    .card-title {
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: #FFD700;
-      text-shadow: 0 1px 2px rgba(255, 215, 0, 0.3);
-    }
-    
-    /* Tabs */
-    .tabs {
-      display: flex;
-      background: #1a1a1a;
-      border-radius: 12px;
-      padding: 6px;
-      margin-bottom: 25px;
-      border: 2px solid #444;
-    }
-    
-    .tab {
-      flex: 1;
-      padding: 12px 18px;
-      text-align: center;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-    
-    .tab.active {
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-      color: #1a1a1a;
-      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
-      transform: translateY(-1px);
-    }
-    
-    .tab:not(.active) {
-      color: #cccccc;
-    }
-    
-    .tab:not(.active):hover {
-      color: #FFD700;
-      background: #333;
-    }
-    
-    /* Tab Content */
-    .tab-content {
-      display: none;
-      padding: 25px;
-    }
-    
-    .tab-content.active {
-      display: block;
-    }
-    
-    /* Forms */
-    .form-group {
-      margin-bottom: 25px;
-    }
-    
-    .form-label {
-      display: block;
-      margin-bottom: 10px;
-      font-weight: 600;
-      color: #FFD700;
-      font-size: 1rem;
-    }
-    
-    .form-input, .form-textarea, .form-select {
-      width: 100%;
-      padding: 14px 18px;
-      border: 2px solid #444;
-      border-radius: 10px;
-      font-size: 14px;
-      transition: all 0.3s ease;
-      background: #1a1a1a;
-      color: #ffffff;
-    }
-    
-    .form-input:focus, .form-textarea:focus, .form-select:focus {
-      outline: none;
-      border-color: #FFD700;
-      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
-      background: #2a2a2a;
-    }
-    
-    .form-textarea {
-      resize: vertical;
-      min-height: 120px;
-    }
-    
-    /* Buttons */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 14px 28px;
-      border: none;
-      border-radius: 10px;
-      font-weight: 600;
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-size: 14px;
-      gap: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    
-    .btn-primary {
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-      color: #1a1a1a;
-      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
-    }
-    
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(255, 215, 0, 0.4);
-    }
-    
-    .btn-success {
-      background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-      color: #1a1a1a;
-      box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
-    }
-    
-    .btn-success:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(0, 255, 136, 0.4);
-    }
-    
-    .btn-danger {
-      background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
-      color: #ffffff;
-      box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
-    }
-    
-    .btn-danger:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(255, 107, 53, 0.4);
-    }
-    
-    .btn-secondary {
-      background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-      color: #ffffff;
-      box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
-    }
-    
-    .btn-secondary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(107, 114, 128, 0.4);
-    }
-    
-    .btn-sm {
-      padding: 10px 20px;
-      font-size: 12px;
-    }
-
-    .event-actions .btn {
-      padding: 12px 20px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      border-radius: 10px;
-      transition: all 0.3s ease;
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    .event-actions .btn:hover {
-      transform: translateY(-1px);
-    }
-
-    .event-actions .btn-primary {
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-      box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
-    }
-
-    .event-actions .btn-success {
-      background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-      box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
-    }
-
-    .event-actions .btn-secondary {
-      background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-      box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
-    }
-
-    .event-actions .btn-warning {
-      background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
-      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-      color: white !important;
-    }
-    
-    /* Subscriber List */
-    .subscriber-list {
-      max-height: 450px;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #FFD700 #2a2a2a;
-    }
-    
-    .subscriber-list::-webkit-scrollbar {
-      width: 8px;
-    }
-    
-    .subscriber-list::-webkit-scrollbar-track {
-      background: #2a2a2a;
-      border-radius: 4px;
-    }
-    
-    .subscriber-list::-webkit-scrollbar-thumb {
-      background: #FFD700;
-      border-radius: 4px;
-    }
-    
-    .subscriber-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 15px 0;
-      border-bottom: 1px solid #444;
-      transition: background 0.2s ease;
-    }
-    
-    .subscriber-item:hover {
-      background: rgba(255, 215, 0, 0.05);
-      border-radius: 8px;
-      padding-left: 10px;
-      padding-right: 10px;
-    }
-    
-    .subscriber-item:last-child {
-      border-bottom: none;
-    }
-    
-    .subscriber-info {
-      flex: 1;
-    }
-    
-    .subscriber-email {
-      font-weight: 600;
-      color: #ffffff;
-      font-size: 1.05rem;
-    }
-    
-    .subscriber-meta {
-      font-size: 12px;
-      color: #aaaaaa;
-      margin-top: 5px;
-    }
-    
-    /* Search */
-    .search-box {
-      position: relative;
-      margin-bottom: 25px;
-    }
-    
-    .search-input {
-      width: 100%;
-      padding: 14px 18px 14px 50px;
-      border: 2px solid #444;
-      border-radius: 10px;
-      font-size: 14px;
-      background: #1a1a1a;
-      color: #ffffff;
-      transition: all 0.3s ease;
-    }
-    
-    .search-input:focus {
-      border-color: #FFD700;
-      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
-    }
-    
-    .search-icon {
-      position: absolute;
-      left: 18px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #FFD700;
-      font-size: 18px;
-    }
-    
-    /* Activity Log */
-    .activity-item {
-      display: flex;
-      align-items: flex-start;
-      padding: 15px 0;
-      border-bottom: 1px solid #444;
-      transition: background 0.2s ease;
-    }
-    
-    .activity-item:hover {
-      background: rgba(255, 215, 0, 0.05);
-      border-radius: 8px;
-      padding-left: 10px;
-      padding-right: 10px;
-    }
-    
-    .activity-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-right: 15px;
-      font-size: 16px;
-      font-weight: bold;
-    }
-    
-    .activity-icon.success { 
-      background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-      color: #1a1a1a;
-    }
-    .activity-icon.danger { 
-      background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
-      color: #ffffff;
-    }
-    .activity-icon.info { 
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-      color: #1a1a1a;
-    }
-    
-    .activity-content {
-      flex: 1;
-    }
-    
-    .activity-text {
-      color: #ffffff;
-      font-size: 14px;
-      font-weight: 500;
-    }
-    
-    .activity-time {
-      color: #aaaaaa;
-      font-size: 12px;
-      margin-top: 3px;
-    }
-    
-    /* Loading states */
-    .loading {
-      opacity: 0.6;
-      pointer-events: none;
-    }
-    
-    .spinner {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid #444;
-      border-top: 3px solid #FFD700;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    /* Chart container */
-    .chart-container {
-      height: 280px;
-      background: #1a1a1a;
-      border-radius: 12px;
-      padding: 20px;
-      border: 2px solid #444;
-      margin-top: 15px;
-    }
-    
-    /* Source stats */
-    .source-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 15px;
-      margin-top: 20px;
-    }
-    
-    .source-stat {
-      text-align: center;
-      padding: 20px;
-      background: #1a1a1a;
-      border-radius: 12px;
-      border: 2px solid #444;
-      transition: all 0.3s ease;
-    }
-    
-    .source-stat:hover {
-      border-color: #FFD700;
-      transform: translateY(-2px);
-    }
-    
-    .source-stat-value {
-      font-size: 2rem;
-      font-weight: 900;
-      color: #FFD700;
-      margin-bottom: 8px;
-    }
-    
-    .source-stat-label {
-      font-size: 0.8rem;
-      color: #aaaaaa;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    /* Responsive improvements */
-    @media (max-width: 768px) {
-      .event-card {
-        padding: 20px;
-      }
-      
-      .event-details {
-        grid-template-columns: 1fr;
-        gap: 15px;
-      }
-      
-      .event-actions {
-        grid-template-columns: 1fr;
-      }
-      
-      .event-actions.four-buttons {
-        grid-template-columns: 1fr;
-        grid-template-rows: repeat(4, 1fr);
-      }
-    }
-
-    .events-container .empty-state h3 {
-      color: #FFD700;
-      margin-bottom: 15px;
-    }
-
-    /* Event filter dropdown improvements */
-    #eventTypeFilter {
-      min-width: 160px;
-      padding: 10px 15px;
-      border-radius: 10px;
-      background: #2a2a2a;
-      border: 2px solid #444;
-      color: #ffffff;
-      font-weight: 600;
-    }
-
-    #eventTypeFilter:focus {
-      border-color: #FFD700;
-      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
-    }
-    
-
-    /* Empty state styling */
-    .events-container .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: #aaaaaa;
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      border: 2px dashed #444;
-    }
-
-
-    /* Loading state improvements */
-    .events-container .loading-placeholder {
-      text-align: center;
-      padding: 60px 20px;
-      color: #aaaaaa;
-    }
-
-    .events-container .spinner {
-      margin: 0 auto 20px;
-    }
-    
-    /* Responsive */
-    @media (max-width: 768px) {
-      .dashboard-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      
-      .container {
-        padding: 15px;
-      }
-      
-      .header h1 {
-        font-size: 2.2rem;
-      }
-      
-      .source-stats {
-        grid-template-columns: 1fr;
-      }
-    }
-    
-    /* Success notification styles */
-    @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-      from { transform: translateX(0); opacity: 1; }
-      to { transform: translateX(100%); opacity: 0; }
-    }
-    
-    /* Utilities */
-    .text-center { text-align: center; }
-    .mb-0 { margin-bottom: 0; }
-    .mt-20 { margin-top: 20px; }
-    .text-success { color: #00ff88; }
-    .text-danger { color: #ff6b35; }
-    .text-muted { color: #aaaaaa; }
-
-    /* Event Management Styles */
-    .event-nav {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 25px;
-      padding: 10px;
-      background: #1a1a1a;
-      border-radius: 10px;
-    }
-
-    .event-nav-btn {
-      padding: 10px 20px;
-      background: #2a2a2a;
-      color: #cccccc;
-      border: 2px solid #444;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-weight: 600;
-    }
-
-    .event-nav-btn.active {
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-      color: #1a1a1a;
-      border-color: #FFD700;
-    }
-
-    .event-nav-btn:hover:not(.active) {
-      background: #3a3a3a;
-      color: #FFD700;
-    }
-
-    .event-view {
-      display: none;
-    }
-
-    .event-view.active {
-      display: block;
-    }
-    
-    .events-container {
-      display: block;
-      margin-top: 20px;
-      width: 100%;
-    }
-
-  
-   .event-card {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      padding: 25px;
-      border: 2px solid #FFD700;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      margin-bottom: 30px;
-      display: block;
-      width: 100%;
-      transition: all 0.3s ease;
-      position: static;
-      clear: both;
-      overflow: visible;
-      z-index: 1;
-    }
-
-   
-    .event-card * {
-      position: static !important;
-      z-index: auto !important;
-    }
-   
-   .event-card:last-child {
-      margin-bottom: 0;
-    }
-    
-    .event-card:hover {
-      transform: translateY(-3px); /* Only apply transform on hover */
-      box-shadow: 0 12px 30px rgba(255, 215, 0, 0.15);
-    }
-
-    /* Event type specific colors */
-    .event-card.tournament {
-      border-left-color: #FF6B35;
-    }
-
-    .event-card.tournament::before {
-      background: radial-gradient(circle, rgba(255, 107, 53, 0.05) 0%, transparent 70%);
-    }
-
-    .event-card.game_night {
-      border-left-color: #4ECDC4;
-    }
-
-    .event-card.game_night::before {
-      background: radial-gradient(circle, rgba(78, 205, 196, 0.05) 0%, transparent 70%);
-    }
-
-    .event-card.special {
-      border-left-color: #8B5CF6;
-    }
-
-    .event-card.special::before {
-      background: radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
-    }
-
-    .event-card.birthday {
-      border-left-color: #FF69B4;
-    }
-
-    .event-card.birthday::before {
-      background: radial-gradient(circle, rgba(255, 105, 180, 0.05) 0%, transparent 70%);
-    }
-
-   .event-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 20px;
-      padding-bottom: 15px;
-      border-bottom: 1px solid rgba(255, 215, 0, 0.2);
-    }
-
-    .event-title {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #FFD700;
-      margin: 0;
-      line-height: 1.3;
-    }
-
-    .event-game-subtitle {
-      font-size: 1rem;
-      color: #aaaaaa;
-      margin-top: 5px;
-      font-weight: 500;
-    }
-
-    .event-badge {
-      padding: 8px 16px; /* More generous padding */
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      white-space: nowrap;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
-
-    .badge-tournament { background: #FF6B35; color: white; }
-    .badge-game_night { background: #4ECDC4; color: #1a1a1a; }
-    .badge-special { background: #FFD700; color: #1a1a1a; }
-    .badge-birthday { background: #FF69B4; color: white; }
-
-    .event-details {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 20px; /* Increased gap */
-      margin-bottom: 20px;
-      padding: 15px 0;
-    }
-
-    .event-detail {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: #cccccc;
-      font-size: 0.95rem;
-      font-weight: 500;
-    }
-
-    .event-detail-icon {
-      color: #FFD700;
-      font-size: 1.2rem;
-      width: 20px; /* Fixed width for alignment */
-      text-align: center;
-    }
-
-    .event-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr; /* Two columns */
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    .event-actions.four-buttons {
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
-    }
-
-    /* Capacity bar improvements */
-  .capacity-bar {
-        width: 100%;
-        height: 28px;
-        background: #1a1a1a;
-        border-radius: 15px;
-        overflow: hidden;
-        margin: 15px 0 20px 0;
-        position: relative; /* FIXED: Ensure proper positioning */
-        border: 2px solid #333;
-        z-index: 1; /* FIXED: Ensure it's above background but below other elements */
-    }
-
-    .capacity-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%);
-        transition: width 0.3s ease;
-        border-radius: 12px;
-        position: relative; /* FIXED: Proper positioning for the fill */
-        z-index: 2;
-    }
-
-    .capacity-text {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        font-weight: 700;
-        font-size: 0.9rem;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.7);
-        z-index: 3; /* FIXED: Ensure text is above the fill */
-        pointer-events: none; /* FIXED: Prevent text from interfering with clicks */
-        white-space: nowrap; /* FIXED: Prevent text wrapping */
-    }
-
-    /* Modal Styles */
-    .modal {
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .modal-content {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      padding: 30px;
-      max-width: 600px;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-      position: relative;
-      border: 2px solid #FFD700;
-    }
-
-    .modal-close {
-      position: absolute;
-      right: 15px;
-      top: 15px;
-      font-size: 28px;
-      font-weight: bold;
-      color: #FFD700;
-      cursor: pointer;
-    }
-
-    .modal-close:hover {
-      color: #FFA500;
-    }
-
-    .attendee-list {
-      max-height: 300px;
-      overflow-y: auto;
-      margin-top: 15px;
-    }
-
-    .attendee-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 10px;
-      background: #1a1a1a;
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-
-    .attendee-email {
-      color: #ffffff;
-      font-weight: 500;
-    }
-
-    .attendee-status {
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-
-    .status-attended { background: #00ff88; color: #1a1a1a; }
-    .status-registered { background: #FFD700; color: #1a1a1a; }
-
-
-    .fc {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      border: 1px solid #444;
-      overflow: hidden;
-    }
-
-    .fc-header-toolbar {
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-      padding: 20px 25px !important;
-      border-bottom: 3px solid #FFD700;
-      margin-bottom: 0 !important;
-    }
-
-    .fc-toolbar-title {
-      color: #1a1a1a !important;
-      font-weight: 800 !important;
-      font-size: 1.8rem !important;
-    }
-
-    .fc-button {
-      background: #1a1a1a !important;
-      border: 2px solid #FFD700 !important;
-      color: #FFD700 !important;
-      font-weight: 600 !important;
-      border-radius: 8px !important;
-      padding: 8px 16px !important;
-      transition: all 0.3s ease !important;
-    }
-
-    .fc-button:hover {
-      background: #FFD700 !important;
-      color: #1a1a1a !important;
-      transform: translateY(-2px) !important;
-      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3) !important;
-    }
-
-    .fc-button-active {
-      background: #FFD700 !important;
-      color: #1a1a1a !important;
-    }
-
-    .fc-view-harness {
-      background: #1a1a1a;
-    }
-
-    .fc-day {
-      background: #2a2a2a !important;
-      border-color: #444 !important;
-      transition: all 0.3s ease;
-    }
-
-    .fc-day:hover {
-      background: #3a3a3a !important;
-    }
-
-    .fc-day-today {
-      background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
-      color: #1a1a1a !important;
-      font-weight: 800 !important;
-    }
-
-    .fc-col-header {
-      background: #2a2a2a !important;
-      border-bottom: 2px solid #FFD700 !important;
-    }
-
-    .fc-col-header-cell-cushion {
-      color: #FFD700 !important;
-      font-weight: 700 !important;
-      text-transform: uppercase !important;
-      letter-spacing: 1px !important;
-      padding: 15px 0 !important;
-    }
-
-    .fc-daygrid-day-number {
-      color: #ffffff !important;
-      font-weight: 700 !important;
-      padding: 8px !important;
-    }
-
-    .fc-event {
-      border: none !important;
-      border-radius: 6px !important;
-      padding: 3px 6px !important;
-      margin: 2px !important;
-      font-weight: 600 !important;
-      font-size: 0.75rem !important;
-      cursor: pointer !important;
-      transition: all 0.2s ease !important;
-      border-left: 3px solid transparent !important;
-    }
-
-    .fc-event:hover {
-      transform: translateY(-1px) !important;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-    }
-
-    .fc-event.tournament {
-      background: linear-gradient(135deg, #FF6B35 0%, #FF4757 100%) !important;
-      color: white !important;
-      border-left-color: #FF6B35 !important;
-    }
-
-    .fc-event.game_night {
-      background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%) !important;
-      color: #1a1a1a !important;
-      border-left-color: #4ECDC4 !important;
-    }
-
-    .fc-event.special {
-      background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%) !important;
-      color: white !important;
-      border-left-color: #8B5CF6 !important;
-    }
-
-    .fc-event.birthday {
-      background: linear-gradient(135deg, #FF69B4 0%, #FF1493 100%) !important;
-      color: white !important;
-      border-left-color: #FF69B4 !important;
-    }
-
-    .fc-more-link {
-      color: #FFD700 !important;
-      font-weight: 600 !important;
-      background: #666 !important;
-      border-radius: 4px !important;
-      padding: 2px 6px !important;
-      margin: 1px !important;
-    }
-
-    .fc-more-link:hover {
-      background: #FFD700 !important;
-      color: #1a1a1a !important;
-    }
-
-    /* Hide time display in calendar events */
-    .fc-event-time {
-      display: none !important;
-    }
-
-    /* Make sure only title shows */
-    .fc-event-title {
-      display: block !important;
-      font-weight: 600 !important;
-    }
-
-
-    /* Make events expand on hover to show full content */
-    .fc-event:hover {
-      transform: translateY(-1px) !important;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-      z-index: 999 !important;
-      overflow: visible !important;
-      white-space: normal !important;
-    }
-
-        fc-list-view {
-      background: #1a1a1a !important;
-    }
-
-    .fc-list-day-cushion {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%) !important;
-      color: #FFD700 !important;
-      font-weight: 700 !important;
-      border-bottom: 2px solid #FFD700 !important;
-    }
-
-    .fc-list-event {
-      background: #2a2a2a !important;
-      border-left: 4px solid #FFD700 !important;
-    }
-
-    .fc-list-event:hover {
-      background: #3a3a3a !important;
-    }
-
-    .fc-list-event-time {
-      color: #FFD700 !important;
-      font-weight: 600 !important;
-    }
-
-    .fc-list-event-title {
-      color: #ffffff !important;
-      font-weight: 600 !important;
-    }
-
-    /* List view event type colors */
-    .fc-list-event.tournament {
-      border-left-color: #FF6B35 !important;
-    }
-
-    .fc-list-event.game_night {
-      border-left-color: #4ECDC4 !important;
-    }
-
-    .fc-list-event.special {
-      border-left-color: #8B5CF6 !important;
-    }
-
-    .fc-list-event.birthday {
-      border-left-color: #FF69B4 !important;
-    }
-
-    /* Analytics Dashboard Styles - ADD TO YOUR EXISTING CSS */
-
-    .analytics-kpi-grid {
-      margin-bottom: 30px;
-    }
-
-    .kpi-card {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      padding: 20px;
-      border-left: 4px solid #FFD700;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-
-    .kpi-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-    }
-
-    .kpi-card.subscriber-kpis { border-left-color: #FFD700; }
-    .kpi-card.event-kpis { border-left-color: #4ECDC4; }
-    .kpi-card.revenue-kpis { border-left-color: #00ff88; }
-    .kpi-card.engagement-kpis { border-left-color: #8B5CF6; }
-
-    .kpi-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-
-    .kpi-header h4 {
-      color: #FFD700;
-      font-size: 1rem;
-      font-weight: 700;
-      margin: 0;
-    }
-
-    .kpi-trend {
-      background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-      color: #1a1a1a;
-      padding: 4px 8px;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      font-weight: 700;
-    }
-
-    .kpi-trend.negative {
-      background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
-      color: #ffffff;
-    }
-
-    .kpi-badge {
-      background: #444;
-      color: #FFD700;
-      padding: 4px 8px;
-      border-radius: 12px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .kpi-main {
-      text-align: center;
-      margin-bottom: 15px;
-    }
-
-    .kpi-value {
-      font-size: 2.5rem;
-      font-weight: 900;
-      color: #FFD700;
-      margin-bottom: 5px;
-      text-shadow: 0 2px 4px rgba(255, 215, 0, 0.3);
-    }
-
-    .kpi-label {
-      color: #cccccc;
-      font-size: 0.9rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .kpi-details {
-      display: flex;
-      justify-content: space-between;
-      gap: 15px;
-    }
-
-    .kpi-detail {
-      flex: 1;
-      text-align: center;
-      padding: 10px;
-      background: #1a1a1a;
-      border-radius: 8px;
-    }
-
-    .kpi-detail-value {
-      display: block;
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: #ffffff;
-      margin-bottom: 3px;
-    }
-
-    .kpi-detail-label {
-      font-size: 0.75rem;
-      color: #aaaaaa;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .analytics-chart-container {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      padding: 20px;
-      border: 1px solid #444;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-
-    .chart-header {
-      margin-bottom: 15px;
-    }
-
-    .chart-header h4 {
-      color: #FFD700;
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin: 0 0 5px 0;
-    }
-
-    .chart-subtitle {
-      color: #aaaaaa;
-      font-size: 0.85rem;
-    }
-
-    .analytics-section {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 15px;
-      padding: 25px;
-      border: 1px solid #444;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-
-    .section-header {
-      margin-bottom: 20px;
-    }
-
-    .section-header h4 {
-      color: #FFD700;
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin: 0 0 5px 0;
-    }
-
-    .section-subtitle {
-      color: #aaaaaa;
-      font-size: 0.9rem;
-    }
-
-    .event-types-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 15px;
-    }
-
-    .event-type-card {
-      background: #1a1a1a;
-      border-radius: 12px;
-      padding: 18px;
-      border-left: 4px solid;
-      transition: all 0.3s ease;
-    }
-
-    .event-type-card:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-    }
-
-    .event-type-card.tournament { border-left-color: #FF6B35; }
-    .event-type-card.game_night { border-left-color: #4ECDC4; }
-    .event-type-card.special { border-left-color: #8B5CF6; }
-    .event-type-card.birthday { border-left-color: #FF69B4; }
-
-    .event-type-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-
-    .event-type-title {
-      color: #ffffff;
-      font-weight: 700;
-      text-transform: capitalize;
-    }
-
-    .event-type-count {
-      background: #FFD700;
-      color: #1a1a1a;
-      padding: 3px 8px;
-      border-radius: 10px;
-      font-size: 0.8rem;
-      font-weight: 700;
-    }
-
-    .event-type-stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .event-type-stat {
-      text-align: center;
-    }
-
-    .event-type-stat-value {
-      display: block;
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #FFD700;
-    }
-
-    .event-type-stat-label {
-      font-size: 0.75rem;
-      color: #aaaaaa;
-      text-transform: uppercase;
-    }
-
-    .loading-placeholder {
-      text-align: center;
-      padding: 40px;
-      color: #aaaaaa;
-    }
-
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-      .analytics-kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      
-      .kpi-details {
-        flex-direction: column;
-        gap: 10px;
-      }
-      
-      .event-types-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* Enhanced Analytics Styles - ADD TO YOUR EXISTING CSS */
-
-    .analytics-status-banner {
-      animation: slideIn 0.5s ease;
-    }
-
-    .chart-toggle-btn {
-      padding: 6px 12px;
-      background: #444;
-      color: #ccc;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .chart-toggle-btn.active {
-      background: #FFD700;
-      color: #1a1a1a;
-      font-weight: 700;
-    }
-
-    .chart-toggle-btn:hover:not(.active) {
-      background: #555;
-      color: #FFD700;
-    }
-
-    .kpi-insight {
-      padding: 8px 12px;
-      background: rgba(255, 215, 0, 0.1);
-      border-radius: 8px;
-      border-left: 3px solid #FFD700;
-      margin-top: 12px !important;
-      font-size: 0.8rem !important;
-      color: #FFD700 !important;
-    }
-
-    .insights-grid {
-      margin-top: 20px;
-    }
-
-    .insight-card {
-      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-      border-radius: 12px;
-      padding: 20px;
-      border-left: 4px solid;
-      transition: all 0.3s ease;
-      cursor: pointer;
-    }
-
-    .insight-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-    }
-
-    .insight-card.growth { border-left-color: #00ff88; }
-    .insight-card.warning { border-left-color: #ff6b35; }
-    .insight-card.opportunity { border-left-color: #8B5CF6; }
-    .insight-card.success { border-left-color: #FFD700; }
-
-    .insight-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .insight-icon {
-      font-size: 1.5rem;
-    }
-
-    .insight-title {
-      color: #FFD700;
-      font-weight: 700;
-      font-size: 1.1rem;
-    }
-
-    .insight-description {
-      color: #cccccc;
-      line-height: 1.5;
-      margin-bottom: 15px;
-    }
-
-    .insight-action {
-      color: #FFD700;
-      font-size: 0.9rem;
-      font-weight: 600;
-      text-decoration: underline;
-      cursor: pointer;
-    }
-
-    .insight-action:hover {
-      color: #FFA500;
-    }
-
-    .performance-metric {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 15px;
-      background: #1a1a1a;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      border-left: 3px solid #FFD700;
-      transition: all 0.3s ease;
-    }
-
-    .performance-metric:hover {
-      background: #2a2a2a;
-      transform: translateX(5px);
-    }
-
-    .metric-label {
-      color: #cccccc;
-      font-weight: 600;
-    }
-
-    .metric-value {
-      color: #FFD700;
-      font-weight: 700;
-      font-size: 1.1rem;
-    }
-
-    .metric-trend {
-      font-size: 0.8rem;
-      margin-left: 8px;
-    }
-
-    .trend-up { color: #00ff88; }
-    .trend-down { color: #ff6b35; }
-    .trend-neutral { color: #aaaaaa; }
-
-    /* Improved event type cards */
-    .event-type-card {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .event-type-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, transparent 0%, var(--accent-color, #FFD700) 50%, transparent 100%);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .event-type-card:hover::before {
-      opacity: 1;
-    }
-
-    .event-type-card.tournament { --accent-color: #FF6B35; }
-    .event-type-card.game_night { --accent-color: #4ECDC4; }
-    .event-type-card.special { --accent-color: #8B5CF6; }
-    .event-type-card.birthday { --accent-color: #FF69B4; }
-
-    /* Responsive improvements */
-    @media (max-width: 1024px) {
-      .analytics-kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      
-      .chart-header {
-        flex-direction: column;
-        gap: 10px;
-      }
-      
-      .analytics-status-banner {
-        flex-direction: column;
-        gap: 15px;
-        text-align: center;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .analytics-kpi-grid {
-        grid-template-columns: 1fr;
-      }
-      
-      .kpi-details {
-        flex-direction: column;
-        gap: 8px;
-      }
-      
-      .insights-grid {
-        grid-template-columns: 1fr;
-      }
-    }
- </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - SideQuest Gaming</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fff; }
+        h1, h2 { color: #FFD700; }
+        a { color: #FFD700; }
+        .contact { background: #2a2a2a; padding: 20px; border-radius: 10px; margin: 20px 0; }
+    </style>
 </head>
 <body>
-    <!-- Header -->
-    <div class="header" style="position: relative;">
-        <h1><span class="logo"></span>SideQuest Canterbury Hub</h1>
-        <p>Subscriber Management & Gaming Venue Management Platform</p>
-        
-        <!-- Logout Button -->
-        <div style="position: absolute; top: 20px; right: 20px;">
-            <a href="/admin/logout" class="btn btn-secondary btn-sm">🔓 Logout</a>
-        </div>
-    </div>
-
-    <!-- Main Dashboard -->
-    <div class="dashboard-grid">
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="card">
-                <!-- Tabs -->
-                <div class="tabs">
-                    <div class="tab active" data-tab="subscribers">👥 Subscribers</div>
-                    <div class="tab" data-tab="analytics">📊 Analytics</div>
-                    <div class="tab" data-tab="tools">🛠️ Tools</div>
-                    <div class="tab" data-tab="campaigns">📧 Campaigns</div>
-                    <div class="tab" data-tab="events">🎮 Events</div>
-                </div>
-
-                <!-- Subscribers Tab -->
-                <div class="tab-content active" id="subscribers">
-                    <div class="card-header">
-                        <h3 class="card-title">Subscriber Management</h3>
-                        <div>
-                            <button class="btn btn-primary btn-sm" onclick="refreshSubscribers()">🔄 Refresh</button>
-                            <button class="btn btn-success btn-sm" onclick="exportCSV()">📤 Export</button>
-                        </div>
-                    </div>
-
-                    <!-- Search -->
-                    <div class="search-box">
-                        <input type="text" class="search-input" id="searchInput" placeholder="Search subscribers...">
-                        <span class="search-icon">🔍</span>
-                    </div>
-
-                    <!-- Add Subscriber -->
-                    <div class="form-group">
-                        <label class="form-label">Add New Subscriber</label>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 12px; align-items: end;">
-                            <input type="text" class="form-input" id="newSubscriberFirstName" placeholder="First name">
-                            <input type="text" class="form-input" id="newSubscriberLastName" placeholder="Last name">
-                            <input type="email" class="form-input" id="newSubscriberEmail" placeholder="Email address">
-                            <button class="btn btn-primary" onclick="addSubscriber()">Add</button>
-                        </div>
-                        <div style="margin-top: 8px;">
-                            <input type="text" class="form-input" id="newSubscriberHandle" placeholder="Gaming handle (optional)" style="max-width: 200px;">
-                        </div>
-                    </div>
-
-                    <!-- Subscriber List -->
-                    <div class="subscriber-list" id="subscriberList">
-                        <div style="text-align: center; padding: 50px; color: #aaaaaa;">
-                            <div class="spinner"></div>
-                            <p style="margin-top: 15px;">Loading subscribers...</p>
-                        </div>
-                    </div>
-                </div>
-         
-                <!-- Analytics Tab -->
-                <div class="tab-content" id="analytics">
-                    <div class="card-header">
-                        <h3 class="card-title">📊 Analytics Dashboard</h3>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <select id="analyticsTimeRange" class="form-select" style="width: 150px;">
-                                <option value="7">Last 7 days</option>
-                                <option value="30" selected>Last 30 days</option>
-                                <option value="90">Last 90 days</option>
-                            </select>
-                            <button class="btn btn-primary btn-sm" onclick="refreshAnalytics()">🔄 Refresh</button>
-                            <button class="btn btn-secondary btn-sm" onclick="exportAnalyticsReport()">📊 Export Report</button>
-                        </div>
-                    </div>
-
-                    <!-- Quick Status Banner -->
-                    <div class="analytics-status-banner" style="background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); border-radius: 12px; padding: 15px; margin-bottom: 25px; border-left: 4px solid #FFD700; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <span style="color: #FFD700; font-weight: 700;">🚀 Business Health: </span>
-                            <span id="businessHealthScore" style="color: #00ff88; font-weight: 700;">Excellent</span>
-                        </div>
-                        <div style="display: flex; gap: 20px; font-size: 0.9rem;">
-                            <span style="color: #cccccc;">📧 <strong id="quickSubscriberCount">-</strong> subscribers</span>
-                            <span style="color: #cccccc;">🎮 <strong id="quickEventCount">-</strong> events</span>
-                            <span style="color: #cccccc;">💰 <strong id="quickRevenue">£-</strong> revenue</span>
-                            <span style="color: #cccccc;" id="brevoSyncQuickStatus">🔄 Brevo: <strong>Synced</strong></span>
-                        </div>
-                    </div>
-
-                    <!-- KPI Cards Grid with Tooltips -->
-                    <div class="analytics-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px;">
-                        
-                        <!-- Subscriber KPIs -->
-                        <div class="kpi-card subscriber-kpis" title="Track subscriber growth and acquisition trends">
-                            <div class="kpi-header">
-                                <h4>👥 Subscribers</h4>
-                                <span class="kpi-trend" id="subscriberTrend">+0%</span>
-                            </div>
-                            <div class="kpi-main">
-                                <div class="kpi-value" id="analyticsSubscribers">-</div>
-                                <div class="kpi-label">Total Subscribers</div>
-                            </div>
-                            <div class="kpi-details">
-                                <div class="kpi-detail">
-                                    <span class="kpi-detail-value" id="newSubscribers">-</span>
-                                    <span class="kpi-detail-label">New this period</span>
-                                </div>
-                                <div class="kpi-detail">
-                                    <span class="kpi-detail-value" id="weeklyGrowth">-</span>
-                                    <span class="kpi-detail-label">This week</span>
-                                </div>
-                            </div>
-                            <div class="kpi-insight" id="subscriberInsight" style="margin-top: 10px; font-size: 0.8rem; color: #aaa; font-style: italic;">
-                                📈 Growing steadily
-                            </div>
-                        </div>
-
-                        <!-- Event Performance KPIs -->
-                        <div class="kpi-card event-kpis" title="Monitor event creation and registration performance">
-                            <div class="kpi-header">
-                                <h4>🎮 Events</h4>
-                                <span class="kpi-badge" id="upcomingEventsBadge">- upcoming</span>
-                            </div>
-                            <div class="kpi-main">
-                                <div class="kpi-value" id="totalEvents">-</div>
-                                <div class="kpi-label">Total Events</div>
-                            </div>
-                            <div class="kpi-details">
-                                <div class="kpi-detail">
-                                    <span class="kpi-detail-value" id="totalRegistrations">-</span>
-                                    <span class="kpi-detail-label">Total Registrations</span>
-                                </div>
-                                <div class="kpi-detail">
-                                    <span class="kpi-detail-value" id="capacityUtil">-%</span>
-                                    <span class="kpi-detail-label">Avg Capacity</span>
-                                </div>
-                            </div>
-                            <div class="kpi-insight" id="eventInsight" style="margin-top: 10px; font-size: 0.8rem; color: #aaa; font-style: italic;">
-                                🎯 Strong demand
-                            </div>
-                        </div>
-
-                        <!-- Revenue KPIs -->
-                        <div class="kpi-card revenue-kpis" title="Track revenue from paid events and pricing performance">
-                            <div class="kpi-header">
-                                <h4>💰 Revenue</h4>
-                                <span class="kpi-badge" id="paidEventsBadge">- paid events</span>
-                            </div>
-                            <div class="kpi-main">
-                                <div class="kpi-value" id="totalRevenue">£-</div>
-                                <div class="kpi-label">Total Revenue</div>
-                            </div>
-                            <div class="kpi-details">
-                                <div class="kpi-detail">
-                                    <span class="kpi-detail-value" id="avgRevenuePerEvent">£-</span>
-                                    <span class="kpi-detail-label">Avg per event</span>
-                                </div>
-                                <div class="kpi-detail">
-                                    <span class="kpi-detail-value" id="revenueGrowth">+-%</span>
-                                    <span class="kpi-detail-label">Growth rate</span>
-                                </div>
-                            </div>
-                            <div class="kpi-insight" id="revenueInsight" style="margin-top: 10px; font-size: 0.8rem; color: #aaa; font-style: italic;">
-                                💡 Consider premium events
-                            </div>
-                        </div>
-
-                        <!-- Engagement KPIs -->
-                        <div class="kpi-card engagement-kpis" title="Monitor how actively subscribers engage with your events">
-                            <div class="kpi-header">
-                                <h4>📊 Engagement</h4>
-                                <span class="kpi-trend" id="attendanceTrend">-%</span>
-                            </div>
-                            <div class="kpi-main">
-                                <div class="kpi-value" id="engagementRate">-%</div>
-                                <div class="kpi-label">Event Participation</div>
-                            </div>
-                            <div class="kpi-details">
-                                <div class="kpi-detail">
-                                    <span class="kpi-detail-value" id="engagedSubscribers">-</span>
-                                    <span class="kpi-detail-label">Active subscribers</span>
-                                </div>
-                                <div class="kpi-detail">
-                                    <span class="kpi-detail-value" id="avgRegistrationsPerEvent">-</span>
-                                    <span class="kpi-detail-label">Avg regs/event</span>
-                                </div>
-                            </div>
-                            <div class="kpi-insight" id="engagementInsight" style="margin-top: 10px; font-size: 0.8rem; color: #aaa; font-style: italic;">
-                                🎯 High engagement
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Charts Section with Improved Layout -->
-                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-bottom: 30px;">
-                        
-                        <!-- Main Growth Chart -->
-                        <div class="analytics-chart-container">
-                            <div class="chart-header">
-                                <h4>📈 Growth Trends</h4>
-                                <div style="display: flex; gap: 10px;">
-                                    <button class="chart-toggle-btn active" data-chart="subscribers" onclick="toggleChartView('subscribers')">Subscribers</button>
-                                    <button class="chart-toggle-btn" data-chart="registrations" onclick="toggleChartView('registrations')">Registrations</button>
-                                </div>
-                            </div>
-                            <div class="chart-container" style="height: 320px;">
-                                <canvas id="mainGrowthChart"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Performance Summary -->
-                        <div class="analytics-chart-container">
-                            <div class="chart-header">
-                                <h4>⚡ Quick Stats</h4>
-                                <span class="chart-subtitle">This period overview</span>
-                            </div>
-                            <div id="performanceSummary" style="padding: 20px 0;">
-                                <!-- Performance metrics will be populated here -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Event Types Performance with Detailed Insights -->
-                    <div class="analytics-section">
-                        <div class="section-header">
-                            <h4>🎮 Event Type Performance</h4>
-                            <div style="display: flex; gap: 10px;">
-                                <span class="section-subtitle">Analyze which event types drive the most engagement</span>
-                                <button class="btn btn-secondary btn-sm" onclick="optimizeEventMix()">💡 Get Recommendations</button>
-                            </div>
-                        </div>
-                        <div id="eventTypesPerformance" class="event-types-grid">
-                            <div class="loading-placeholder">
-                                <div class="spinner"></div>
-                                <p>Loading performance data...</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Key Insights Section -->
-                    <div class="analytics-section" style="margin-top: 25px;">
-                        <div class="section-header">
-                            <h4>🧠 AI Insights & Recommendations</h4>
-                            <span class="section-subtitle">Data-driven suggestions to improve your business</span>
-                        </div>
-                        <div id="aiInsights" class="insights-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
-                            <!-- AI insights will be populated here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tools Tab -->
-                <div class="tab-content" id="tools">
-                    <div class="card-header">
-                        <h3 class="card-title">Admin Tools</h3>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Bulk Import Subscribers</label>
-                        <textarea class="form-textarea" id="bulkEmails" placeholder="Enter emails, one per line:&#10;user1@example.com&#10;user2@example.com&#10;user3@example.com" rows="5"></textarea>
-                        <button class="btn btn-primary mt-20" onclick="bulkImport()">📥 Import Subscribers</button>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Generate QR Code</label>
-                        <div style="display: flex; gap: 12px;">
-                            <input type="text" class="form-input" id="qrUrl" placeholder="Enter signup URL" value="http://localhost:4000/signup">
-                            <button class="btn btn-primary" onclick="generateQR()">Generate QR</button>
-                        </div>
-                        <div class="qr-display" id="qrDisplay" style="display: none;">
-                            <canvas id="qrCanvas"></canvas>
-                            <p style="margin-top: 15px; color: #aaaaaa;">Right-click to save QR code</p>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Data Management</label>
-                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                            <button class="btn btn-secondary" onclick="backupData()">💾 Backup Data</button>
-                            <button class="btn btn-primary" onclick="manualBrevoSync()">🔄 Sync Brevo</button>
-                            <button class="btn btn-danger" onclick="clearAllData()">🗑️ Clear All Data</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Campaigns Tab -->
-                <div class="tab-content" id="campaigns">
-                    <div class="card-header">
-                        <h3 class="card-title">Send Campaign</h3>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Campaign Subject</label>
-                        <input type="text" class="form-input" id="campaignSubject" placeholder="Enter email subject">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">From Name</label>
-                        <input type="text" class="form-input" id="fromName" value="SideQuest Mail" placeholder="Sender name">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Email Content (HTML)</label>
-                        <textarea class="form-textarea" id="campaignBody" placeholder="Enter your email content in HTML format..." rows="8"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Recipients</label>
-                        <p style="color: #aaaaaa; font-size: 14px; margin-bottom: 15px;">
-                            Campaign will be sent to all <span id="campaignRecipientCount">0</span> active subscribers
-                        </p>
-                        <button class="btn btn-primary" onclick="sendCampaign()">📧 Send Campaign</button>
-                    </div>
-                </div>
-
-                <!-- Events Tab -->
-                <div class="tab-content" id="events"> 
-                    <div class="event-nav">
-                        <button class="event-nav-btn active" data-view="list">📋 Event List</button>
-                        <button class="event-nav-btn" data-view="calendar">📅 Calendar View</button>
-                        <button class="event-nav-btn" data-view="create">➕ Create Event</button>
-                    </div>
-
-                    <!-- Events List View -->
-                    <div class="event-view active" id="event-list-view">
-                        <div class="card-header">
-                            <h3 class="card-title">Upcoming Events</h3>
-                            <div>
-                                <select id="eventTypeFilter" 
-                                        class="form-select" 
-                                        style="width: 150px; display: inline-block;" 
-                                        onchange="loadEvents()">
-                                    <option value="all">All Types</option>
-                                    <option value="tournament">Tournaments</option>
-                                    <option value="game_night">Game Nights</option>
-                                    <option value="special">Special Events</option>
-                                    <option value="birthday">Birthdays</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div id="eventsList" class="events-container">
-                            <div style="text-align: center; padding: 50px; color: #aaaaaa;">
-                                <div class="spinner"></div>
-                                <p style="margin-top: 15px;">Loading events...</p>
-                            </div>
-                        </div>
-                    </div> 
-
-                    <!-- Calendar View -->
-                    <div class="event-view" id="event-calendar-view">
-                        <div class="card-header">
-                            <h3 class="card-title">Event Calendar</h3>
-                            <button class="btn btn-primary btn-sm" onclick="refreshCalendar()">🔄 Refresh</button>
-                        </div>
-                        
-                        <!-- FullCalendar Container -->
-                        <div id="fullCalendar" style="padding: 20px;"></div>
-                    </div>
-                    
-                    <!-- Create Event View -->
-                    <div class="event-view" id="event-create-view">
-                        <div class="card-header">
-                            <h3 class="card-title">Create New Event</h3>
-                        </div> 
-
-                        <form id="createEventForm">
-                            <div class="form-group">
-                                <label class="form-label">Event Title*</label>
-                                <input type="text" class="form-input" id="eventTitle" placeholder="e.g Valorant Friday Night Tournament">
-                            </div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                <div class="form-group">
-                                    <label class="form-label">Event Type*</label>
-                                    <select class="form-select" id="eventType" required>
-                                        <option value="">Select Type*</option>
-                                        <option value="tournament">Tournament</option>
-                                        <option value="game_night">Game Night</option>
-                                        <option value="special">Special Event</option>
-                                        <option value="birthday">Birthday</option>
-                                    </select>
-                                </div> 
-                                
-                                <div class="form-group">
-                                    <label class="form-label">Game Title</label>
-                                    <input type="text" class="form-input" id="gameTitle" placeholder="e.g Valorant, Fortnite">
-                                </div>  
-                            </div>
-
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                <div class="form-group">
-                                    <label class="form-label">Start Date & Time*</label>
-                                    <input type="datetime-local" class="form-input" id="eventDateTime" required>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">End Date & Time*</label>
-                                    <input type="datetime-local" class="form-input" id="eventEndTime">
-                                </div>
-                            </div>
-
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-                                <div class="form-group">
-                                    <label class="form-label">Capacity</label>
-                                    <input type="number" class="form-input" id="eventCapacity" min="0" placeholder="0 (Unlimited)">
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">Entry Fee (£)</label>
-                                    <input type="text" class="form-input" id="eventFee" min="0" step="0.01" placeholder="0.00 (Free)">
-                                </div>  
-
-                                <div class="form-group">
-                                    <label class="form-label">Status</label>
-                                    <select class="form-select" id="eventStatus">
-                                        <option value="draft">Upcoming</option>
-                                        <option value="published">Completed</option>
-                                    </select>
-                                </div>    
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Description</label>
-                                <textarea class="form-textarea" id="eventDescription" rows="4" placeholder="Event details, rules, what to bring..."></textarea>
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Prize Pool (JSON format)</label>
-                                <input type="text" class="form-input" id="eventPrizes" placeholder='{"1st": "£100", "2nd": "£50", "3rd": "£25"}'>
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Requirements</label>
-                                <input type="text" class="form-input" id="eventRequirements" placeholder="e.g., Bring your own controller">
-                            </div>
-
-                            <div style="display: flex; gap: 12px;">
-                                <button type="submit" class="btn btn-primary">🎮 Create Event</button>
-                                <button type="button" class="btn btn-secondary" onclick="resetEventForm()">Clear Form</button>
-                            </div>
-                        </form>
-                    </div>
-                    
-                    <!-- Event Statistics View -->
-                    <div class="event-view" id="event-stats-view">
-                        <div class="card-header">
-                            <h3 class="card-title">Event Statistics</h3>
-                        </div>
-                        
-                        <div class="stats-grid" style="margin-top: 30px;">
-                            <div class="stat-card primary">
-                                <div class="stat-value" id="totalEvents">-</div>
-                                <div class="stat-label">Total Events</div>
-                            </div>
-                            <div class="stat-card success">
-                                <div class="stat-value" id="upcomingEvents">-</div>
-                                <div class="stat-label">Upcoming Events</div>
-                            </div>
-                            <div class="stat-card warning">
-                                <div class="stat-value" id="totalEventRegistrations">-</div>
-                                <div class="stat-label">Total Registrations</div>
-                            </div>
-                            <div class="stat-card info">
-                                <div class="stat-value" id="avgCapacityFilled">-%</div>
-                                <div class="stat-label">Avg Capacity Filled</div> 
-                            </div>
-                        </div>
-                        
-                        <div class="chart-header">
-                            <h3 class="card-title">Popular Events</h3>
-                        </div>
-                        <div id="popularEventsList">
-                            <p class="text-muted text-center">Loading Statistics...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Event Modal -->
-                <div id="eventModal" class="modal" style="display: none;">
-                    <div class="modal-content">
-                        <span class="modal-close" onclick="closeEventModal()">&times;</span>
-                        <h2 id="modalEventTitle"></h2>
-                        <div id="modalEventContent"></div>
-                    </div>
-                </div>
-            </div>
-        </div>  
-
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <!-- Quick Actions -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Quick Actions</h3>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <a href="https://app.brevo.com" target="_blank" class="btn btn-primary">
-                        🚀 Open Brevo Dashboard
-                    </a>
-                    <button class="btn btn-success" onclick="window.open('/signup', '_blank')">
-                        👁️ Preview Signup Page
-                    </button>
-                    <button class="btn btn-secondary" onclick="manualBrevoSync()">
-                        🔄 Manual Brevo Sync
-                    </button>
-                </div>
-            </div>
-
-            <!-- Recent Activity -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Recent Activity</h3>
-                </div>
-                <div id="activityLog">
-                    <div style="text-align: center; padding: 30px; color: #aaaaaa;">
-                        <div class="spinner"></div>
-                        <p style="margin-top: 15px;">Loading activity...</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- System Status -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">System Status</h3>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #ffffff;">Backend Server</span>
-                        <span class="text-success" id="serverStatus">⏳ Checking...</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #ffffff;">Brevo API</span>
-                        <span class="text-success" id="brevoStatus">⏳ Checking...</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #ffffff;">Last Activity</span>
-                        <span class="text-muted" id="lastActivity">-</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-  <script>
-    // Configuration
-    const API_BASE = 'https://sidequest-newsletter-production.up.railway.app';
+    <h1>Privacy Policy</h1>
+    <p><strong>Last updated:</strong> {{ current_date }}</p>
     
-    class CSRFManager {
-        constructor(apiBase = 'https://sidequest-newsletter-production.up.railway.app') {
-            this.apiBase = apiBase;
-            this.token = null;
-            this.tokenExpiry = null;
-            this.refreshPromise = null;
-        }
+    <h2>Data Controller</h2>
+    <div class="contact">
+        <p><strong>SideQuest Gaming Cafe</strong><br>
+        Canterbury, UK<br>
+        Email: marketing@sidequestcanterbury.com</p>
+    </div>
+    
+    <h2>What Data We Collect</h2>
+    <ul>
+        <li>Name (first and last)</li>
+        <li>Email address</li>
+        <li>Gaming handle (optional)</li>
+        <li>Event registration data</li>
+    </ul>
+    
+    <h2>How We Use Your Data</h2>
+    <p>We use your data to:</p>
+    <ul>
+        <li>Send you gaming event notifications</li>
+        <li>Process event registrations</li>
+        <li>Send newsletters about gaming activities</li>
+        <li>Manage your account and preferences</li>
+    </ul>
+    
+    <h2>Third Party Services</h2>
+    <p>We use Brevo (formerly Sendinblue) to send emails. Your data is shared with them for this purpose.</p>
+    
+    <h2>Your Rights</h2>
+    <p>Under GDPR, you have the right to:</p>
+    <ul>
+        <li>Access your personal data</li>
+        <li>Rectify incorrect data</li>
+        <li>Erase your data (right to be forgotten)</li>
+        <li>Withdraw consent at any time</li>
+        <li>Data portability</li>
+    </ul>
+    
+    <h2>Data Retention</h2>
+    <p>We keep your data until you unsubscribe or request deletion.</p>
+    
+    <h2>Contact Us</h2>
+    <p>For privacy concerns: <a href="mailto:marketing@sidequestcanterbury.com">marketing@sidequescanterbury.com</a></p>
+    
+    <div style="margin-top: 30px;">
+        <a href="/signup" style="background: #FFD700; color: #1a1a1a; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Back to Signup</a>
+    </div>
+</body>
+</html>
+'''
 
-        async getToken() {
-            // Return existing valid token
-            if (this.token && this.isTokenValid()) {
-                return this.token;
-            }
-
-            // Prevent multiple simultaneous requests
-            if (this.refreshPromise) {
-                return await this.refreshPromise;
-            }
-
-            // Fetch new token
-            this.refreshPromise = this.fetchNewToken();
-            const token = await this.refreshPromise;
-            this.refreshPromise = null;
+# Update your init_database function to include migrations
+def init_database():
+    """Initialize database tables and add missing columns"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            print("❌ Could not connect to database")
+            return False
             
-            return token;
-        }
-
-        async fetchNewToken() {
-            try {
-                const response = await fetch(`${this.apiBase}/api/csrf-token`, {
-                    method: 'GET',
-                    credentials: 'include', // Important for session handling
-                    headers: {
-                        'Accept': 'application/json',
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-                
-                if (data.success && data.csrf_token) {
-                    this.token = data.csrf_token;
-                    this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; // 1 min buffer
-                    console.log('✅ CSRF token obtained successfully');
-                    return this.token;
-                } else {
-                    throw new Error(data.error || 'Failed to get CSRF token');
-                }
-            } catch (error) {
-                console.error('❌ CSRF token fetch failed:', error);
-                throw error;
-            }
-        }
-
-        isTokenValid() {
-            return this.token && this.tokenExpiry && Date.now() < this.tokenExpiry;
-        }
-
-        async refreshToken() {
-            try {
-                const response = await fetch(`${this.apiBase}/api/csrf-refresh`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': this.token || '' // Include current token if available
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const data = await response.json();
-                
-                if (data.success && data.csrf_token) {
-                    this.token = data.csrf_token;
-                    this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000;
-                    console.log('✅ CSRF token refreshed successfully');
-                    return this.token;
-                } else {
-                    throw new Error(data.error || 'Failed to refresh CSRF token');
-                }
-            } catch (error) {
-                console.error('❌ CSRF token refresh failed:', error);
-                // Fallback to getting a new token
-                return await this.fetchNewToken();
-            }
-        }
-
-        clearToken() {
-            this.token = null;
-            this.tokenExpiry = null;
-        }
-    }
-
-    // Create global instance
-    const csrfManager = new CSRFManager();
-
-    // Enhanced fetch wrapper with CSRF protection
-    async function secureApiCall(url, options = {}) {
-        try {
-            // Get CSRF token
-            const csrfToken = await csrfManager.getToken();
+        cursor = conn.cursor()
+        
+        # Create core tables first
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS subscribers (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                source VARCHAR(100) DEFAULT 'manual',
+                status VARCHAR(50) DEFAULT 'active'
+            )
+        ''')
+        
+        # Add name columns if they don't exist
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN first_name VARCHAR(100);')
+            print("✅ Added first_name column")
+        except Exception:
+            print("ℹ️ first_name column already exists")
             
-            // Prepare headers
-            const headers = {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-                ...options.headers
-            };
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN last_name VARCHAR(100);')
+            print("✅ Added last_name column")
+        except Exception:
+            print("ℹ️ last_name column already exists")
+            
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN gaming_handle VARCHAR(50);')
+            print("✅ Added gaming_handle column")
+        except Exception:
+            print("ℹ️ gaming_handle column already exists")
+        
+        # Add computed full_name column (skip if it fails)
+        try:
+            cursor.execute('''
+                ALTER TABLE subscribers ADD COLUMN full_name VARCHAR(200) 
+                GENERATED ALWAYS AS (
+                    CASE 
+                        WHEN first_name IS NOT NULL AND last_name IS NOT NULL 
+                        THEN CONCAT(first_name, ' ', last_name)
+                        ELSE COALESCE(first_name, email)
+                    END
+                ) STORED;
+            ''')
+            print("✅ Added full_name computed column")
+        except Exception as e:
+            print(f"ℹ️ full_name column issue: {e}")
+        
+        # Create other tables...
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS activity_log (
+                id SERIAL PRIMARY KEY,
+                message TEXT NOT NULL,
+                type VARCHAR(50) DEFAULT 'info',
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS events (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                event_type VARCHAR(100) NOT NULL,
+                game_title VARCHAR(255),
+                date_time TIMESTAMP NOT NULL,
+                end_time TIMESTAMP,
+                capacity INTEGER DEFAULT 0,
+                description TEXT,
+                entry_fee DECIMAL(10,2) DEFAULT 0,
+                prize_pool TEXT,
+                status VARCHAR(50) DEFAULT 'draft',
+                image_url TEXT,
+                requirements TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_by VARCHAR(100) DEFAULT 'admin'
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS event_registrations (
+                id SERIAL PRIMARY KEY,
+                event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                subscriber_email VARCHAR(255) NOT NULL,
+                player_name VARCHAR(255),
+                confirmation_code VARCHAR(50) UNIQUE NOT NULL,
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                attended BOOLEAN DEFAULT FALSE,
+                check_in_time TIMESTAMP,
+                notes TEXT
+            )
+        ''')
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        add_gdpr_consent_column()
+        
+        print("✅ Database initialization completed")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Database initialization error: {e}")
+        return False
 
-            // Make the request
-            const response = await fetch(url, {
-                ...options,
-                credentials: 'include', // Important for session cookies
-                headers
-            });
+# Also add this backup function for safety
+def backup_database_schema():
+    """Create a backup of the current database schema"""
+    try:
+        import subprocess
+        import os
+        from datetime import datetime
+        
+        # Only works if you have pg_dump available
+        database_url = os.environ.get('DATABASE_URL')
+        if not database_url:
+            print("⚠️ DATABASE_URL not found, skipping schema backup")
+            return True
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_file = f"schema_backup_{timestamp}.sql"
+        
+        # Create schema-only backup
+        result = subprocess.run([
+            'pg_dump', '--schema-only', '--no-owner', '--no-privileges', 
+            database_url, '-f', backup_file
+        ], capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print(f"✅ Schema backup created: {backup_file}")
+            return True
+        else:
+            print(f"⚠️ Schema backup failed: {result.stderr}")
+            return True  # Don't fail initialization for backup issues
+            
+    except Exception as e:
+        print(f"⚠️ Schema backup error: {e}")
+        return True  # Don't fail initialization for backup issues
 
-            // Handle CSRF errors
-            if (response.status === 403) {
-                const errorData = await response.json().catch(() => ({}));
+# Add these config variables near the top
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest2024')  # Change this!
+
+def require_admin_auth(f):
+    """Decorator to require admin authentication"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        print(f"Checking auth for {request.path}")  # Debug log
+        print(f"Session authenticated: {session.get('admin_authenticated')}")  # Debug log
+        
+        if not session.get('admin_authenticated'):
+            print("Not authenticated - redirecting to login")  # Debug log
+            return redirect('/admin/login')
+        
+        print("Authentication passed")  # Debug log
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        
+        if password == ADMIN_PASSWORD:
+            session['admin_authenticated'] = True
+            session['last_activity'] = datetime.now().isoformat()
+            session.permanent = False
+            return redirect('/admin')
+        else:
+            error_html = '<div class="error">Invalid password</div>'
+            return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', error_html)
+    
+    # Show timeout message if redirected due to session expiry
+    timeout_msg = ''
+    if request.args.get('timeout'):
+        timeout_msg = '<div class="error">Session expired. Please log in again.</div>'
+    
+    return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', timeout_msg)
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Admin logout"""
+    session.pop('admin_authenticated', None)
+    return redirect('/admin/login')
+
+# =============================
+# Database Helper Functions
+# =============================
+def add_subscriber_to_db(email, source, first_name=None, last_name=None, gaming_handle=None, gdpr_consent=False):
+    try:
+        conn = get_db_connection()
+        if not conn:
+            print("❌ Database connection failed")
+            return False
+            
+        cursor = conn.cursor()
+        print(f"🔍 Adding subscriber: {email} with consent: {gdpr_consent}")
+        
+        # Enhanced insert with GDPR fields
+        cursor.execute("""
+            INSERT INTO subscribers (
+                email, first_name, last_name, gaming_handle, source, 
+                gdpr_consent_given, consent_date
+            ) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s) 
+            ON CONFLICT (email) DO UPDATE SET
+                first_name = COALESCE(subscribers.first_name, EXCLUDED.first_name),
+                last_name = COALESCE(subscribers.last_name, EXCLUDED.last_name),
+                gaming_handle = COALESCE(subscribers.gaming_handle, EXCLUDED.gaming_handle),
+                gdpr_consent_given = EXCLUDED.gdpr_consent_given,
+                consent_date = EXCLUDED.consent_date
+        """, (
+            email, first_name, last_name, gaming_handle, source,
+            gdpr_consent, datetime.now() if gdpr_consent else None
+        ))
+        
+        rows_affected = cursor.rowcount
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return rows_affected > 0
+        
+    except Exception as e:
+        print(f"Error adding subscriber to database: {e}")
+        return False
+
+def remove_subscriber_from_db(email):
+    """Remove subscriber from database"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM subscribers WHERE email = %s", (email,))
+        rows_affected = cursor.rowcount
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return rows_affected > 0
+        
+    except Exception as e:
+        print(f"Error removing subscriber from database: {e}")
+        return False
+
+def get_all_subscribers():
+    """Get all subscribers from database with name fields"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return []
+            
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT id, email, first_name, last_name, gaming_handle, full_name, 
+                   date_added, source, status 
+            FROM subscribers 
+            ORDER BY date_added DESC
+        """)
+        subscribers = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        return [dict(sub) for sub in subscribers]
+        
+    except Exception as e:
+        print(f"Error getting subscribers from database: {e}")
+        return []
+
+def log_activity_to_db(message, activity_type="info"):
+    """Add activity to database"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+            
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO activity_log (message, type) VALUES (%s, %s)",
+            (message, activity_type)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        print(f"[{activity_type.upper()}] {message}")
+        
+    except Exception as e:
+        print(f"Error logging activity: {e}")
+
+def get_activity_log(limit=20):
+    """Get activity log from database"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return []
+            
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT * FROM activity_log ORDER BY timestamp DESC LIMIT %s",
+            (limit,)
+        )
+        activities = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        # Convert to the format expected by frontend
+        result = []
+        for activity in activities:
+            result.append({
+                'message': activity['message'],
+                'type': activity['type'],
+                'timestamp': activity['timestamp'].isoformat()
+            })
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error getting activity log: {e}")
+        return []
+
+# =============================
+# Helpers
+# =============================
+
+def log_activity(message: str, activity_type: str = "info") -> None:
+    """Log activity to database"""
+    log_activity_to_db(message, activity_type)
+
+def log_error(error: Exception | str, error_type: str = "error") -> None:
+    err = str(error)
+    log_activity(f"Error: {err}", error_type)
+    print(f"Error [{error_type}]: {err}")
+    print(f"Traceback: {traceback.format_exc()}")
+
+def is_valid_email(email: str) -> bool:
+    try:
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return re.match(pattern, email) is not None
+    except Exception:
+        return False
+
+# =============================
+# Brevo client init
+# =============================
+configuration = None
+api_instance = None
+contacts_api = None
+
+if sib_api_v3_sdk is not None and BREVO_API_KEY:
+    try:
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key['api-key'] = BREVO_API_KEY
+        api_client = sib_api_v3_sdk.ApiClient(configuration)
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(api_client)
+        contacts_api = sib_api_v3_sdk.ContactsApi(api_client)
+    except Exception as e:  # pragma: no cover
+        print(f"❌ Error initializing Brevo API instances: {e}")
+        api_instance = None
+        contacts_api = None
+else:
+    if not BREVO_API_KEY:
+        print("⚠️  BREVO_API_KEY not set — Brevo features disabled.")
+
+def test_brevo_connection() -> tuple[bool, str, str | None]:
+    """Test Brevo API connection with enhanced error handling"""
+    if sib_api_v3_sdk is None or configuration is None:
+        return False, "Brevo SDK not available", None
+    try:
+        account_api = sib_api_v3_sdk.AccountApi(sib_api_v3_sdk.ApiClient(configuration))
+        account_info = account_api.get_account()
+        print("✅ Brevo API connected successfully!")
+        print(f"📧 Account email: {getattr(account_info, 'email', None)}")
+        return True, "connected", getattr(account_info, 'email', None)
+    except ApiException as e:  # type: ignore
+        log_error(e, "api_error")
+        return False, f"Brevo API Error: {str(e)}", None
+    except Exception as e:
+        log_error(e, "api_error")
+        return False, f"Unexpected error: {str(e)}", None
+
+# =============================
+# Brevo list helpers
+# =============================
+
+def add_to_brevo_contact(email: str, attributes: dict = None) -> dict:
+    """Enhanced function to add contact to Brevo with name attributes"""
+    if not AUTO_SYNC_TO_BREVO:
+        return {"success": True, "message": "Brevo sync disabled"}
+    if not contacts_api:
+        return {"success": False, "error": "Brevo API not initialized"}
+    
+    try:
+        # Enhanced contact attributes with names
+        contact_attributes = {
+            'SOURCE': attributes.get('source', 'web') if attributes else 'web',
+            'DATE_ADDED': datetime.now().isoformat(),
+        }
+        
+        # Add name fields if provided
+        if attributes:
+            if attributes.get('first_name'):
+                contact_attributes['FNAME'] = attributes['first_name']
+            if attributes.get('last_name'):
+                contact_attributes['LNAME'] = attributes['last_name']
+            if attributes.get('gaming_handle'):
+                contact_attributes['GAMING_HANDLE'] = attributes['gaming_handle']
+            
+            # Add any additional attributes
+            contact_attributes.update({k: v for k, v in attributes.items() 
+                                     if k not in ['first_name', 'last_name', 'gaming_handle', 'source']})
+        
+        create_contact = sib_api_v3_sdk.CreateContact(
+            email=email,
+            list_ids=[BREVO_LIST_ID],
+            attributes=contact_attributes,
+            email_blacklisted=False,
+            sms_blacklisted=False,
+            update_enabled=True,
+        )
+        
+        result = contacts_api.create_contact(create_contact)
+        
+        # Enhanced logging with names
+        name_info = ""
+        if attributes and (attributes.get('first_name') or attributes.get('last_name')):
+            name_info = f" ({attributes.get('first_name', '')} {attributes.get('last_name', '')})".strip()
+        
+        log_activity(f"✅ Added {email}{name_info} to Brevo with ID: {getattr(result, 'id', 'unknown')}", "success")
+        return {"success": True, "message": f"Added to Brevo", "brevo_id": getattr(result, 'id', None)}
+        
+    except ApiException as e:
+        error_msg = str(e)
+        if "duplicate_parameter" in error_msg or "already exists" in error_msg.lower():
+            try:
+                # Contact exists, try to update with new attributes
+                update_contact = sib_api_v3_sdk.UpdateContact(attributes=contact_attributes)
+                contacts_api.update_contact(email, update_contact)
                 
-                if (errorData.code === 'CSRF_TOKEN_INVALID' || errorData.code === 'CSRF_TOKEN_MISSING') {
-                    console.log('🔄 CSRF token expired, refreshing...');
+                log_activity(f"ℹ️ Updated existing contact {email} in Brevo with new attributes", "info")
+                return {"success": True, "message": "Contact updated in Brevo"}
+            except Exception as e2:
+                log_activity(f"⚠️ Error updating existing contact {email}: {str(e2)}", "warning")
+                return {"success": True, "message": "Contact already in Brevo"}
+        else:
+            log_activity(f"❌ Brevo API Error for {email}: {error_msg}", "danger")
+            return {"success": False, "error": error_msg}
+    except Exception as e:
+        log_activity(f"❌ Unexpected error adding {email} to Brevo: {str(e)}", "danger")
+        return {"success": False, "error": str(e)}
+
+def remove_from_brevo_contact(email: str) -> dict:
+    """🔥 KEY FIX: Remove contact completely from Brevo (not just from list)"""
+    if not AUTO_SYNC_TO_BREVO:
+        return {"success": True, "message": "Brevo sync disabled"}
+    if not contacts_api:
+        return {"success": False, "error": "Brevo API not initialized"}
+    
+    try:
+        # Method 1: Try to delete the contact completely
+        try:
+            contacts_api.delete_contact(email)
+            log_activity(f"✅ Completely removed {email} from Brevo contacts", "success")
+            return {"success": True, "message": f"Removed {email} from Brevo contacts"}
+        except ApiException as e:
+            if e.status == 404:
+                log_activity(f"ℹ️ Contact {email} not found in Brevo (already removed)", "info")
+                return {"success": True, "message": "Contact not found in Brevo (already removed)"}
+            else:
+                raise  # Re-raise if it's not a 404 error
+        
+    except ApiException as e:
+        # Fallback: Remove from list if delete failed
+        try:
+            contacts_api.remove_contact_from_list(
+                BREVO_LIST_ID,
+                sib_api_v3_sdk.RemoveContactFromList(emails=[email])
+            )
+            log_activity(f"⚠️ Could not delete {email} from Brevo, but removed from list", "warning")
+            return {"success": True, "message": f"Removed from list (contact still exists in Brevo)"}
+        except Exception as e2:
+            log_activity(f"❌ Failed to remove {email} from Brevo list: {str(e2)}", "danger")
+            return {"success": False, "error": f"Brevo removal failed: {str(e)}"}
+    except Exception as e:
+        log_activity(f"❌ Unexpected error removing {email}: {str(e)}", "danger")
+        return {"success": False, "error": str(e)}
+
+def bulk_sync_to_brevo(subscribers: list) -> dict:
+    """Bulk sync all subscribers to Brevo with rate limiting"""
+    if not AUTO_SYNC_TO_BREVO:
+        return {"success": False, "error": "Brevo sync disabled"}
+    if not contacts_api:
+        return {"success": False, "error": "Brevo API not initialized"}
+    
+    results = {"synced": 0, "errors": 0, "details": []}
+    
+    try:
+        import time
+        for subscriber in subscribers:
+            try:
+                email = subscriber.get('email') if isinstance(subscriber, dict) else subscriber
+                source = subscriber.get('source', 'unknown') if isinstance(subscriber, dict) else 'unknown'
+                
+                result = add_to_brevo_contact(email, {'source': source})
+                if result.get("success", False):
+                    results["synced"] += 1
+                else:
+                    results["errors"] += 1
+                    results["details"].append(f"{email}: {result.get('error', 'Unknown error')}")
+                
+                # Rate limiting - wait 100ms between requests
+                time.sleep(0.1)
+                
+            except Exception as e:
+                results["errors"] += 1
+                results["details"].append(f"{email}: {str(e)}")
+        
+        log_activity(f"Bulk Brevo sync completed: {results['synced']} synced, {results['errors']} errors", 
+                    "success" if results["errors"] == 0 else "warning")
+        
+        return {"success": True, **results}
+        
+    except Exception as e:
+        log_error(f"Bulk sync failed: {e}")
+        return {"success": False, "error": str(e)}
+
+# =============================
+# Stats helper
+# =============================
+
+def get_signup_stats() -> dict:
+    try:
+        subscribers = get_all_subscribers()
+        now = datetime.now()
+        today = now.date()
+        week_ago = now - timedelta(days=7)
+        
+        total_subscribers = len(subscribers)
+        today_signups = 0
+        week_signups = 0
+        
+        for sub in subscribers:
+            try:
+                # Handle both datetime objects and ISO strings
+                if isinstance(sub['date_added'], str):
+                    signup_date = datetime.fromisoformat(sub['date_added'])
+                else:
+                    signup_date = sub['date_added']
                     
-                    // Clear old token and get new one
-                    csrfManager.clearToken();
-                    const newToken = await csrfManager.getToken();
-                    
-                    // Retry the request with new token
-                    return await fetch(url, {
-                        ...options,
-                        credentials: 'include',
-                        headers: {
-                            ...headers,
-                            'X-CSRFToken': newToken
-                        }
-                    });
-                }
-            }
-
-            return response;
-        } catch (error) {
-            console.error('❌ Secure API call failed:', error);
-            throw error;
-        }
-    }
-
-    // Convenience functions for common HTTP methods
-    async function securePost(url, data = {}) {
-        return await secureApiCall(url, {
-            method: 'POST',
-            body: JSON.stringify(data)
-        });
-    }
-
-    async function securePut(url, data = {}) {
-        return await secureApiCall(url, {
-            method: 'PUT',
-            body: JSON.stringify(data)
-        });
-    }
-
-    async function secureDelete(url) {
-        return await secureApiCall(url, {
-            method: 'DELETE'
-        });
-    }
-
-    // Export for use in your existing code
-    window.csrfManager = csrfManager;
-    window.secureApiCall = secureApiCall;
-    window.securePost = securePost;
-    window.securePut = securePut;
-    window.secureDelete = secureDelete;
-
-    let calendar;
-
-    // Initialize FullCalendar
-    function initFullCalendar() {
-      const calendarEl = document.getElementById('fullCalendar');
-      
-      calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        headerToolbar: {
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,listWeek'
-        },
-        height: 'auto',
-        events: loadCalendarEvents,
+                if signup_date.date() == today:
+                    today_signups += 1
+                if signup_date >= week_ago:
+                    week_signups += 1
+            except (ValueError, KeyError):
+                continue
         
-        // Event styling based on type
-        eventDidMount: function(info) {
-          const eventType = info.event.extendedProps.event_type || 'default';
-          info.el.classList.add(eventType);
-        },
-        
-        dateClick: function(info) {
-        // Pre-fill the date in create form
-        const selectedDate = info.dateStr + 'T18:00'; // Format: 2025-08-22T18:00
-        
-        // Switch to events tab first
-        document.querySelector('.tab[data-tab="events"]').click();
-        
-        // Small delay to ensure tab loads, then switch to create view and set date
-        setTimeout(() => {
-          switchEventView('create');
-
-              // Set the date after view loads
-              setTimeout(() => {
-                const dateInput = document.getElementById('eventDateTime');
-                if (dateInput) {
-                  dateInput.value = selectedDate;
-                  console.log('Date set to:', selectedDate); // For debugging
-                } else {
-                  console.error('eventDateTime input not found');
-                }
-              }, 100);
-            }, 100);
-        },
-
-        // Add hover tooltips to your FullCalendar config
-        eventDidMount: function(info) {
-          const eventType = info.event.extendedProps.event_type || 'default';
-          info.el.classList.add(eventType);
-          
-          // Add tooltip on hover
-          info.el.setAttribute('title', `${info.event.title}\n${info.event.start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
-          
-          // Better hover popup
-          info.el.addEventListener('mouseenter', function() {
-            // Create custom tooltip
-            const tooltip = document.createElement('div');
-            tooltip.style.cssText = `
-              position: absolute;
-              background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
-              color: white;
-              padding: 10px 15px;
-              border-radius: 8px;
-              border: 2px solid #FFD700;
-              font-size: 12px;
-              font-weight: 600;
-              z-index: 9999;
-              box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-              pointer-events: none;
-              max-width: 200px;
-            `;
-            tooltip.textContent = info.event.title;
-            tooltip.id = 'event-tooltip';
-            document.body.appendChild(tooltip);
-            
-            // Position tooltip
-            const rect = info.el.getBoundingClientRect();
-            tooltip.style.left = rect.left + 'px';
-            tooltip.style.top = (rect.top - tooltip.offsetHeight - 5) + 'px';
-          });
-          
-          info.el.addEventListener('mouseleave', function() {
-            const tooltip = document.getElementById('event-tooltip');
-            if (tooltip) tooltip.remove();
-          });
-        },
-        
-        // Click event to view details
-        eventClick: function(info) {
-          showEventDetails(info.event.id);
-        },
-        
-        dayMaxEvents: 3,
-        moreLinkClick: 'popover'
-      });
-      
-      calendar.render();
-    }
-
-    // Load events from your backend
-    async function loadCalendarEvents(fetchInfo, successCallback, failureCallback) {
-      try {
-        // Add date range to ensure we get all events in the visible timeframe
-        const start = fetchInfo.start.toISOString().split('T')[0];
-        const end = fetchInfo.end.toISOString().split('T')[0];
-        
-        console.log('Loading events from', start, 'to', end); // Debug
-        
-        const response = await fetch(`${API_BASE}/api/events/calendar?start=${start}&end=${end}`);
-        const data = await response.json();
-        
-        if (data.success) {
-          console.log('Total events loaded:', data.events.length); // Debug
-          
-          const events = data.events.map(event => ({
-            id: event.id,
-            title: event.title,
-            start: event.start || event.date_time,
-            end: event.end || event.end_time,
-            backgroundColor: event.color,
-            borderColor: event.color,
-            textColor: getTextColor(event.event_type),
-            extendedProps: {
-              event_type: event.event_type,
-              game_title: event.game_title,
-              description: event.description
-            }
-          }));
-          
-          successCallback(events);
-        } else {
-          failureCallback(data.error);
-        }
-      } catch (error) {
-        console.error('Error loading calendar events:', error);
-        failureCallback(error);
-      }
-    }
-
-    // Get text color based on event type
-    function getTextColor(eventType) {
-      switch(eventType) {
-        case 'tournament':
-        case 'special':
-        case 'birthday':
-          return 'white';
-        case 'game_night':
-        default:
-          return '#1a1a1a';
-      }
-    }
-
-    // Event variables
-    let currentEvents = [];
-    let currentEditingEventId = null;
-
-    // Initialize event management
-    function initializeEventManagement() {
-      // Setup event navigation
-      document.querySelectorAll('.event-nav-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const view = this.dataset.view;
-          switchEventView(view);
-        });
-      });
-
-      // Setup create event form
-      const createEventForm = document.getElementById('createEventForm');
-      if (createEventForm) {
-        createEventForm.addEventListener('submit', handleCreateEvent);
-      }
-
-      // Set default datetime to tomorrow at 7pm
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(19, 0, 0, 0);
-      const dateInput = document.getElementById('eventDateTime');
-      if (dateInput) {
-        dateInput.value = tomorrow.toISOString().slice(0, 16);
-      }
-    }
-
-    function switchEventView(view) {
-      // Update navigation buttons
-      document.querySelectorAll('.event-nav-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      document.querySelector(`.event-nav-btn[data-view="${view}"]`).classList.add('active');
-
-      // Update views
-      document.querySelectorAll('.event-view').forEach(v => {
-        v.classList.remove('active');
-      });
-      document.getElementById(`event-${view}-view`).classList.add('active');
-
-      // DON'T reset edit state automatically - only reset when explicitly needed
-      // REMOVE ALL THE currentEditingEventId = null; lines from here!
-
-      // Load appropriate data
-      switch(view) {
-        case 'list':
-          loadEvents();
-          break;
-        case 'calendar':
-          loadCalendarView();
-          break;
-        case 'stats':
-          loadEventStats();
-          break;
-      }
-    }
-
-    // Load events list
-    async function loadEvents() {
-      const listContainer = document.getElementById('eventsList');
-      
-      try {
-        const typeFilter = document.getElementById('eventTypeFilter')?.value || 'all';
-
-        // Show spinner while loading
-        listContainer.innerHTML = `
-          <div style="text-align: center; padding: 50px; color: #aaaaaa;">
-            <div class="spinner"></div>
-            <p style="margin-top: 15px;">Loading events...</p>
-          </div>
-        `;
-
-        // Fetch events
-        const response = await fetch(`${API_BASE}/api/events?type=${typeFilter}&upcoming=true`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const data = await response.json();
-
-        if (data.success) {
-          currentEvents = data.events;
-          renderEventsList(data.events);  // your existing render function
-        } else {
-          console.error('API returned error:', data.error);
-          listContainer.innerHTML = `<p class="text-danger">Failed to load events: ${data.error || 'Unknown error'}</p>`;
-        }
-
-      } catch (error) {
-        console.error('Error loading events:', error);
-        listContainer.innerHTML = `<p class="text-danger">Failed to load events: ${error.message}</p>`;
-      }
-    }
-
-    // Create event card as DOM element (not HTML string)
-    function createEventCardElement(event) {
-      const card = document.createElement('div');
-      card.className = `event-card ${event.event_type || event.type || ''}`;
-      card.onclick = () => showEventDetails(event.id);
-      
-      // Handle multiple possible date field names and formats
-      let eventDate;
-      const possibleDateFields = [
-        event.date_time, 
-        event.start_time, 
-        event.startDate, 
-        event.start
-      ];
-      
-      for (const dateField of possibleDateFields) {
-        if (dateField) {
-          eventDate = new Date(dateField);
-          if (!isNaN(eventDate.getTime())) {
-            break; // Valid date found
-          }
-        }
-      }
-      
-      // Fallback if no valid date found
-      if (!eventDate || isNaN(eventDate.getTime())) {
-        eventDate = new Date();
-        console.warn('Invalid or missing date for event:', event);
-      }
-      
-      const dateStr = eventDate.toLocaleDateString('en-GB', { 
-        weekday: 'short', 
-        day: 'numeric', 
-        month: 'short' 
-      });
-      const timeStr = eventDate.toLocaleTimeString('en-GB', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-      
-      // FIXED: Handle capacity calculation properly with MORE field name variations
-      const registrations = event.attendeeCount || 
-                          event.registrations || 
-                          event.current_attendees || 
-                          event.registration_count || 
-                          event.attendees_count || 0;
-                          
-      const capacity = event.maxAttendees || 
-                      event.capacity || 
-                      event.max_capacity || 
-                      event.event_capacity || 0;
-                      
-      const capacityText = capacity > 0 ? `${registrations}/${capacity}` : `${registrations} registered`;
-      const capacityPercent = capacity > 0 ? Math.min((registrations / capacity) * 100, 100) : 0;
-
-      // Handle different event type field names
-      const eventType = event.event_type || event.type || 'special';
-      const eventTitle = event.title || event.name || 'Untitled Event';
-      const gameTitle = event.game_title || event.game || event.gameTitle;
-      const entryFee = parseFloat(event.entry_fee || event.fee || event.price || 0);
-      
-      // Build the card content
-      card.innerHTML = `
-        <div class="event-header">
-          <div>
-            <h3 class="event-title">${escapeHtml(eventTitle)}</h3>
-            ${gameTitle ? `<div class="event-game-subtitle">${escapeHtml(gameTitle)}</div>` : ''}
-          </div>
-          <span class="event-badge badge-${eventType}">${eventType.replace('_', ' ').toUpperCase()}</span>
-        </div>
-        
-        <div class="event-details">
-          <div class="event-detail">
-            <span class="event-detail-icon">📅</span>
-            ${dateStr}
-          </div>
-          <div class="event-detail">
-            <span class="event-detail-icon">🕒</span>
-            ${timeStr}
-          </div>
-          <div class="event-detail">
-            <span class="event-detail-icon">👥</span>
-            ${capacityText}
-          </div>
-          ${entryFee > 0 ? `
-            <div class="event-detail">
-              <span class="event-detail-icon">💰</span>
-              £${entryFee.toFixed(2)}
-            </div>
-          ` : ''}
-        </div>
-        
-        ${capacity > 0 ? `
-          <div class="capacity-bar">
-            <div class="capacity-fill" style="width: ${Math.min(capacityPercent, 100)}%"></div>
-            <div class="capacity-text">${Math.round(capacityPercent)}% Full</div>
-          </div>
-        ` : ''}
-        
-        <div class="event-actions">
-          <button class="btn btn-primary" onclick="quickRegister(${event.id}); event.stopPropagation();">
-            QUICK REGISTER
-          </button>
-          <button class="btn btn-secondary" onclick="editEvent(${event.id}); event.stopPropagation();">
-            EDIT EVENT
-          </button>
-          <button class="btn btn-success" onclick="viewAttendees(${event.id}); event.stopPropagation();">
-            VIEW ATTENDEES
-          </button>
-          <button class="btn btn-warning" onclick="sendEventMarketing(${event.id}); event.stopPropagation();">
-            📊 MARKETING
-          </button>
-        </div>
-      `;
-      
-      return card;
-    }
-
-    // Helper function to escape HTML
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    // Marketing function wrapper (called by event card buttons)
-    async function sendEventMarketing(eventId) {
-      return showMarketing(eventId);
-    }
-
-    async function testPublicSignup(eventId) {
-      const signupUrl = `${window.location.origin}/signup/event/${eventId}`;
-      
-      try {
-        const response = await fetch(`/api/events/${eventId}/public`);
-        const data = await response.json();
-        
-        if (data.success) {
-          console.log('✅ Public signup page should work:', signupUrl);
-          window.open(signupUrl, '_blank');
-          return true;
-        } else {
-          console.error('❌ Event not found for public signup');
-          return false;
-        }
-      } catch (error) {
-        console.error('❌ Error testing public signup:', error);
-        return false;
-      }
-    }
-
-    // Social proof badge display function
-    function showBadge(message, type = 'urgency') {
-      const badgeContainer = document.getElementById('social-proof-container') || createBadgeContainer();
-      
-      const badge = document.createElement('div');
-      badge.className = `social-proof-badge ${type}`;
-      badge.innerHTML = message;
-      
-      // Clear existing badges
-      badgeContainer.innerHTML = '';
-      badgeContainer.appendChild(badge);
-      
-      // Animate in
-      setTimeout(() => badge.classList.add('visible'), 100);
-    }
-
-    function createBadgeContainer() {
-      const container = document.createElement('div');
-      container.id = 'social-proof-container';
-      container.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 1000;
-        max-width: 280px;
-      `;
-      document.body.appendChild(container);
-      return container;
-    }
-
-    async function testEventRegistration(eventId) {
-      console.log(`🧪 Testing registration flow for event ${eventId}`);
-      
-      try {
-        // 1. Test public event details
-        const eventResponse = await fetch(`/api/events/${eventId}/public`);
-        const eventData = await eventResponse.json();
-        
-        if (!eventData.success) {
-          console.error('❌ Event not found');
-          return false;
-        }
-        
-        console.log('✅ Event details loaded:', eventData.event.title);
-        
-        // 2. Test QR code generation
-        const qrUrl = await generateEventQR(eventId);
-        console.log('✅ QR code generated:', qrUrl);
-        
-        // 3. Test signup URL
-        const signupUrl = `${window.location.origin}/signup/event/${eventId}`;
-        console.log('✅ Signup URL:', signupUrl);
+        source_counts = defaultdict(int)
+        for sub in subscribers:
+            source_counts[sub.get('source', 'unknown')] += 1
         
         return {
-          eventTitle: eventData.event.title,
-          signupUrl: signupUrl,
-          qrUrl: qrUrl,
-          success: true
-        };
-        
-      } catch (error) {
-        console.error('❌ Registration test failed:', error);
-        return { success: false, error: error.message };
-      }
-    }
-
-    // Debug function to check all events
-    async function debugAllEventSignups() {
-      try {
-        const response = await fetch('/api/events');
-        const data = await response.json();
-        
-        if (data.success) {
-          console.log(`Found ${data.events.length} events. Testing signup functionality...`);
-          
-          for (const event of data.events.slice(0, 3)) { // Test first 3 events
-            console.log(`\n=== Testing Event: ${event.title} (ID: ${event.id}) ===`);
-            const result = await testEventRegistration(event.id);
-            
-            if (result.success) {
-              console.log('✅ All systems working for this event');
-            } else {
-              console.log('❌ Issues found:', result.error);
-            }
-          }
+            "total": total_subscribers,
+            "today": today_signups,
+            "week": week_signups,
+            "sources": dict(source_counts),
         }
-      } catch (error) {
-        console.error('Debug failed:', error);
-      }
-    }
+    except Exception as e:
+        print(f"Error calculating stats: {e}")
+        return {"total": 0, "today": 0, "week": 0, "sources": {}}
 
-   async function generateEventQR(eventId) {
-      const signupUrl = `${window.location.origin}/signup/event/${eventId}`;
-      
-      try {
-        // Try backend QR generation first
-        const response = await fetch(`/api/events/${eventId}/qr-code`);
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            return data.qr_code;
-          }
-        }
-        
-        // Fallback to external QR service
-        const qrServiceUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signupUrl)}`;
-        console.log('Using fallback QR service');
-        return qrServiceUrl;
-        
-      } catch (error) {
-        console.error('QR generation error:', error);
-        // Final fallback
-        return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(signupUrl)}`;
-      }
-    }
+# =============================
+# Middleware logging
+# =============================
 
-    async function showMarketing(eventId) {
-      try {
-        // Test the registration flow first
-        const testResult = await testEventRegistration(eventId);
+@app.before_request
+def before_request_handler():
+    # Session timeout check for admin routes
+    if request.path.startswith('/admin') and request.path != '/admin/login':
+        if not session.get('admin_authenticated'):
+            return redirect('/admin/login')
         
-        if (!testResult.success) {
-          alert('❌ Public signup not working for this event: ' + testResult.error);
-          return;
-        }
+        # Check 30-minute timeout
+        last_activity = session.get('last_activity')
+        if last_activity:
+            last_time = datetime.fromisoformat(last_activity)
+            if datetime.now() - last_time > timedelta(minutes=30):
+                session.clear()
+                return redirect('/admin/login?timeout=1')
         
-        // Get event details first
-        const event = currentEvents.find(e => e.id === eventId);
-        if (!event) {
-          alert('Event data not found');
-          return;
-        }
-        
-        const signupUrl = testResult.signupUrl;
-        const qrCodeUrl = testResult.qrUrl;
-        
-        const modal = document.getElementById('eventModal');
-        const modalTitle = document.getElementById('modalEventTitle');
-        const modalContent = document.getElementById('modalEventContent');
-        
-        modalTitle.textContent = '📊 Marketing Assets - ' + event.title;
-        
-        modalContent.innerHTML = `
-          <!-- Status Check -->
-          <div style="background: #1a1a1a; border-radius: 12px; padding: 15px; border-left: 4px solid #00ff88; margin-bottom: 20px;">
-            <h4 style="color: #00ff88; margin-bottom: 10px;">✅ Public Signup Status</h4>
-            <p style="color: #ccc; font-size: 0.9rem;">Public registration is working for this event!</p>
-          </div>
-          
-          <!-- Event Summary -->
-          <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; border-left: 4px solid #FFD700;">
-            <h4 style="color: #FFD700; margin-bottom: 15px;">📋 Event Summary</h4>
-            <div style="display: grid; gap: 10px; color: #ccc; font-size: 0.9rem;">
-              <div><strong>Game:</strong> ${event.game_title || 'Not specified'}</div>
-              <div><strong>Date:</strong> ${new Date(event.date_time).toLocaleDateString('en-GB', { 
-                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
-              })}</div>
-              <div><strong>Time:</strong> ${new Date(event.date_time).toLocaleTimeString('en-GB', { 
-                hour: '2-digit', minute: '2-digit' 
-              })}</div>
-              <div><strong>Capacity:</strong> ${event.capacity > 0 ? event.capacity + ' players' : 'Unlimited'}</div>
-              <div><strong>Fee:</strong> ${event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE'}</div>
-            </div>
-          </div>
-          
-          <!-- Signup URL -->
-          <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; margin-top: 20px;">
-            <h4 style="color: #FFD700; margin-bottom: 15px;">🌐 Public Signup URL</h4>
-            <div style="display: flex; gap: 10px; align-items: center;">
-              <input type="text" value="${signupUrl}" readonly 
-                    style="flex: 1; padding: 10px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 0.85rem;">
-              <button class="btn btn-primary btn-sm" onclick="copyToClipboard('${signupUrl}')">📋 Copy</button>
-              <button class="btn btn-success btn-sm" onclick="window.open('${signupUrl}', '_blank')">👁️ Test</button>
-            </div>
-          </div>
-          
-          <!-- QR Code -->
-          <div style="background: #1a1a1a; border-radius: 12px; padding: 20px; text-align: center; margin-top: 20px;">
-            <h4 style="color: #FFD700; margin-bottom: 15px;">📱 QR Code</h4>
-            <img src="${qrCodeUrl}" style="max-width: 200px; border-radius: 8px; background: white; padding: 10px;" 
-                alt="QR Code for ${event.title}" onload="console.log('✅ QR Code loaded successfully')" 
-                onerror="console.error('❌ QR Code failed to load')">
-            <div style="margin-top: 15px;">
-              <button class="btn btn-primary btn-sm" onclick="downloadQR('${qrCodeUrl}', '${event.title}')">💾 Download</button>
-              <button class="btn btn-secondary btn-sm" onclick="testPublicSignup(${eventId})">🧪 Test Signup</button>
-            </div>
-            <p style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">Scan to register for this event</p>
-          </div>
-          
-          <div style="margin-top: 25px; text-align: center;">
-            <button class="btn btn-primary" onclick="debugAllEventSignups()">🔍 Debug All Events</button>
-            <button class="btn btn-secondary" onclick="closeEventModal()">Close</button>
-          </div>
-        `;
-        
-        modal.style.display = 'flex';
-        
-        // Test the QR code after showing modal
-        console.log('🧪 Testing marketing assets for event:', event.title);
-        
-      } catch (error) {
-        console.error('Error showing marketing assets:', error);
-        alert('Failed to load marketing assets: ' + error.message);
-      }
-    }
-        
-    // Render events list
-    function renderEventsList(events) {
-      const listContainer = document.getElementById('eventsList');
-      
-      if (!events || events.length === 0) {
-        listContainer.innerHTML = `
-          <div class="empty-state">
-            <h3>No events found</h3>
-            <p>No upcoming events match your current filter criteria.</p>
-          </div>
-        `;
-        return;
-      }
-
-      // Clear container completely first
-      listContainer.innerHTML = '';
-      
-      // Create each event as a separate DOM element (not HTML string)
-      events.forEach(event => {
-        const eventCard = createEventCardElement(event);
-        listContainer.appendChild(eventCard);
-      });
-    }
-    function copySocialText(title, dateTime, gameTitle, entryFee, signupUrl) {
-      const eventDate = new Date(dateTime);
-      const socialText = `🎮 ${title} at SideQuest Canterbury!
-
-    📅 ${eventDate.toLocaleDateString('en-GB', { 
-      weekday: 'long', day: 'numeric', month: 'long' 
-    })}
-    ⏰ ${eventDate.toLocaleTimeString('en-GB', { 
-      hour: '2-digit', minute: '2-digit' 
-    })}
-    ${gameTitle ? '🎯 Game: ' + gameTitle + '\n' : ''}${entryFee > 0 ? '💰 Entry: £' + entryFee + '\n' : '🆓 FREE Entry!\n'}
-    Register: ${signupUrl}
-
-    #Gaming #${gameTitle ? gameTitle.replace(/\s+/g, '') : 'Gaming'} #Canterbury #SideQuest`;
-      
-      copyToClipboard(socialText);
-    }
-
-    function createEventAnnouncement(eventId) {
-      const event = currentEvents.find(e => e.id === eventId);
-      if (!event) {
-        alert('Event data not found');
-        return;
-      }
-      
-      closeEventModal();
-      document.querySelector('.tab[data-tab="campaigns"]').click();
-      
-      setTimeout(() => {
-        const subjectField = document.getElementById('campaignSubject');
-        if (subjectField) {
-          subjectField.value = `🎮 New Event: ${event.title}`;
-        }
-        
-        const bodyField = document.getElementById('campaignBody');
-        if (bodyField) {
-          bodyField.value = `Professional HTML email template here...`;
-        }
-        
-        showSuccess('📧 Email template created!');
-      }, 500);
-    }
-
-    function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        showSuccess('📋 Copied to clipboard!');
-      }).catch(() => {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showSuccess('📋 Copied to clipboard!');
-      });
-    }
-
-    function downloadQR(dataUrl, eventTitle) {
-      try {
-        const link = document.createElement('a');
-        link.download = `${eventTitle ? eventTitle.replace(/[^a-zA-Z0-9]/g, '_') : 'event'}_qr_code.png`;
-        link.href = dataUrl;
-        link.click();
-        showSuccess('💾 QR code downloaded!');
-      } catch (error) {
-        window.open(dataUrl, '_blank');
-        showSuccess('💾 QR code opened in new window!');
-      }
-    }
-
-
-
-
-    // Add these helper functions too
-    function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        showSuccess('📋 Copied to clipboard!');
-      }).catch(() => {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showSuccess('📋 Copied to clipboard!');
-      });
-    }
-
-    function downloadQR(dataUrl, eventTitle) {
-      try {
-        const link = document.createElement('a');
-        link.download = `${eventTitle ? eventTitle.replace(/[^a-zA-Z0-9]/g, '_') : 'event'}_qr_code.png`;
-        link.href = dataUrl;
-        link.click();
-        showSuccess('💾 QR code downloaded!');
-      } catch (error) {
-        console.error('Error downloading QR code:', error);
-        // Fallback - open in new window
-        window.open(dataUrl, '_blank');
-        showSuccess('💾 QR code opened in new window!');
-      }
-    }
-   
-
-    // Fixed handleCreateEvent function
-    async function handleCreateEvent(e) {
-    e.preventDefault();
+        session['last_activity'] = datetime.now().isoformat()
     
-    if (e.target.dataset.submitting === 'true') return;
-    e.target.dataset.submitting = 'true';
+    # Log non-routine requests
+    routine_paths = ['/subscribers', '/stats', '/activity', '/health']
+    if request.path not in routine_paths:
+        log_activity(f"Request to {request.path} [{request.method}]", "info")
 
-    // ADD THESE DEBUG LINES:
-    console.log('DEBUG: currentEditingEventId =', currentEditingEventId);
-    const isEditing = currentEditingEventId !== null;
-    console.log('DEBUG: isEditing =', isEditing);
-      
-      try {
-        const eventData = {
-          title: document.getElementById('eventTitle').value,
-          event_type: document.getElementById('eventType').value,
-          game_title: document.getElementById('gameTitle').value,
-          date_time: document.getElementById('eventDateTime').value,
-          end_time: document.getElementById('eventEndTime').value,
-          capacity: parseInt(document.getElementById('eventCapacity').value) || 0,
-          entry_fee: parseFloat(document.getElementById('eventFee').value) || 0,
-          status: document.getElementById('eventStatus').value,
-          description: document.getElementById('eventDescription').value,
-          prize_pool: document.getElementById('eventPrizes').value,
-          requirements: document.getElementById('eventRequirements').value
-        };
+@app.after_request
+def log_response_info(response):
+    try:
+        if response.status_code >= 400:
+            log_activity(f"Error response {response.status_code} to {request.path}", "error")
+        return response
+    except Exception:
+        return response
 
-        let response;
+# =============================
+# Routes
+# =============================
 
-
-        if (isEditing) {
-              console.log('DEBUG: Making PUT request to update event:', currentEditingEventId);
-              response = await securePut(`${API_BASE}/api/events/${currentEditingEventId}`, eventData);
-            } else {
-              console.log('DEBUG: Making POST request to create new event');
-              response = await securePost(`${API_BASE}/api/events`, eventData);
+@app.route('/health', methods=['GET'])
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Enhanced health check with Brevo sync status"""
+    try:
+        brevo_connected, brevo_status, brevo_email = test_brevo_connection()
+        db_connected = get_db_connection() is not None
+        
+        # Test Brevo contact operations
+        brevo_ops_working = False
+        if brevo_connected and contacts_api:
+            try:
+                # Test with a dummy email to see if operations work
+                test_result = add_to_brevo_contact("test@example.com", {'test': True})
+                brevo_ops_working = test_result.get("success", False) or "already exists" in test_result.get("message", "")
+            except:
+                brevo_ops_working = False
+        
+        return jsonify({
+            "status": "healthy",
+            "subscribers_count": len(get_all_subscribers()),
+            "brevo_sync_enabled": AUTO_SYNC_TO_BREVO,
+            "brevo_status": "connected" if brevo_connected else brevo_status,
+            "brevo_operations_working": brevo_ops_working,
+            "brevo_email": brevo_email,
+            "brevo_list_id": BREVO_LIST_ID,
+            "activities": len(get_activity_log(100)),
+            "api_instances_initialized": (api_instance is not None and contacts_api is not None),
+            "database_connected": db_connected,
+            "sync_functions": {
+                "add_contact": "add_to_brevo_contact",
+                "remove_contact": "remove_from_brevo_contact", 
+                "bulk_sync": "bulk_sync_to_brevo"
             }
+        })
+    except Exception as e:
+        error_msg = f"Health check error: {str(e)}"
+        log_error(error_msg)
+        return jsonify({
+            "status": "error",
+            "error": error_msg,
+            "brevo_status": "error",
+            "database_connected": False,
+        }), 500
 
-      const data = await response.json();
-
-      if (data.success) {
-        const action = isEditing ? 'updated' : 'created'; // Fix: Use isEditing variable consistently
-        showSuccess(`Event ${action} successfully!`);
+@app.route('/debug/brevo-test/<email>', methods=['POST'])
+def debug_brevo_test(email):
+    """Debug endpoint to test Brevo operations"""
+    try:
+        if not is_valid_email(email):
+            return jsonify({"error": "Invalid email"}), 400
         
-        // Reset edit state and form
-        currentEditingEventId = null;
-        resetCreateFormUI();
-        resetEventForm();
-        switchEventView('list');
+        # Test add
+        add_result = add_to_brevo_contact(email, {'source': 'debug_test'})
         
-        // If published, offer to send announcement (only for new events)
-        if (!isEditing && eventData.status === 'published') { // Fix: Use isEditing here too
-          if (confirm('Would you like to send an announcement email to all subscribers?')) {
-            sendEventAnnouncement(data.event_id);
-          }
-        }
-      } else {
-        alert('Error: ' + (data.error || `Failed to ${isEditing ? 'update' : 'create'} event`)); // Fix: Use isEditing
-      }
-      } catch (error) {
-        const isEditing = currentEditingEventId !== null;
-        console.error(`Error ${isEditing ? 'updating' : 'creating'} event:`, error);
-        alert(`Failed to ${isEditing ? 'update' : 'create'} event`);
-      } finally {
-        e.target.dataset.submitting = 'false';
-      }
-    }
-
-    // Quick register subscriber to event
-    // Also enhance the quickRegister function to refresh attendees after registration:
-    async function quickRegister(eventId) {
-      const email = prompt('Enter subscriber email to register:');
-      if (!email) return;
-
-      try {
-        const response = await securePost(`${API_BASE}/api/events/${eventId}/register`, {
-            email: email.trim().toLowerCase()
-        });
-
-        const data = await response.json();
+        # Test remove  
+        remove_result = remove_from_brevo_contact(email)
         
-       if (data.success) {
-          // For manual admin registration, always show simple success message
-          // Admin can inform about Discord in person
-          showSuccess(`✅ Registered ${email} - Confirmation: ${data.confirmation_code}`);
-          
-          // Show success message with Discord link for tournaments
-          if (isTournament) {
-            showSuccessWithDiscord(email, data.confirmation_code, event.title);
-          } else {
-            showSuccess(`✅ Registered ${email} - Confirmation: ${data.confirmation_code}`);
-          }
-          
-          // Update the event card and refresh data
-          await updateEventCard(eventId, data.updated_event);
-          loadEvents();
-          
-          // Refresh attendees modal if it's open
-          const modal = document.getElementById('eventModal');
-          if (modal && modal.style.display === 'flex') {
-            setTimeout(() => viewAttendees(eventId), 500);
-          }
-        } else {
-          alert('❌ Error: ' + (data.error || 'Failed to register'));
-        }
-      } catch (error) {
-        console.error('Error registering for event:', error);
-        alert('❌ Network error: ' + error.message);
-      }
-    }
-
-    function showSuccessWithDiscord(email, confirmationCode, eventTitle) {
-        // Create enhanced success notification with Discord link
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 12px 40px rgba(255, 215, 0, 0.5);
-            z-index: 1000;
-            max-width: 400px;
-            font-weight: 600;
-            border: 3px solid #FFD700;
-            animation: slideIn 0.4s ease;
-        `;
+        return jsonify({
+            "email": email,
+            "add_result": add_result,
+            "remove_result": remove_result,
+            "brevo_config": {
+                "api_key_set": bool(BREVO_API_KEY),
+                "auto_sync": AUTO_SYNC_TO_BREVO,
+                "list_id": BREVO_LIST_ID,
+                "contacts_api_ready": contacts_api is not None
+            }
+        })
         
-        notification.innerHTML = `
-            <div style="margin-bottom: 15px;">
-                <strong>✅ Tournament Registration Successful!</strong>
-            </div>
-            <div style="margin-bottom: 10px; color: #1a1a1a;">
-                <strong>Player:</strong> ${email}<br>
-                <strong>Event:</strong> ${eventTitle}<br>
-                <strong>Confirmation:</strong> ${confirmationCode}
-            </div>
-            <div style="margin-top: 20px; padding: 15px; background: rgba(26, 26, 26, 0.1); border-radius: 10px; border: 2px solid #1a1a1a;">
-                <div style="font-weight: 700; margin-bottom: 8px; color: #1a1a1a;">
-                    🎮 Join Our Discord Community:
+    except Exception as e:
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+
+@app.route('/debug/subscribers-sync', methods=['POST']) 
+def debug_subscribers_sync():
+    """Debug endpoint to sync a few test subscribers"""
+    try:
+        subscribers = get_all_subscribers()[:5]  # Test with first 5 only
+        
+        if not subscribers:
+            return jsonify({"message": "No subscribers to test"}), 200
+        
+        result = bulk_sync_to_brevo(subscribers)
+        
+        return jsonify({
+            "test_count": len(subscribers),
+            "result": result,
+            "test_emails": [sub['email'] for sub in subscribers]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/subscribers', methods=['GET'])
+def get_subscribers():
+    try:
+        subscribers = get_all_subscribers()
+        stats = get_signup_stats()
+        
+        return jsonify({
+            "success": True,
+            "subscribers": [sub['email'] for sub in subscribers],
+            "subscriber_details": subscribers,  # Now includes name fields
+            "count": len(subscribers),
+            "stats": stats,
+        })
+    except Exception as e:
+        error_msg = f"Error getting subscribers: {str(e)}"
+        print(f"Subscribers error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/subscribe', methods=['POST'])
+@csrf_required
+def add_subscriber():
+    """Enhanced subscribe route with GDPR compliance"""
+    try:
+        data = request.json or {}
+        email = str(data.get('email', '')).strip().lower()
+        source = data.get('source', 'manual')
+        first_name = data.get('firstName', '').strip()
+        last_name = data.get('lastName', '').strip()
+        gaming_handle_raw = data.get('gamingHandle')
+        gaming_handle = gaming_handle_raw.strip() if gaming_handle_raw else None
+        
+        # GDPR COMPLIANCE CHECK - This is the key fix
+        gdpr_consent = data.get('gdprConsent', False)
+        
+        # Reject if no consent provided for sources that require it
+        if source in ['signup_page_gdpr', 'manual'] and not gdpr_consent:
+            return jsonify({
+                "success": False, 
+                "error": "GDPR consent is required to process your personal data"
+            }), 400
+        
+        # Enhanced validation
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+        if not is_valid_email(email):
+            return jsonify({"success": False, "error": "Invalid email format"}), 400
+            
+        # Validate name fields for GDPR sources
+        if source in ['signup_page_gdpr'] and (not first_name or not last_name):
+            return jsonify({"success": False, "error": "First name and last name are required"}), 400
+            
+        if first_name and len(first_name.strip()) < 2:
+            return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
+            
+        if last_name and len(last_name.strip()) < 2:
+            return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
+        
+        # Name validation regex
+        if first_name or last_name:
+            import re
+            name_pattern = r'^[a-zA-Z\s\'-]+$'
+            if first_name and not re.match(name_pattern, first_name):
+                return jsonify({"success": False, "error": "Invalid characters in first name"}), 400
+            if last_name and not re.match(name_pattern, last_name):
+                return jsonify({"success": False, "error": "Invalid characters in last name"}), 400
+        
+        # Gaming handle validation
+        if gaming_handle and (len(gaming_handle) < 3 or len(gaming_handle) > 30):
+            return jsonify({"success": False, "error": "Gaming handle must be 3-30 characters"}), 400
+        
+        # Check if already exists
+        existing_subscribers = get_all_subscribers()
+        if any(sub['email'] == email for sub in existing_subscribers):
+            return jsonify({"success": False, "error": "Email already subscribed"}), 400
+        
+        # Add to database with GDPR consent recorded
+        if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle, gdpr_consent):
+            # Enhanced Brevo sync with names and consent tracking
+            brevo_attributes = {
+                'source': source,
+                'date_added': datetime.now().isoformat(),
+                'gdpr_consent_given': 'yes' if gdpr_consent else 'no',
+                'consent_date': datetime.now().isoformat() if gdpr_consent else None
+            }
+            
+            if first_name:
+                brevo_attributes['first_name'] = first_name
+            if last_name:
+                brevo_attributes['last_name'] = last_name
+            if gaming_handle:
+                brevo_attributes['gaming_handle'] = gaming_handle
+            
+            brevo_result = add_to_brevo_contact(email, brevo_attributes)
+            
+            # Enhanced logging with names and consent status
+            subscriber_info = f"{first_name} {last_name}" if first_name and last_name else email
+            consent_status = "with GDPR consent" if gdpr_consent else "without explicit consent"
+            log_activity(f"New subscriber added: {subscriber_info} ({email}) - Source: {source} - {consent_status}", "success")
+            
+            return jsonify({
+                "success": True,
+                "message": "Subscriber added successfully",
+                "email": email,
+                "name": f"{first_name} {last_name}".strip() if first_name or last_name else None,
+                "gaming_handle": gaming_handle,
+                "gdpr_consent_given": gdpr_consent,
+                "brevo_synced": brevo_result.get("success", False),
+                "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
+            })
+        else:
+            return jsonify({"success": False, "error": "Failed to add subscriber to database"}), 500
+            
+    except Exception as e:
+        error_msg = f"Error adding subscriber: {str(e)}"
+        log_error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
+
+def add_gdpr_consent_column():
+    """Add GDPR consent tracking columns to subscribers table"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Add GDPR consent columns
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN gdpr_consent_given BOOLEAN DEFAULT FALSE;')
+            print("✅ Added gdpr_consent_given column")
+        except Exception:
+            print("ℹ️ gdpr_consent_given column already exists")
+            
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN consent_date TIMESTAMP;')
+            print("✅ Added consent_date column")
+        except Exception:
+            print("ℹ️ consent_date column already exists")
+            
+        try:
+            cursor.execute('ALTER TABLE subscribers ADD COLUMN consent_ip VARCHAR(45);')
+            print("✅ Added consent_ip column")
+        except Exception:
+            print("ℹ️ consent_ip column already exists")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"Error adding GDPR consent columns: {e}")
+        return False
+
+
+@app.route('/unsubscribe', methods=['POST'])
+@csrf_required
+def remove_subscriber():
+    """🔥 ENHANCED: Remove subscriber from both database AND Brevo"""
+    try:
+        data = request.json or {}
+        email = str(data.get('email', '')).strip().lower()
+        
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+        
+        # Check if exists
+        existing_subscribers = get_all_subscribers()
+        if not any(sub['email'] == email for sub in existing_subscribers):
+            return jsonify({"success": False, "error": "Email not found"}), 404
+        
+        # Remove from database
+        if remove_subscriber_from_db(email):
+            # 🔥 KEY FIX: Remove from Brevo as well!
+            brevo_result = remove_from_brevo_contact(email)
+            
+            log_activity(f"Subscriber removed: {email}", "warning")
+            
+            return jsonify({
+                "success": True,
+                "message": "Subscriber removed successfully",
+                "email": email,
+                "brevo_removed": brevo_result.get("success", False),
+                "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
+            })
+        else:
+            return jsonify({"success": False, "error": "Failed to remove subscriber from database"}), 500
+            
+    except Exception as e:
+        error_msg = f"Error removing subscriber: {str(e)}"
+        log_error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/stats', methods=['GET'])
+def get_stats():
+    try:
+        stats = get_signup_stats()
+        return jsonify({
+            "success": True,
+            "stats": stats,
+            "brevo_sync_status": "✅" if AUTO_SYNC_TO_BREVO else "❌",
+        })
+    except Exception as e:
+        error_msg = f"Error getting stats: {str(e)}"
+        print(f"Stats error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/activity', methods=['GET'])
+def get_activity():
+    try:
+        limit = int(request.args.get('limit', 20))
+        activities = get_activity_log(limit)
+        return jsonify({"success": True, "activity": activities})
+    except Exception as e:
+        error_msg = f"Error getting activity: {str(e)}"
+        print(f"Activity error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/bulk-import', methods=['POST'])
+def bulk_import():
+    """Enhanced bulk import with name field support"""
+    try:
+        data = request.json or {}
+        emails = data.get('emails', [])
+        source = data.get('source', 'import')
+        
+        if not emails:
+            return jsonify({"success": False, "error": "No emails provided"}), 400
+        
+        added = 0
+        errors: list[str] = []
+        brevo_synced = 0
+        existing_subscribers = get_all_subscribers()
+        existing_emails = {sub['email'] for sub in existing_subscribers}
+        
+        for item in emails:
+            try:
+                # Handle both string emails and objects with name data
+                if isinstance(item, dict):
+                    email = str(item.get('email', '')).strip().lower()
+                    first_name = item.get('firstName', '').strip() or None
+                    last_name = item.get('lastName', '').strip() or None
+                    gaming_handle = item.get('gamingHandle', '').strip() or None
+                else:
+                    email = str(item).strip().lower()
+                    first_name = last_name = gaming_handle = None
+                
+                if not is_valid_email(email):
+                    errors.append(f"Invalid email: {email}")
+                    continue
+                if email in existing_emails:
+                    errors.append(f"Already exists: {email}")
+                    continue
+                
+                if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle, False):
+                    # Add to Brevo with names
+                    brevo_attributes = {'source': source}
+                    if first_name:
+                        brevo_attributes['first_name'] = first_name
+                    if last_name:
+                        brevo_attributes['last_name'] = last_name
+                    if gaming_handle:
+                        brevo_attributes['gaming_handle'] = gaming_handle
+                        
+                    brevo_result = add_to_brevo_contact(email, brevo_attributes)
+                    if brevo_result.get("success", False):
+                        brevo_synced += 1
+                    else:
+                        errors.append(f"Brevo sync failed for {email}: {brevo_result.get('error', 'Unknown error')}")
+                    
+                    added += 1
+                    existing_emails.add(email)
+                else:
+                    errors.append(f"Database error for {email}")
+                    
+            except Exception as e:
+                errors.append(f"Error processing {email}: {str(e)}")
+                continue
+        
+        log_activity(f"Bulk import: {added} subscribers added, {brevo_synced} synced to Brevo, {len(errors)} errors", "info")
+        
+        return jsonify({
+            "success": True,
+            "added": added,
+            "brevo_synced": brevo_synced,
+            "errors": errors,
+            "total_processed": len(emails),
+        })
+        
+    except Exception as e:
+        error_msg = f"Error in bulk import: {str(e)}"
+        log_error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/sync-brevo', methods=['POST'])
+@csrf_required
+def manual_brevo_sync():
+    """Enhanced manual Brevo sync with better feedback"""
+    try:
+        if not AUTO_SYNC_TO_BREVO:
+            return jsonify({"success": False, "error": "Brevo sync is disabled"}), 400
+        if not contacts_api:
+            return jsonify({"success": False, "error": "Brevo API not initialized"}), 500
+        
+        print("🔄 Starting manual Brevo sync...")
+        log_activity("Starting manual Brevo sync", "info")
+        
+        subscribers = get_all_subscribers()
+        if not subscribers:
+            return jsonify({"success": True, "message": "No subscribers to sync", "synced": 0}), 200
+        
+        # Use the enhanced bulk sync function
+        result = bulk_sync_to_brevo(subscribers)
+        
+        if result.get("success", False):
+            log_activity(f"Manual Brevo sync completed: {result['synced']} synced, {result['errors']} errors", 
+                        "success" if result["errors"] == 0 else "warning")
+            
+            return jsonify({
+                "success": True,
+                "synced": result["synced"],
+                "errors": result["errors"],
+                "total": len(subscribers),
+                "error_details": result["details"][:10],  # Limit error details
+                "message": f"Sync completed: {result['synced']}/{len(subscribers)} successful"
+            })
+        else:
+            return jsonify({"success": False, "error": result.get("error", "Sync failed")}), 500
+        
+    except Exception as e:
+        error_msg = f"Error in manual sync: {str(e)}"
+        log_error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/clear-data', methods=['POST'])
+@csrf_required
+def clear_all_data():
+    """🔥 ENHANCED: Clear data from both database AND Brevo"""
+    try:
+        data = request.json or {}
+        confirmation = data.get('confirmation', '')
+        clear_brevo = data.get('clear_brevo', False)  # Optional flag
+        
+        if confirmation != 'DELETE':
+            return jsonify({"success": False, "error": "Invalid confirmation"}), 400
+        
+        # Get all subscribers before deleting
+        subscribers = get_all_subscribers()
+        
+        # Clear database tables
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM event_registrations")  # Clear registrations first (foreign key)
+            cursor.execute("DELETE FROM subscribers")
+            cursor.execute("DELETE FROM activity_log")
+            cursor.execute("DELETE FROM events")  # Clear events if needed
+            count = cursor.rowcount
+            conn.commit()
+            cursor.close()
+            conn.close()
+        else:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+        
+        brevo_cleared = 0
+        
+        # Optionally clear from Brevo (be very careful with this!)
+        if clear_brevo and AUTO_SYNC_TO_BREVO and contacts_api:
+            print("⚠️ CLEARING BREVO CONTACTS - This is irreversible!")
+            log_activity("Starting Brevo contact deletion - IRREVERSIBLE!", "danger")
+            
+            import time
+            for subscriber in subscribers:
+                try:
+                    email = subscriber['email']
+                    result = remove_from_brevo_contact(email)
+                    if result.get("success", False):
+                        brevo_cleared += 1
+                    time.sleep(0.1)  # Rate limiting
+                except Exception as e:
+                    log_error(f"Error clearing {email} from Brevo: {e}")
+        
+        log_activity(f"ALL DATA CLEARED - database: {len(subscribers)} subscribers, Brevo: {brevo_cleared} contacts", "danger")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Cleared {len(subscribers)} subscribers from database" + 
+                      (f" and {brevo_cleared} from Brevo" if clear_brevo else ""),
+            "database_cleared": len(subscribers),
+            "brevo_cleared": brevo_cleared,
+            "note": "Database cleared. Brevo contacts " + ("also cleared" if clear_brevo else "not affected")
+        })
+        
+    except Exception as e:
+        error_msg = f"Error clearing data: {str(e)}"
+        log_error(error_msg)
+        return jsonify({"success": False, "error": error_msg}), 500
+
+def add_to_brevo_list(email: str) -> dict:
+    """Wrapper for backward compatibility - calls the enhanced function"""
+    return add_to_brevo_contact(email, {'source': 'legacy'})
+
+def remove_from_brevo_list(email: str) -> dict:
+    """Wrapper for backward compatibility - calls the enhanced function"""
+    return remove_from_brevo_contact(email)
+
+
+# Continue with remaining routes...
+@app.route('/send-campaign', methods=['POST'])
+@csrf_required
+def send_campaign():
+    try:
+        if not api_instance:
+            return jsonify({"success": False, "error": "Email API not initialized"}), 500
+        data = request.json or {}
+        subject = data.get('subject', '(no subject)')
+        body = data.get('body', '')
+        from_name = data.get('fromName', SENDER_NAME)
+        
+        subscribers = get_all_subscribers()
+        recipients = [sub['email'] for sub in subscribers]
+        
+        if not recipients:
+            return jsonify({"success": False, "error": "No subscribers to send to"}), 400
+        if not body:
+            return jsonify({"success": False, "error": "Email body is required"}), 400
+        
+        to_list = [{"email": email} for email in recipients]
+        email = sib_api_v3_sdk.SendSmtpEmail(  # type: ignore
+            sender={"name": from_name, "email": SENDER_EMAIL},
+            to=to_list,
+            subject=subject,
+            html_content=body,
+        )
+        api_response = api_instance.send_transac_email(email)  # type: ignore
+        log_activity(f"Campaign sent to {len(recipients)} subscribers", "success")
+        return jsonify({"success": True, "sent": len(recipients), "response": str(api_response)})
+    except ApiException as e:  # type: ignore
+        error_msg = f"Brevo API Error: {str(e)}"
+        log_activity(f"Campaign send failed: {error_msg}", "danger")
+        return jsonify({"success": False, "error": error_msg}), 500
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        log_activity(f"Campaign send failed: {error_msg}", "danger")
+        print(f"Campaign error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/sync-status', methods=['GET'])
+def sync_status():
+    try:
+        activities = get_activity_log(1)
+        last_activity = activities[0] if activities else None
+        return jsonify({
+            "auto_sync_enabled": AUTO_SYNC_TO_BREVO,
+            "brevo_list_id": BREVO_LIST_ID,
+            "local_subscribers": len(get_all_subscribers()),
+            "last_activity": last_activity,
+        })
+    except Exception as e:
+        error_msg = f"Error getting sync status: {str(e)}"
+        print(f"Sync status error: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": error_msg}), 500
+
+@app.route('/admin')
+@require_admin_auth  # Add this decorator
+def admin_dashboard():
+    # Your existing admin dashboard code
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+        dashboard_path = os.path.join(here, 'dashboard.html')
+        if os.path.exists(dashboard_path):
+            with open(dashboard_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        else:
+            return (
+                """
+                <h1>Dashboard not found</h1>
+                <p>Please place <code>dashboard.html</code> next to <code>backend.py</code>.</p>
+                <p>Signup page: <a href="/signup">/signup</a></p>
+                <p>API Health: <a href="/health">/health</a></p>
+                """,
+                404,
+            )
+    except Exception as e:
+        print(f"Error serving admin dashboard: {e}")
+        return (
+            f"""
+            <h1>Error Loading Dashboard</h1>
+            <p>Error: {str(e)}</p>
+            <p>You can access the signup page at <a href="/signup">/signup</a></p>
+            """,
+            500,
+        )
+
+
+# Replace your signup_page() function with this updated version:
+
+@app.route('/signup')
+def signup_page():
+    signup_html = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join SideQuest Newsletter</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #ffffff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .container { background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); padding: 50px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 2px solid #444; max-width: 600px; width: 100%; text-align: center; position: relative; overflow: hidden; }
+        .container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%); }
+        .logo { width: 60px; height: 60px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 12px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #1a1a1a; font-size: 18px; letter-spacing: -1px; box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3); }
+        h1 { font-size: 2.5rem; margin-bottom: 15px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 800; }
+        .subtitle { font-size: 1.2rem; margin-bottom: 30px; color: #cccccc; font-weight: 500; line-height: 1.5; }
+        .form-container { margin: 30px 0; text-align: left; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #FFD700; font-weight: 600; font-size: 14px; }
+        input[type="text"], input[type="email"] { width: 100%; padding: 16px 20px; border: 2px solid #444; border-radius: 12px; font-size: 16px; background: #1a1a1a; color: #ffffff; transition: all 0.3s ease; font-weight: 500; }
+        input[type="text"]:focus, input[type="email"]:focus { outline: none; border-color: #FFD700; box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); background: #2a2a2a; }
+        .submit-btn { width: 100%; padding: 18px 25px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border: none; border-radius: 12px; color: #1a1a1a; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3); }
+        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4); }
+        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        .message { margin-top: 20px; padding: 15px 20px; border-radius: 10px; font-weight: 500; opacity: 0; transition: all 0.3s ease; }
+        .message.show { opacity: 1; }
+        .message.success { background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); color: #1a1a1a; border: 2px solid #00ff88; }
+        .message.error { background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%); color: #ffffff; border: 2px solid #ff6b35; }
+        .features { margin-top: 40px; text-align: left; }
+        .features h3 { color: #FFD700; font-size: 1.1rem; margin-bottom: 15px; font-weight: 600; }
+        .feature-list { list-style: none; padding: 0; }
+        .feature-list li { padding: 8px 0; color: #cccccc; position: relative; padding-left: 25px; font-size: 14px; }
+        .feature-list li::before { content: '⚡'; position: absolute; left: 0; color: #FFD700; font-weight: bold; }
+        .footer-links { margin-top: 30px; padding-top: 20px; border-top: 1px solid #444; font-size: 12px; color: #888; text-align: center; }
+        .footer-links a { color: #FFD700; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
+        .optional { color: #aaa; font-size: 12px; margin-left: 5px; }
+        
+        /* GDPR Consent Styling */
+        .gdpr-consent { background: #2a2a2a; border: 2px solid #444; border-radius: 12px; padding: 20px; margin: 25px 0; }
+        .consent-checkbox { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 15px; }
+        .consent-checkbox input[type="checkbox"] { margin-top: 2px; transform: scale(1.2); accent-color: #FFD700; }
+        .consent-text { font-size: 0.9rem; line-height: 1.5; color: #cccccc; }
+        .consent-text a { color: #FFD700; text-decoration: underline; }
+        .gdpr-title { color: #FFD700; font-weight: 700; font-size: 1rem; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">SQ</div>
+        <h1>Join the Quest</h1>
+        <p class="subtitle">Get exclusive gaming updates, events, and special offers delivered straight to your inbox!</p>
+        
+        <form class="form-container" id="signupForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="firstName">First Name *</label>
+                    <input type="text" id="firstName" name="firstName" required>
                 </div>
-                <a href="https://discord.gg/ZJp3hhe6Cr" 
-                  target="_blank" 
-                  style="color: #5865F2; text-decoration: underline; font-weight: 700;">
-                    https://discord.gg/ZJp3hhe6Cr
-                </a>
-                <div style="font-size: 0.85rem; color: #666; margin-top: 5px;">
-                    Connect with other tournament players!
+                <div class="form-group">
+                    <label for="lastName">Last Name *</label>
+                    <input type="text" id="lastName" name="lastName" required>
                 </div>
             </div>
-        `;
+            
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="gamingHandle">Gaming Handle <span class="optional">(optional)</span></label>
+                <input type="text" id="gamingHandle" name="gamingHandle" placeholder="Your gamer tag">
+            </div>
+            
+            <!-- GDPR Consent Section -->
+            <div class="gdpr-consent">
+                <div class="gdpr-title">Data Protection & Privacy</div>
+                <div class="consent-checkbox">
+                    <input type="checkbox" id="gdprConsent" name="gdprConsent" required>
+                    <label for="gdprConsent" class="consent-text">
+                        I consent to SideQuest Gaming storing and processing my personal data to send me gaming event updates, newsletters, and promotional communications. I understand that:
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>My data will be stored securely and used only for gaming-related communications</li>
+                            <li>I can withdraw consent and unsubscribe at any time</li>
+                            <li>I can request deletion of my data at any time</li>
+                        </ul>
+                        I have read and agree to the <a href="/privacy" target="_blank">Privacy Policy</a>.
+                    </label>
+                </div>
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">Level Up Your Inbox</button>
+        </form>
         
-        document.body.appendChild(notification);
+        <div id="message" class="message"></div>
         
-        // Auto-remove after 8 seconds
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.4s ease';
-            setTimeout(() => {
-                if (document.body.contains(notification)) {
-                    document.body.removeChild(notification);
-                }
-            }, 400);
-        }, 8000);
-    }
-
-
-
-
-
-    async function updateEventCard(eventId, updatedEventData = null) {
-      try {
-        // Find the existing event card
-        const existingCard = document.querySelector(`.event-card[onclick*="${eventId}"]`);
-        if (!existingCard) {
-          console.log('Event card not found, will refresh full list');
-          return;
-        }
-
-        let eventData = updatedEventData;
+        <div class="features">
+            <h3>What You'll Get:</h3>
+            <ul class="feature-list">
+                <li>Early access to gaming events & tournaments</li>
+                <li>Exclusive member discounts & offers</li>
+                <li>Community night invitations</li>
+                <li>New location openings & updates</li>
+                <li>Gaming tips & industry news</li>
+            </ul>
+        </div>
         
-        // If we don't have updated data, fetch it
-        if (!eventData) {
-          const response = await fetch(`${API_BASE}/api/events/${eventId}`);
-          const data = await response.json();
-          if (!data.success) {
-            console.error('Failed to fetch updated event data');
+        <div class="footer-links">
+            <a href="https://sidequesthub.com">SideQuest Hub</a> • 
+            <a href="/privacy">Privacy Policy</a> •
+            <a href="mailto:marketing@sidequestcanterbury">Contact Us</a>
+        </div>
+    </div>
+    
+    <script>
+     document.getElementById('signupForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const firstName = document.getElementById('firstName').value.trim();
+        const lastName = document.getElementById('lastName').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const gamingHandle = document.getElementById('gamingHandle').value.trim();
+        const gdprConsent = document.getElementById('gdprConsent').checked;
+        const messageDiv = document.getElementById('message');
+        const submitButton = document.getElementById('submitBtn');
+        
+        // Validation
+        if (!firstName || !lastName || !email) {
+            messageDiv.className = 'message error show';
+            messageDiv.innerHTML = 'Please fill in all required fields';
             return;
-          }
-          eventData = data.event;
-        }
-
-        // Update the current events array
-        const eventIndex = currentEvents.findIndex(e => e.id === eventId);
-        if (eventIndex !== -1) {
-          currentEvents[eventIndex] = eventData;
-        }
-
-        // Create new card element
-        const newCard = createEventCardElement(eventData);
-        
-        // Replace the old card with the new one
-        existingCard.parentNode.replaceChild(newCard, existingCard);
-        
-        console.log(`✅ Updated event card for event ${eventId}`);
-        
-      } catch (error) {
-        console.error('Error updating event card:', error);
-        // Fallback to full refresh if individual update fails
-        loadEvents();
-      }
-    }
-
-    // View event attendees
-    async function viewAttendees(eventId) {
-      console.log(`Attempting to view attendees for event ${eventId}`);
-      
-      try {
-        // Show loading in modal immediately
-        const modal = document.getElementById('eventModal');
-        const modalTitle = document.getElementById('modalEventTitle');
-        const modalContent = document.getElementById('modalEventContent');
-        
-        modalTitle.textContent = 'Loading Attendees...';
-        modalContent.innerHTML = `
-          <div style="text-align: center; padding: 50px;">
-            <div class="spinner"></div>
-            <p style="margin-top: 15px; color: #aaa;">Loading attendee list...</p>
-          </div>
-        `;
-        modal.style.display = 'flex';
-        
-        // First, let's debug what's happening
-        console.log(`Making request to: ${API_BASE}/api/events/${eventId}/attendees`);
-        
-        const response = await fetch(`${API_BASE}/api/events/${eventId}/attendees`);
-        
-        console.log(`Response status: ${response.status}`);
-        console.log(`Response ok: ${response.ok}`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        const data = await response.json();
-        console.log('Attendees response data:', data);
-        
-        if (data.success) {
-          const event = currentEvents.find(e => e.id === eventId);
-          const eventTitle = event ? event.title : data.event_title || `Event ${eventId}`;
-          
-          showAttendeesModal({ 
-            id: eventId, 
-            title: eventTitle 
-          }, data.attendees);
-          
-          console.log(`Successfully loaded ${data.attendees.length} attendees`);
-        } else {
-          throw new Error(data.error || 'Failed to load attendees');
+        if (!gdprConsent) {
+            messageDiv.className = 'message error show';
+            messageDiv.innerHTML = 'Please accept our privacy policy to continue';
+            return;
         }
         
-      } catch (error) {
-        console.error('Error loading attendees:', error);
-        
-        // Show error in modal
-        const modal = document.getElementById('eventModal');
-        const modalTitle = document.getElementById('modalEventTitle');
-        const modalContent = document.getElementById('modalEventContent');
-        
-        modalTitle.textContent = 'Error Loading Attendees';
-        modalContent.innerHTML = `
-          <div style="text-align: center; padding: 30px; color: #ff6b35;">
-            <p>❌ Failed to load attendees</p>
-            <p style="font-size: 0.9rem; color: #aaa; margin-top: 10px;">
-              Error: ${error.message}
-            </p>
-            <button class="btn btn-primary mt-20" onclick="debugEventRegistrations(${eventId})">
-              🔍 Debug Event Data
-            </button>
-            <button class="btn btn-secondary mt-20" onclick="closeEventModal()">
-              Close
-            </button>
-          </div>
-        `;
-        modal.style.display = 'flex';
-      }
-    }
-    
-
-
-    // Load event statistics
-    async function loadEventStats() {
-      try {
-        const response = await fetch(`${API_BASE}/api/events/stats`);
-        const data = await response.json();
-        
-        if (data.success) {
-          // Update stat cards
-          document.getElementById('totalEvents').textContent = data.stats.total_events;
-          document.getElementById('upcomingEvents').textContent = data.stats.upcoming_events;
-          document.getElementById('totalEventRegistrations').textContent = data.stats.total_registrations;
-          document.getElementById('avgCapacityFilled').textContent = data.stats.avg_capacity_filled + '%';
-          
-          // Render popular events
-          const popularList = document.getElementById('popularEventsList');
-          if (data.popular_events && data.popular_events.length > 0) {
-            popularList.innerHTML = data.popular_events.map((event, index) => `
-              <div style="display: flex; justify-content: space-between; padding: 12px; background: #1a1a1a; border-radius: 8px; margin-bottom: 10px;">
-                <div>
-                  <span style="color: #FFD700; font-weight: 700;">#${index + 1}</span>
-                  <span style="margin-left: 10px; color: #fff;">${event.title}</span>
-                </div>
-                <div>
-                  <span class="event-badge badge-${event.event_type}" style="margin-right: 10px;">${event.event_type.replace('_', ' ')}</span>
-                  <span style="color: #FFD700; font-weight: 600;">${event.registration_count} registrations</span>
-                </div>
-              </div>
-            `).join('');
-          } else {
-            popularList.innerHTML = '<p class="text-muted text-center">No events data yet</p>';
-          }
-        }
-      } catch (error) {
-        console.error('Error loading stats:', error);
-      }
-    }
-
-    // Add debug function to test what's in the database:
-    async function debugEventRegistrations(eventId) {
-      try {
-        console.log(`Debugging event ${eventId}...`);
-        
-        const response = await fetch(`${API_BASE}/api/events/${eventId}/debug`);
-        const data = await response.json();
-        
-        console.log('Debug data:', data);
-        
-        alert(`Debug Results for Event ${eventId}:
-        
-    Event Exists: ${data.event_exists}
-    Registration Count: ${data.registration_count}
-    All Event Registrations: ${JSON.stringify(data.all_event_registrations, null, 2)}
-
-    Check console for full details.`);
-        
-      } catch (error) {
-        console.error('Debug error:', error);
-        alert('Debug failed: ' + error.message);
-      }
-    }
-
-    // Add refresh function:
-    async function refreshAttendees(eventId) {
-      await viewAttendees(eventId);
-    }
-
-    // Add refresh function:
-    async function refreshAttendees(eventId) {
-      await viewAttendees(eventId);
-    }
-
-    // Search and filter functions for attendees
-    function filterAttendees() {
-      const searchTerm = document.getElementById('attendeeSearch').value.toLowerCase();
-      const attendeeItems = document.querySelectorAll('.attendee-item');
-      const noResults = document.getElementById('noResults');
-      let visibleCount = 0;
-      
-      attendeeItems.forEach(item => {
-        const email = item.dataset.email || '';
-        const name = item.dataset.name || '';
-        const code = item.dataset.code || '';
-        
-        const matches = email.includes(searchTerm) || 
-                       name.includes(searchTerm) || 
-                       code.includes(searchTerm);
-        
-        if (matches) {
-          item.style.display = 'flex';
-          visibleCount++;
-        } else {
-          item.style.display = 'none';
-        }
-      });
-      
-      // Show/hide "no results" message
-      if (visibleCount === 0 && searchTerm.length > 0) {
-        noResults.style.display = 'block';
-      } else {
-        noResults.style.display = 'none';
-      }
-    }
-    
-    function filterByStatus(status) {
-      const attendeeItems = document.querySelectorAll('.attendee-item');
-      const searchInput = document.getElementById('attendeeSearch');
-      const noResults = document.getElementById('noResults');
-      let visibleCount = 0;
-      
-      // Clear search when using status filter
-      searchInput.value = '';
-      
-      attendeeItems.forEach(item => {
-        const itemStatus = item.dataset.status;
-        
-        if (status === 'all' || itemStatus === status) {
-          item.style.display = 'flex';
-          visibleCount++;
-        } else {
-          item.style.display = 'none';
-        }
-      });
-      
-      // Update filter button states
-      setActiveFilter(status);
-      
-      // Show/hide "no results" message
-      if (visibleCount === 0) {
-        noResults.style.display = 'block';
-      } else {
-        noResults.style.display = 'none';
-      }
-    }
-    
-    function setActiveFilter(activeStatus) {
-      // Remove active class from all filter buttons
-      document.querySelectorAll('[id^="filter-"]').forEach(btn => {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-secondary');
-      });
-      
-      // Add active class to selected filter
-      const activeBtn = document.getElementById(`filter-${activeStatus}`);
-      if (activeBtn) {
-        activeBtn.classList.remove('btn-secondary');
-        activeBtn.classList.add('btn-primary');
-      }
-    }
-    
-    function clearSearch() {
-      document.getElementById('attendeeSearch').value = '';
-      filterByStatus('all');
-    }
-
-    // Check in attendee function
-    async function checkinAttendee(eventId, email) {
-      try {
-        console.log(`🔍 Attempting check-in for Event ${eventId}, Email: ${email}`);
-        
-        const response = await securePost(`${API_BASE}/api/events/${eventId}/checkin`, {
-            email: email
-        });
-
-        console.log(`📡 Response status: ${response.status}`);
-        
-        const data = await response.json();
-        console.log('📡 Response data:', data);
-        
-        if (data.success) {
-          showSuccess(`✅ Checked in ${email} - Code: ${data.confirmation_code}`);
-          // Refresh the attendees modal
-          setTimeout(() => viewAttendees(eventId), 500);
-        } else {
-          console.error('❌ Check-in failed:', data.error);
-          alert('❌ Check-in failed: ' + (data.error || 'Unknown error'));
-        }
-      } catch (error) {
-        console.error('❌ Network error during check-in:', error);
-        alert('❌ Network error: ' + error.message);
-      }
-    }
-
-    // Show attendees modal
-    function showAttendeesModal(event, attendees) {
-      console.log('Showing attendees modal for:', event.title, 'with', attendees.length, 'attendees');
-      
-      const modal = document.getElementById('eventModal');
-      const modalTitle = document.getElementById('modalEventTitle');
-      const modalContent = document.getElementById('modalEventContent');
-      
-      modalTitle.textContent = `👥 Attendees: ${event.title}`;
-      
-      let content = `
-        <div style="margin-bottom: 20px;">
-          <p><strong>Total Registered:</strong> ${attendees.length}</p>
-          <p><strong>Attended:</strong> ${attendees.filter(a => a.attended).length}</p>
-        </div>
-      `;
-      
-      if (attendees.length === 0) {
-        content += `
-          <div style="text-align: center; padding: 40px; color: #aaa;">
-            <p>📭 No registrations yet</p>
-            <button class="btn btn-primary mt-20" onclick="quickRegister(${event.id})">
-              Add First Registration
-            </button>
-          </div>
-        `;
-      } else {
-        // Add search/filter box
-        content += `
-          <div style="margin-bottom: 20px;">
-            <div style="position: relative;">
-              <input type="text" id="attendeeSearch" class="form-input" 
-                     placeholder="Search by email, name, or confirmation code..." 
-                     style="padding-left: 50px; margin-bottom: 15px;"
-                     oninput="filterAttendees()">
-              <span style="position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #FFD700; font-size: 18px;">🔍</span>
-            </div>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-              <button class="btn btn-secondary btn-sm" onclick="filterByStatus('all')" id="filter-all">All</button>
-              <button class="btn btn-secondary btn-sm" onclick="filterByStatus('registered')" id="filter-registered">Not Checked In</button>
-              <button class="btn btn-secondary btn-sm" onclick="filterByStatus('attended')" id="filter-attended">Checked In</button>
-            </div>
-          </div>
-        `;
-        
-        content += '<div class="attendee-list" id="attendeeListContainer">';
-        
-        attendees.forEach((attendee, index) => {
-          const statusClass = attendee.attended ? 'status-attended' : 'status-registered';
-          const statusText = attendee.attended ? 'Attended' : 'Registered';
-          const registeredDate = attendee.registered_at ? 
-            new Date(attendee.registered_at).toLocaleDateString() : 'Unknown';
-          
-          content += `
-            <div class="attendee-item" data-email="${attendee.subscriber_email.toLowerCase()}" 
-                 data-name="${(attendee.player_name || '').toLowerCase()}" 
-                 data-code="${attendee.confirmation_code.toLowerCase()}"
-                 data-status="${attendee.attended ? 'attended' : 'registered'}"
-                 data-index="${index}">
-              <div>
-                <div class="attendee-email">${attendee.subscriber_email}</div>
-                <div style="color: #aaa; font-size: 0.8rem; margin-top: 5px;">
-                  Player: ${attendee.player_name || 'Not specified'} | 
-                  <strong style="color: #FFD700;">Code: ${attendee.confirmation_code}</strong> | 
-                  Registered: ${registeredDate}
-                </div>
-              </div>
-              <div style="display: flex; gap: 10px; align-items: center;">
-                <span class="attendee-status ${statusClass}">${statusText}</span>
-                ${!attendee.attended ? `
-                  <button class="btn btn-success btn-sm" onclick="checkinAttendee(${event.id}, '${attendee.subscriber_email}')">
-                    ✓ Check In
-                  </button>
-                ` : ''}
-              </div>
-            </div>
-          `;
-        });
-        
-        content += '</div>';
-        
-        // Add "No results" message (hidden by default)
-        content += `
-          <div id="noResults" style="display: none; text-align: center; padding: 40px; color: #aaa;">
-            <p>🔍 No attendees match your search</p>
-            <button class="btn btn-secondary btn-sm" onclick="clearSearch()">Clear Search</button>
-          </div>
-        `;
-      }
-      
-      // Add action buttons
-      content += `
-        <div style="display: flex; gap: 10px; margin-top: 25px; padding-top: 20px; border-top: 1px solid #444;">
-          <button class="btn btn-primary" onclick="quickRegister(${event.id})">
-            ➕ Add Registration
-          </button>
-          <button class="btn btn-secondary" onclick="refreshAttendees(${event.id})">
-            🔄 Refresh
-          </button>
-          <button class="btn btn-secondary" onclick="closeEventModal()">
-            Close
-          </button>
-        </div>
-      `;
-      
-      modalContent.innerHTML = content;
-      modal.style.display = 'flex';
-      
-      // Set initial filter state
-      setActiveFilter('all');
-    }
-
-
-    // Load calendar view
-    function loadCalendarView() {
-      setTimeout(() => {
-        if (!calendar) {
-          initFullCalendar();
-        } else {
-          calendar.refetchEvents();
-        }
-      }, 100);
-    }
-
-    // Form submission
-    document.addEventListener('DOMContentLoaded', function() {
-      const fcForm = document.getElementById('fcEventForm');
-      if (fcForm) {
-        fcForm.addEventListener('submit', async function(e) {
-          e.preventDefault();
-          
-          const eventData = {
-            title: document.getElementById('fcEventTitle').value,
-            event_type: document.getElementById('fcEventType').value,
-            game_title: document.getElementById('fcEventGame').value,
-            date_time: document.getElementById('fcEventDate').value + 'T' + document.getElementById('fcEventTime').value,
-            end_time: document.getElementById('fcEventDate').value + 'T' + document.getElementById('fcEventEndTime').value,
-            description: document.getElementById('fcEventDescription').value,
-            capacity: 0,
-            entry_fee: 0,
-            status: 'draft'
-          };
-
-          try {
-            response = await securePost(`${API_BASE}/api/events`, eventData);
-
-            const data = await response.json();
-            
-            if (data.success) {
-              closeFCModal();
-              if (calendar) calendar.refetchEvents();
-              showSuccess('Event created successfully!');
-            } else {
-              alert('Error: ' + (data.error || 'Failed to create event'));
-            }
-          } catch (error) {
-            console.error('Error creating event:', error);
-            alert('Failed to create event');
-          }
-        });
-      }
-
-      // Close modal when clicking outside
-      const modal = document.getElementById('fcEventModal');
-      if (modal) {
-        modal.addEventListener('click', function(e) {
-          if (e.target === this) {
-            closeFCModal();
-          }
-        });
-      }
-    });
-
-
-
-    // Modal functions
-    function closeFCModal() {
-      document.getElementById('fcEventModal').style.display = 'none';
-      document.getElementById('fcEventForm').reset();
-    }
-
-    function refreshCalendar() {
-      if (calendar) {
-        calendar.refetchEvents();
-        showSuccess('Calendar refreshed!');
-      }
-    }
-
-    // Simple calendar renderer
-    function renderCalendar(events) {
-      const calendarEl = document.getElementById('eventCalendar');
-      
-      // Group events by date
-      const eventsByDate = {};
-      events.forEach(event => {
-        const date = new Date(event.start).toDateString();
-        if (!eventsByDate[date]) {
-          eventsByDate[date] = [];
-        }
-        eventsByDate[date].push(event);
-      });
-      
-      // Render simple calendar view
-      let html = '<div style="display: grid; gap: 20px;">';
-      
-      Object.keys(eventsByDate).sort().forEach(date => {
-        const dateEvents = eventsByDate[date];
-        const dateObj = new Date(date);
-        
-        html += `
-          <div style="background: #2a2a2a; border-radius: 12px; padding: 20px; border-left: 4px solid #FFD700;">
-            <h3 style="color: #FFD700; margin-bottom: 15px;">
-              ${dateObj.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-            </h3>
-            <div style="display: grid; gap: 10px;">
-        `;
-        
-        dateEvents.forEach(event => {
-          const startTime = new Date(event.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-          const endTime = event.end ? new Date(event.end).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
-          
-          html += `
-            <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; border-left: 3px solid ${event.color}; cursor: pointer;"
-                onclick="showEventDetails(${event.id})">
-              <div style="display: flex; justify-content: space-between; align-items: start;">
-                <div>
-                  <div style="color: #fff; font-weight: 600;">${event.title}</div>
-                  <div style="color: #aaa; font-size: 0.9rem; margin-top: 5px;">
-                    🕐 ${startTime}${endTime ? ' - ' + endTime : ''}
-                  </div>
-                  ${event.description ? `<div style="color: #ccc; font-size: 0.85rem; margin-top: 5px;">👥 ${event.description}</div>` : ''}
-                </div>
-                <div style="width: 10px; height: 10px; background: ${event.color}; border-radius: 50%;"></div>
-              </div>
-            </div>
-          `;
-        });
-        
-        html += '</div></div>';
-      });
-      
-      html += '</div>';
-      
-      if (events.length === 0) {
-        html = '<p class="text-muted text-center">No events scheduled</p>';
-      }
-      
-      calendarEl.innerHTML = html;
-    }
-
-    // Show event details modal
-    async function showEventDetails(eventId) {
-      try {
-        const response = await fetch(`${API_BASE}/api/events/${eventId}`);
-        const data = await response.json();
-        
-        if (data.success) {
-          const event = data.event;
-          const modal = document.getElementById('eventModal');
-          
-          document.getElementById('modalEventTitle').textContent = event.title;
-          
-          const eventDate = new Date(event.date_time);
-          const endDate = event.end_time ? new Date(event.end_time) : null;
-          
-          let content = `
-            <div style="display: grid; gap: 15px;">
-              ${event.game_title ? `<p><strong>Game:</strong> ${event.game_title}</p>` : ''}
-              <p><strong>Type:</strong> <span class="event-badge badge-${event.event_type}">${event.event_type.replace('_', ' ')}</span></p>
-              <p><strong>Date:</strong> ${eventDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p><strong>Time:</strong> ${eventDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${endDate ? ' - ' + endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
-              ${event.entry_fee > 0 ? `<p><strong>Entry Fee:</strong> £${event.entry_fee}</p>` : ''}
-              ${event.capacity > 0 ? `<p><strong>Capacity:</strong> ${event.registration_count}/${event.capacity} registered</p>` : `<p><strong>Registrations:</strong> ${event.registration_count}</p>`}
-              ${event.description ? `<p><strong>Description:</strong><br>${event.description}</p>` : ''}
-              ${event.prize_pool ? `<p><strong>Prizes:</strong><br>${event.prize_pool}</p>` : ''}
-              ${event.requirements ? `<p><strong>Requirements:</strong><br>${event.requirements}</p>` : ''}
-            </div>
-            
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-              <button class="btn btn-primary" onclick="viewAttendees(${event.id})">View Attendees</button>
-              <button class="btn btn-secondary" onclick="editEvent(${event.id})">Edit Event</button>
-              <button class="btn btn-danger" onclick="deleteEvent(${event.id})">Delete Event</button>
-            </div>
-          `;
-          
-          document.getElementById('modalEventContent').innerHTML = content;
-          modal.style.display = 'flex';
-        }
-      } catch (error) {
-        console.error('Error loading event details:', error);
-        alert('Failed to load event details');
-      }
-    }
-
-    // Modified editEvent function
-    async function editEvent(eventId) {
-      console.log('EDIT DEBUG: Setting currentEditingEventId to:', eventId); // ADD THIS
-      
-      try {
-        const response = await fetch(`${API_BASE}/api/events/${eventId}`);
-        const data = await response.json();
-        
-        if (!data.success) {
-          alert('Failed to load event data');
-          return;
+        if (firstName.length < 2 || lastName.length < 2) {
+            messageDiv.className = 'message error show';
+            messageDiv.innerHTML = 'Names must be at least 2 characters long';
+            return;
         }
         
-        const event = data.event;
-        currentEditingEventId = eventId; // Make sure this line exists
-        console.log('EDIT DEBUG: currentEditingEventId is now:', currentEditingEventId); // ADD THIS
-
-        switchEventView('create');
-        fillFormWithEventData(event);
-        updateCreateFormForEdit(event.title);
-        closeEventModal();
-        
-      } catch (error) {
-        console.error('Error loading event for edit:', error);
-        alert('Failed to load event data');
-        currentEditingEventId = null;
-      }
-    }
-
-    
-    function updateCreateFormForEdit(eventTitle) {
-      const formTitle = document.querySelector('#event-create-view .card-title');
-      if (formTitle) {
-        formTitle.textContent = `Edit Event: ${eventTitle}`;
-        formTitle.style.color = '#FFD700';
-      } else {
-        console.warn('Form title element not found');
-      }
-
-        // Update submit button with error handling
-      const submitButton = document.querySelector('#createEventForm button[type="submit"]');
-      if (submitButton) {
-        submitButton.textContent = '🎮 Update Event';
-        submitButton.classList.add('btn-warning'); // Different style for update
-        submitButton.classList.remove('btn-primary');
-      } else {
-        console.warn('Submit button not found');
-      }
-      
-      // Add cancel button if it doesn't exist
-      let cancelButton = document.getElementById('cancelEditButton');
-      if (!cancelButton && submitButton) {
-        cancelButton = document.createElement('button');
-        cancelButton.id = 'cancelEditButton';
-        cancelButton.type = 'button';
-        cancelButton.className = 'btn btn-secondary ms-2';
-        cancelButton.innerHTML = '❌ Cancel Edit';
-        cancelButton.onclick = cancelEdit;
-        
-        // Insert after submit button
-        submitButton.parentNode.insertBefore(cancelButton, submitButton.nextSibling);
-      }
-    }
-
-    // Delete event
-    async function deleteEvent(eventId) {
-      if (!confirm('Are you sure you want to delete this event?')) return;
-      
-      try {
-        const response = await secureDelete(`${API_BASE}/api/events/${eventId}`);
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          showSuccess('Event deleted successfully');
-          closeEventModal();
-          loadEvents();
-        } else {
-          if (data.error.includes('registrations')) {
-            if (confirm('This event has registrations. Delete anyway?')) {
-              const forceResponse = await fetch(`${API_BASE}/api/events/${eventId}?force=true`, {
-                method: 'DELETE'
-              });
-              const forceData = await forceResponse.json();
-              if (forceData.success) {
-                showSuccess('Event deleted successfully');
-                closeEventModal();
-                loadEvents();
-              }
-            }
-          } else {
-            alert('Error: ' + data.error);
-          }
-        }
-      } catch (error) {
-        console.error('Error deleting event:', error);
-        alert('Failed to delete event');
-      }
-    }
-
-    // Send event announcement email
-    async function sendEventAnnouncement(eventId) {
-      try {
-        const eventResponse = await fetch(`${API_BASE}/api/events/${eventId}`);
-        const eventData = await eventResponse.json();
-        
-        if (!eventData.success) return;
-        
-        const event = eventData.event;
-        const eventDate = new Date(event.date_time);
-        
-        const subject = `New Event: ${event.title}`;
-        const body = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #FFD700;">🎮 New Event at SideQuest!</h1>
-            <h2>${event.title}</h2>
-            <p><strong>Date:</strong> ${eventDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-            <p><strong>Time:</strong> ${eventDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>
-            ${event.game_title ? `<p><strong>Game:</strong> ${event.game_title}</p>` : ''}
-            ${event.entry_fee > 0 ? `<p><strong>Entry Fee:</strong> £${event.entry_fee}</p>` : '<p><strong>Entry:</strong> FREE!</p>'}
-            ${event.description ? `<p>${event.description}</p>` : ''}
-            ${event.prize_pool ? `<p><strong>Prizes:</strong> ${event.prize_pool}</p>` : ''}
-            <p style="margin-top: 30px;">
-              <a href="${window.location.origin}/signup" style="background: #FFD700; color: #1a1a1a; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">
-                Register Now
-              </a>
-            </p>
-            <p style="color: #888; font-size: 12px; margin-top: 30px;">
-              You're receiving this because you're subscribed to SideQuest Gaming Cafe updates.
-            </p>
-          </div>
-        `;
-        
-        const response = await fetch(`${API_BASE}/send-campaign`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subject,
-            body,
-            fromName: 'SideQuest Events',
-            recipients: subscribers // Assuming subscribers array is available
-          })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-          showSuccess(`Event announcement sent to ${data.sent} subscribers!`);
-        }
-      } catch (error) {
-        console.error('Error sending announcement:', error);
-        alert('Failed to send announcement');
-      }
-    }
-
-    // Close event modal
-    function closeEventModal() {
-      document.getElementById('eventModal').style.display = 'none';
-    }
-
-    // Reset event form
-   function resetEventForm() {
-      const form = document.getElementById('createEventForm');
-      if (form) {
-        form.reset();
-      }
-      
-      // FIXED: Always reset edit state when clearing form
-      currentEditingEventId = null;
-      resetCreateFormUI(); // Reset UI elements too
-      
-      // Set default datetime to tomorrow at 7pm
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(19, 0, 0, 0);
-      const dateInput = document.getElementById('eventDateTime');
-      if (dateInput) {
-        dateInput.value = tomorrow.toISOString().slice(0, 16);
-      }
-      
-      console.log('🔧 Form data reset complete');
-    }
-
-    // Call initialization when DOM is ready
-    document.addEventListener('DOMContentLoaded', function() {
-      // Wait a bit to ensure main dashboard is initialized first
-      setTimeout(() => {
-        initializeEventManagement();
-      }, 500);
-    });
-
-    function fillFormWithEventData(event) {
-      const fields = {
-        'eventTitle': event.title,
-        'eventType': event.event_type,
-        'gameTitle': event.game_title || '',
-        'eventDateTime': event.date_time ? event.date_time.slice(0, 16) : '',
-        'eventCapacity': event.capacity || 0,
-        'eventFee': event.entry_fee || 0,
-        'eventStatus': event.status,
-        'eventDescription': event.description || '',
-        'eventEndTime': event.end_time ? event.end_time.slice(0, 16) : '',
-        'eventPrizes': event.prize_pool || '',
-        'eventRequirements': event.requirements || ''
-      };
-      
-      Object.entries(fields).forEach(([fieldId, value]) => {
-        const element = document.getElementById(fieldId);
-        if (element) {
-          element.value = value;
-        }
-      });
-    }
-
-    function updateCreateFormForEdit(eventTitle) {
-      // Update form title
-      const formTitle = document.querySelector('#event-create-view .card-title');
-      if (formTitle) {
-        formTitle.textContent = `Edit Event: ${eventTitle}`;
-        formTitle.style.color = '#ff6b35'; // Orange color to indicate edit mode
-      }
-      
-      // Update submit button
-      const submitButton = document.querySelector('#createEventForm button[type="submit"]');
-      if (submitButton) {
-        submitButton.textContent = '🎮 Update Event';
-        submitButton.classList.add('btn-warning'); // Different style for update
-        submitButton.classList.remove('btn-primary');
-      }
-      
-      // Add cancel button if it doesn't exist
-      addCancelButton(submitButton);
-    }
-
-    function addCancelButton(submitButton) {
-      let cancelButton = document.getElementById('cancelEditButton');
-      if (!cancelButton && submitButton) {
-        cancelButton = document.createElement('button');
-        cancelButton.id = 'cancelEditButton';
-        cancelButton.type = 'button';
-        cancelButton.className = 'btn btn-secondary ms-2';
-        cancelButton.innerHTML = '❌ Cancel Edit';
-        cancelButton.onclick = cancelEdit;
-        submitButton.parentNode.insertBefore(cancelButton, submitButton.nextSibling);
-      }
-    }
-
-    // 2. Replace the resetCreateFormUI function
-    function resetCreateFormUI() {
-      // Reset form title
-      const formTitle = document.querySelector('#event-create-view .card-title');
-      if (formTitle) {
-        formTitle.textContent = 'Create New Event';
-        formTitle.style.color = '#FFD700'; // Reset to default gold color
-      }
-      
-      // Reset submit button
-      const submitButton = document.querySelector('#createEventForm button[type="submit"]');
-      if (submitButton) {
-        submitButton.textContent = '🎮 Create Event';
-        submitButton.classList.remove('btn-warning');
-        submitButton.classList.add('btn-primary');
-      }
-      
-      // Remove cancel button
-      const cancelButton = document.getElementById('cancelEditButton');
-      if (cancelButton) {
-        cancelButton.remove();
-      }
-      
-      console.log('🔧 UI reset complete');
-    }
-      
-
-    function cancelEdit() {
-      currentEditingEventId = null;
-      resetCreateFormUI();
-      resetEventForm();
-      switchEventView('list');
-    }
-
-    // Enhance existing tab functionality to load events
-    document.addEventListener('DOMContentLoaded', function() {
-      const tabs = document.querySelectorAll('.tab');
-      tabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-          if (this.dataset.tab === 'events') {
-            // Small delay to ensure tab is active
-            setTimeout(() => {
-              loadEvents();
-            }, 100);
-          }
-        });
-      });
-    });
-
-    document.addEventListener('DOMContentLoaded', async function() {
-        console.log('🔒 Initializing CSRF protection...');
+        submitButton.innerHTML = 'Joining Quest...';
+        submitButton.disabled = true;
         
         try {
-            // Pre-fetch CSRF token
-            await csrfManager.getToken();
-            console.log('✅ CSRF protection ready');
-            
-            // Set up token refresh every 30 minutes
-            setInterval(async () => {
-                try {
-                    await csrfManager.refreshToken();
-                    console.log('🔄 CSRF token refreshed automatically');
-                } catch (error) {
-                    console.error('❌ Failed to refresh CSRF token:', error);
-                }
-            }, 30 * 60 * 1000); // 30 minutes
-            
-            // Your existing dashboard initialization code
-            initializeTabs();
-            loadInitialData();
-            setupSearch();
-            startAutoRefresh();
-            
-        } catch (error) {
-            console.error('❌ Failed to initialize CSRF protection:', error);
-            alert('Security initialization failed. Please refresh the page.');
-        }
-    });
-
-    
-    // Global variables
-    let subscribers = [];
-    let subscriberDetails = [];
-    let activityLog = [];
-    let currentStats = {};
-    let growthChart = null;
-    
-    // Initialize dashboard
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('Dashboard initializing...');
-      try {
-        initializeTabs();
-        loadInitialData();
-        setupSearch();
-        startAutoRefresh();
-      } catch (error) {
-        console.error('Dashboard initialization error:', error);
-      }
-    });
-
-    // Load all initial data
-    async function loadInitialData() {
-      try {
-        await Promise.all([
-          loadSubscribers(),
-          loadStats(),
-          loadActivity(),
-          checkHealth()
-        ]);
-      } catch (error) {
-        console.error('Error loading initial data:', error);
-      }
-    }
-
-    // Load subscribers from backend
-   async function loadSubscribers() {
-        try {
-            showLoading('subscriberList');
-            
-            // Make sure your backend returns the new fields
-            const response = await fetch(`${API_BASE}/subscribers`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                subscribers = data.subscribers || [];
-                subscriberDetails = data.subscriber_details || []; // This should now include name fields
-                currentStats = data.stats || {};
-                
-                renderSubscribers();
-                updateStats();
-                updateCampaignRecipientCount();
-            }
-        } catch (error) {
-            console.error('Error loading subscribers:', error);
-            showError('subscriberList', `Connection error: ${error.message}`);
-        }
-    }
-
-    // Load statistics
-    async function loadStats() {
-      try {
-        const response = await fetch(`${API_BASE}/stats`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          currentStats = data.stats;
-          updateStats();
-          document.getElementById('brevoSyncStatus').textContent = data.brevo_sync_status || '❌';
-        }
-      } catch (error) {
-        console.error('Error loading stats:', error);
-      }
-    }
-
-    // Load activity log
-    async function loadActivity() {
-      try {
-        const response = await fetch(`${API_BASE}/activity`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          activityLog = data.activity || [];
-          renderActivityLog();
-        }
-      } catch (error) {
-        console.error('Error loading activity:', error);
-        showError('activityLog', 'Failed to load activity');
-      }
-    }
-
-    // Check backend health
-    async function checkHealth() {
-      try {
-        const response = await fetch(`${API_BASE}/health`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        updateServerStatus(true);
-        const brevoStatusElement = document.getElementById('brevoStatus');
-        if (brevoStatusElement) {
-          brevoStatusElement.innerHTML = 
-            data.brevo_status === 'connected' ? '🟢 Connected' : `🔴 ${data.brevo_status}`;
-          
-          // Show more detailed Brevo status if available
-          if (data.brevo_email) {
-            brevoStatusElement.title = `Connected as: ${data.brevo_email}`;
-          }
-        }
-      } catch (error) {
-        console.error('Health check failed:', error);
-        updateServerStatus(false);
-        const brevoStatusElement = document.getElementById('brevoStatus');
-        if (brevoStatusElement) {
-          brevoStatusElement.innerHTML = '🔴 Offline';
-        }
-      }
-    }
-
-    // Update server status display
-    function updateServerStatus(isOnline) {
-      const serverStatusElement = document.getElementById('serverStatus');
-      if (serverStatusElement) {
-        serverStatusElement.innerHTML = isOnline ? '🟢 Online' : '🔴 Offline';
-      }
-    }
-
-    // Initialize growth chart
-    function initializeGrowthChart() {
-      try {
-        // Destroy existing chart if it exists
-        if (growthChart) {
-          growthChart.destroy();
-        }
-        
-        const ctx = document.getElementById('growthChart');
-        if (!ctx) {
-          console.error('Growth chart canvas not found');
-          return;
-        }
-        
-        const chartContext = ctx.getContext('2d');
-        
-        // Generate sample data for the last 30 days
-        const last30Days = [];
-        const subscriberCounts = [];
-        const today = new Date();
-        
-        for (let i = 29; i >= 0; i--) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          last30Days.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-          
-          // Calculate cumulative subscriber count for this date
-          const dateStr = date.toISOString().split('T')[0];
-          const subscribersUpToDate = subscriberDetails.filter(sub => {
-            const subDate = new Date(sub.date_added).toISOString().split('T')[0];
-            return subDate <= dateStr;
-          }).length;
-          
-          subscriberCounts.push(subscribersUpToDate);
-        }
-        
-        // Create new chart and store reference
-        growthChart = new Chart(chartContext, {
-          type: 'line',
-          data: {
-            labels: last30Days,
-            datasets: [{
-              label: 'Total Subscribers',
-              data: subscriberCounts,
-              borderColor: '#FFD700',
-              backgroundColor: 'rgba(255, 215, 0, 0.1)',
-              borderWidth: 3,
-              fill: true,
-              tension: 0.4,
-              pointBackgroundColor: '#FFD700',
-              pointBorderColor: '#1a1a1a',
-              pointBorderWidth: 2,
-              pointRadius: 5,
-              pointHoverRadius: 7
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                position: 'top',
-                labels: {
-                  color: '#FFD700',
-                  font: {
-                    weight: 'bold'
-                  }
-                }
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                grid: {
-                  color: '#444'
-                },
-                ticks: {
-                  color: '#cccccc'
-                }
-              },
-              x: {
-                grid: {
-                  color: '#444'
-                },
-                ticks: {
-                  color: '#cccccc',
-                  maxRotation: 45
-                }
-              }
-            },
-            elements: {
-              point: {
-                hoverBackgroundColor: '#FFD700'
-              }
-            }
-          }
-        });
-      } catch (error) {
-        console.error('Error initializing growth chart:', error);
-      }
-    }
-
-    // Render subscribers in the list
-    function renderSubscribers(subscribersToRender = subscribers) {
-      try {
-        const subscriberList = document.getElementById('subscriberList');
-        if (!subscriberList) {
-          console.error('Subscriber list element not found');
-          return;
-        }
-        
-        if (subscribersToRender.length === 0) {
-          subscriberList.innerHTML = `
-            <div style="text-align: center; padding: 50px; color: #aaaaaa;">
-              📭 No subscribers found
-            </div>
-          `;
-          return;
-        }
-
-        subscriberList.innerHTML = subscribersToRender.map(email => {
-            const details = subscriberDetails.find(d => d.email === email);
-            const dateAdded = details ? new Date(details.date_added).toLocaleDateString() : 'Unknown';
-            const source = details ? details.source : 'unknown';
-            const fullName = details?.full_name || details?.first_name || 'No name';
-            const gamingHandle = details?.gaming_handle;
-            
-            return `
-                <div class="subscriber-item">
-                    <div class="subscriber-info">
-                        <div class="subscriber-email">
-                            <strong>${fullName}</strong> - ${email}
-                            ${gamingHandle ? `<span style="color: #FFD700; font-size: 0.8rem; margin-left: 8px;">🎮 ${gamingHandle}</span>` : ''}
-                        </div>
-                        <div class="subscriber-meta">Added: ${dateAdded} • Source: ${source}</div>
-                    </div>
-                    <button class="btn btn-danger btn-sm" onclick="removeSubscriber('${email}')">
-                        🗑️ Remove
-                    </button>
-                </div>
-            `;
-        }).join('');
-      } catch (error) {
-        console.error('Error rendering subscribers:', error);
-      }
-    }
-
-    // Add new subscriber
-    async function addSubscriber() {
-        try {
-            const emailInput = document.getElementById('newSubscriberEmail');
-            const firstNameInput = document.getElementById('newSubscriberFirstName');
-            const lastNameInput = document.getElementById('newSubscriberLastName');
-            const handleInput = document.getElementById('newSubscriberHandle');
-            
-            if (!emailInput || !firstNameInput || !lastNameInput) {
-                console.error('Required input fields not found');
-                return;
-            }
-            
-            const email = emailInput.value.trim();
-            const firstName = firstNameInput.value.trim();
-            const lastName = lastNameInput.value.trim();
-            const gamingHandle = handleInput.value.trim();
-
-            if (!email || !firstName || !lastName) {
-                alert('Please enter email, first name, and last name');
-                return;
-            }
-
-            if (!isValidEmail(email)) {
-                alert('Please enter a valid email address');
-                return;
-            }
-
-            // USE SECURE API CALL with CSRF
-            const response = await securePost(`${API_BASE}/subscribe`, {
-                email, 
-                firstName,
-                lastName,
-                gamingHandle: gamingHandle || null,
-                source: 'admin_manual' 
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success) {
-                emailInput.value = '';
-                firstNameInput.value = '';
-                lastNameInput.value = '';
-                handleInput.value = '';
-                await loadSubscribers();
-                await loadActivity();
-                showSuccess(`Added ${firstName} ${lastName} (${email}) successfully!`);
-            } else {
-                alert(data.error || 'Failed to add subscriber');
-            }
-        } catch (error) {
-            console.error('Error adding subscriber:', error);
-            
-            // Handle CSRF errors gracefully
-            if (error.message.includes('403') || error.message.includes('CSRF')) {
-                alert('Session expired. Please refresh the page and try again.');
-            } else {
-                alert('Network error. Please try again.');
-            }
-        }
-    }
-
-
-    // Remove subscriber
-   async function removeSubscriber(email) {
-        try {
-            if (!confirm(`Remove ${email} from subscribers?`)) return;
-
-            // USE SECURE API CALL
-            const response = await securePost(`${API_BASE}/unsubscribe`, {
-                email
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success) {
-                await loadSubscribers();
-                await loadActivity();
-                showSuccess('Subscriber removed successfully!');
-            } else {
-                alert(data.error || 'Failed to remove subscriber');
-            }
-        } catch (error) {
-            console.error('Error removing subscriber:', error);
-            handleApiError(error);
-        }
-    }
-
-      // Bulk import subscribers
-      async function bulkImport() {
-        try {
-            const textarea = document.getElementById('bulkEmails');
-            if (!textarea) {
-                console.error('Bulk emails textarea not found');
-                return;
-            }
-            
-            const emailText = textarea.value.trim();
-            
-            if (!emailText) {
-                alert('Please enter some email addresses');
-                return;
-            }
-            
-            const emails = emailText.split('\n')
-                .map(email => email.trim())
-                .filter(email => email && isValidEmail(email));
-            
-            if (emails.length === 0) {
-                alert('No valid email addresses found');
-                return;
-            }
-            
-            if (!confirm(`Import ${emails.length} email addresses?`)) return;
-            
-            // USE SECURE API CALL
-            const response = await securePost(`${API_BASE}/bulk-import`, {
-                emails, 
-                source: 'import'
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success) {
-                textarea.value = '';
-                await loadSubscribers();
-                await loadActivity();
-                
-                let message = `Successfully imported ${data.added} subscribers.`;
-                if (data.errors && data.errors.length > 0) {
-                    message += `\n\n${data.errors.length} errors occurred:\n${data.errors.slice(0, 5).join('\n')}`;
-                    if (data.errors.length > 5) {
-                        message += `\n... and ${data.errors.length - 5} more errors.`;
-                    }
-                }
-                alert(message);
-            } else {
-                alert(data.error || 'Failed to import subscribers');
-            }
-        } catch (error) {
-            console.error('Error importing subscribers:', error);
-            handleApiError(error);
-        }
-    }
-
-
-    // Manual Brevo sync
-    async function manualBrevoSync() {
-        try {
-            if (!confirm('Manually sync all subscribers to Brevo?')) return;
-            
-            const button = event.target;
-            if (button) {
-                button.disabled = true;
-                button.innerHTML = '🔄 Syncing...';
-            }
-            
-            // USE SECURE API CALL
-            const response = await securePost(`${API_BASE}/sync-brevo`);
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success) {
-                await loadActivity();
-                let message = `Sync completed: ${data.synced} successful`;
-                if (data.errors > 0) {
-                    message += `, ${data.errors} errors`;
-                }
-                alert(message);
-            } else {
-                alert(data.error || 'Sync failed');
-            }
-        } catch (error) {
-            console.error('Error syncing with Brevo:', error);
-            handleApiError(error);
-        } finally {
-            const button = event.target;
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = '🔄 Manual Brevo Sync';
-            }
-        }
-    }
-
-    async function syncToBrevoWithNames(subscriber) {
-        if (!BREVO_API_KEY) return;
-
-        try {
-            const response = await fetch('https://api.brevo.com/v3/contacts', {
+            const response = await fetch('/subscribe', {
                 method: 'POST',
-                headers: {
-                    'accept': 'application/json',
-                    'content-type': 'application/json',
-                    'api-key': BREVO_API_KEY
-                },
-                body: JSON.stringify({
-                    email: subscriber.email,
-                    attributes: {
-                        FIRSTNAME: subscriber.firstName,
-                        LASTNAME: subscriber.lastName,
-                        GAMING_HANDLE: subscriber.gamingHandle || '',
-                        SOURCE: 'SideQuest Canterbury'
-                    },
-                    listIds: [BREVO_LIST_ID]
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    firstName, 
+                    lastName, 
+                    email, 
+                    gamingHandle: gamingHandle || null,
+                    gdprConsent: gdprConsent,
+                    source: 'signup_page_gdpr' 
                 })
             });
-
-            if (response.ok) {
-                console.log(`✅ Synced ${subscriber.firstName} ${subscriber.lastName} to Brevo`);
-                return true;
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                messageDiv.className = 'message success show';
+                messageDiv.innerHTML = `🎉 Welcome to the quest, ${firstName}! Check your email for confirmation.`;
+                document.getElementById('signupForm').reset();
             } else {
-                const errorData = await response.json();
-                console.error('Brevo sync error:', errorData);
-                return false;
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = result.error || 'Something went wrong. Please try again.';
             }
         } catch (error) {
-            console.error('Brevo API error:', error);
-            return false;
-        }
-    }
-
-    // Send campaign
-    async function sendCampaign() {
-        try {
-            const subject = document.getElementById('campaignSubject')?.value?.trim() || '';
-            const body = document.getElementById('campaignBody')?.value?.trim() || '';
-            const fromName = document.getElementById('fromName')?.value?.trim() || '';
-            
-            if (!subject || !body) {
-                alert('Please fill in both subject and email content');
-                return;
-            }
-            
-            if (subscribers.length === 0) {
-                alert('No subscribers to send campaign to');
-                return;
-            }
-            
-            if (!confirm(`Send campaign to ${subscribers.length} subscribers?`)) return;
-            
-            const button = event.target;
-            if (button) {
-                button.disabled = true;
-                button.innerHTML = '📧 Sending...';
-            }
-            
-            // USE SECURE API CALL
-            const response = await securePost(`${API_BASE}/send-campaign`, {
-                subject,
-                body,
-                fromName: fromName || 'SideQuest Mail',
-                recipients: subscribers
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success) {
-                await loadActivity();
-                alert(`Campaign sent successfully to ${data.sent} subscribers!`);
-                // Clear form
-                const subjectEl = document.getElementById('campaignSubject');
-                const bodyEl = document.getElementById('campaignBody');
-                if (subjectEl) subjectEl.value = '';
-                if (bodyEl) bodyEl.value = '';
-            } else {
-                alert(data.error || 'Failed to send campaign');
-            }
-        } catch (error) {
-            console.error('Error sending campaign:', error);
-            handleApiError(error);
+            messageDiv.className = 'message error show';
+            messageDiv.innerHTML = 'Network error. Please check your connection and try again.';
         } finally {
-            const button = event.target;
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = '📧 Send Campaign';
-            }
+            submitButton.innerHTML = 'Level Up Your Inbox';
+            submitButton.disabled = false;
         }
-    }
-
-    // Refresh subscribers
-    async function refreshSubscribers() {
-      try {
-        await loadInitialData();
-        
-        // Refresh chart if on analytics tab
-        const analyticsTab = document.querySelector('.tab[data-tab="analytics"]');
-        if (analyticsTab && analyticsTab.classList.contains('active')) {
-          setTimeout(() => {
-            if (document.getElementById('growthChart') && subscriberDetails.length > 0) {
-              initializeGrowthChart();
-            }
-          }, 200);
-        }
-        
-        showSuccess('Data refreshed!');
-      } catch (error) {
-        console.error('Error refreshing data:', error);
-      }
-    }
-
-    // Update dashboard stats
-    function updateStats() {
-        try {
-            const elements = {
-                totalSubscribers: document.getElementById('totalSubscribers'),
-                todaySignups: document.getElementById('todaySignups'),
-                thisWeekSignups: document.getElementById('thisWeekSignups'),
-                webSignups: document.getElementById('webSignups'),
-                manualSignups: document.getElementById('manualSignups'),
-                importSignups: document.getElementById('importSignups')
-            };
-
-            // Add null checks
-            if (elements.totalSubscribers) elements.totalSubscribers.textContent = currentStats.total || 0;
-            if (elements.todaySignups) elements.todaySignups.textContent = currentStats.today || 0;
-            if (elements.thisWeekSignups) elements.thisWeekSignups.textContent = currentStats.week || 0;
-            
-            // Update source breakdown
-            const sources = currentStats.sources || {};
-            if (elements.webSignups) elements.webSignups.textContent = sources.web || 0;
-            if (elements.manualSignups) elements.manualSignups.textContent = sources.manual || 0;
-            if (elements.importSignups) elements.importSignups.textContent = sources.import || 0;
-        } catch (error) {
-            console.error('Error updating stats:', error);
-        }
-    }
-
-
-    // Update campaign recipient count
-    function updateCampaignRecipientCount() {
-      try {
-        const element = document.getElementById('campaignRecipientCount');
-        if (element) {
-          element.textContent = subscribers.length;
-        }
-      } catch (error) {
-        console.error('Error updating campaign recipient count:', error);
-      }
-    }
-
-    // Search functionality
-    function setupSearch() {
-        try {
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.addEventListener('input', function() {
-                    const searchTerm = this.value.toLowerCase();
-                    const filteredSubscribers = subscribers.filter(email => {
-                        const details = subscriberDetails.find(d => d.email === email);
-                        const fullName = details?.full_name?.toLowerCase() || '';
-                        const firstName = details?.first_name?.toLowerCase() || '';
-                        const lastName = details?.last_name?.toLowerCase() || '';
-                        const gamingHandle = details?.gaming_handle?.toLowerCase() || '';
-                        
-                        return email.toLowerCase().includes(searchTerm) ||
-                              fullName.includes(searchTerm) ||
-                              firstName.includes(searchTerm) ||
-                              lastName.includes(searchTerm) ||
-                              gamingHandle.includes(searchTerm);
-                    });
-                    renderSubscribers(filteredSubscribers);
-                });
-            }
-        } catch (error) {
-            console.error('Error setting up search:', error);
-        }
-    }
-
-    // Export CSV
-    function exportCSV() {
-      try {
-        if (subscribers.length === 0) {
-          alert('No subscribers to export');
-          return;
-        }
-
-        const csvContent = 'Email,Date Added,Source\n' + 
-          subscriberDetails.map(details => 
-            `${details.email},${details.date_added},${details.source}`
-          ).join('\n');
-          
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `sidequest_subscribers_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
-        showSuccess(`Exported ${subscribers.length} subscribers to CSV`);
-      } catch (error) {
-        console.error('Error exporting CSV:', error);
-        alert('Error exporting CSV. Please try again.');
-      }
-    }
-
-    // Generate QR Code (placeholder - would need QR library)
-    function generateQR() {
-      try {
-        const urlInput = document.getElementById('qrUrl');
-        if (!urlInput) return;
-        
-        const url = urlInput.value;
-        if (!url) {
-          alert('Please enter a URL');
-          return;
-        }
-
-        const qrDisplay = document.getElementById('qrDisplay');
-        if (qrDisplay) {
-          qrDisplay.style.display = 'block';
-          qrDisplay.innerHTML = `
-            <div style="width: 200px; height: 200px; background: #1a1a1a; border: 2px dashed #FFD700; display: flex; align-items: center; justify-content: center; margin: 0 auto; border-radius: 12px; color: #FFD700;">
-              📱 QR Code<br>
-              <small>Would generate for:<br>${url}</small>
-            </div>
-            <p style="margin-top: 15px; font-size: 12px; color: #aaaaaa;">
-              QR code library integration needed
-            </p>
-          `;
-        }
-      } catch (error) {
-        console.error('Error generating QR code:', error);
-      }
-    }
-
-    // Data management
-    function backupData() {
-      try {
-        const backup = {
-          subscribers: subscriberDetails,
-          timestamp: new Date().toISOString(),
-          count: subscribers.length,
-          stats: currentStats
-        };
-        
-        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `sidequest_backup_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
-        showSuccess('Data backup created');
-      } catch (error) {
-        console.error('Error backing up data:', error);
-        alert('Error creating backup. Please try again.');
-      }
-    }
-
-    async function clearAllData() {
-        try {
-            if (!confirm('⚠️ This will delete ALL subscribers permanently. Are you sure?')) return;
-            
-            const confirmation = prompt('Type "DELETE" to confirm this action:');
-            if (confirmation !== 'DELETE') return;
-            
-            // USE SECURE API CALL
-            const response = await securePost(`${API_BASE}/clear-data`, {
-                confirmation: 'DELETE'
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success) {
-                await loadInitialData();
-                alert(data.message);
-            } else {
-                alert(data.error || 'Failed to clear data');
-            }
-        } catch (error) {
-            console.error('Error clearing data:', error);
-            handleApiError(error);
-        }
-    }
-
-    function renderActivityLog() {
-      try {
-        const activityLogElement = document.getElementById('activityLog');
-        if (!activityLogElement) return;
-        
-        if (activityLog.length === 0) {
-          activityLogElement.innerHTML = '<p class="text-muted text-center">No recent activity</p>';
-          return;
-        }
-
-        const recentActivities = activityLog.slice(0, 10);
-        activityLogElement.innerHTML = recentActivities.map(activity => {
-          const time = new Date(activity.timestamp).toLocaleTimeString();
-          const iconClass = activity.type === 'success' ? 'success' : 
-                           activity.type === 'danger' ? 'danger' : 'info';
-          const icon = activity.type === 'success' ? '✅' : 
-                      activity.type === 'danger' ? '❌' : 'ℹ️';
-          
-          return `
-            <div class="activity-item">
-              <div class="activity-icon ${iconClass}">${icon}</div>
-              <div class="activity-content">
-                <div class="activity-text">${activity.message}</div>
-                <div class="activity-time">${time}</div>
-              </div>
-            </div>
-          `;
-        }).join('');
-
-        // Update last activity in system status
-        if (recentActivities.length > 0) {
-          const lastTime = new Date(recentActivities[0].timestamp).toLocaleTimeString();
-          const lastActivityElement = document.getElementById('lastActivity');
-          if (lastActivityElement) {
-            lastActivityElement.textContent = lastTime;
-          }
-        }
-      } catch (error) {
-        console.error('Error rendering activity log:', error);
-      }
-    }
-
-    // Auto refresh functionality
-    function startAutoRefresh() {
-      try {
-        // Refresh data every 30 seconds
-        setInterval(async () => {
-          try {
-            // Remove the old loadStats() call and replace with:
-            await loadActivity();
-            
-            // Only refresh analytics if we're currently on the analytics tab
-            const analyticsTab = document.querySelector('.tab[data-tab="analytics"]');
-            if (analyticsTab && analyticsTab.classList.contains('active')) {
-              await loadAnalyticsData();
-            }
-          } catch (error) {
-            console.error('Auto refresh error:', error);
-          }
-        }, 30000);
-      } catch (error) {
-        console.error('Error starting auto refresh:', error);
-      }
-    }
-
-    function handleApiError(error) {
-        console.error('API Error:', error);
-        
-        if (error.message.includes('403')) {
-            alert('Session expired or security token invalid. Please refresh the page and try again.');
-            // Optionally auto-refresh the page
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
-        } else if (error.message.includes('401')) {
-            alert('Authentication failed. Please log in again.');
-            window.location.href = '/admin/login';
-        } else {
-            alert('Network error. Please check your connection and try again.');
-        }
-    }
-
-    // Utility functions
-    function isValidEmail(email) {
-      const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-      return pattern.test(email);
-    }
-
-    function showLoading(elementId) {
-      try {
-        const element = document.getElementById(elementId);
-        if (element) {
-          element.innerHTML = `
-            <div style="text-align: center; padding: 50px; color: #aaaaaa;">
-              <div class="spinner"></div>
-              <p style="margin-top: 15px;">Loading...</p>
-            </div>
-          `;
-        }
-      } catch (error) {
-        console.error('Error showing loading:', error);
-      }
-    }
-
-    // Add this function to your JavaScript (around line 2500)
-    function toggleChartView(viewType) {
-      if (currentChartView === viewType) return;
-      
-      currentChartView = viewType;
-      
-      // Update button states
-      document.querySelectorAll('.chart-toggle-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      
-      const targetButton = document.querySelector(`[data-chart="${viewType}"]`);
-      if (targetButton) {
-        targetButton.classList.add('active');
-      }
-      
-      // Reload the chart with new data
-      loadAnalyticsData();
-    }
-
-    let subscriberGrowthChart = null;
-    let registrationTrendChart = null;
-
-    let currentChartView = 'subscribers';
-    // Analytics Functions - ADD TO YOUR EXISTING JAVASCRIPT
-
-    // Load analytics data
-    async function loadAnalyticsData() {
-      try {
-        const timeRange = document.getElementById('analyticsTimeRange')?.value || 30;
-        
-        showAnalyticsLoading();
-        
-        const response = await fetch(`${API_BASE}/api/analytics/kpis?days=${timeRange}`);
-        const data = await response.json();
-        
-        if (data.success) {
-          updateAnalyticsKPIs(data.kpis);
-          updateAnalyticsCharts(data.trends);
-          updateEventTypesPerformance(data.trends.event_types);
-          
-         console.log('Analytics data loaded successfully');
-        } else {
-          showAnalyticsError('Failed to load analytics data: ' + (data.error || 'Unknown error'));
-        }
-        
-      } catch (error) {
-        console.error('Error loading analytics:', error);
-        showAnalyticsError('Network error loading analytics data');
-      }
-    }
-
-    // Update KPI cards
-    function updateAnalyticsKPIs(kpis) {
-      try {
-        // Subscriber KPIs
-        const subscriberKPIs = kpis.subscribers || {};
-        document.getElementById('analyticsSubscribers').textContent = subscriberKPIs.total || 0;
-        document.getElementById('newSubscribers').textContent = subscriberKPIs.new_this_period || 0;
-        document.getElementById('weeklyGrowth').textContent = subscriberKPIs.weekly_growth || 0;
-        
-        // Update status banner
-        document.getElementById('quickSubscriberCount').textContent = subscriberKPIs.total || 0;
-        
-        // Update growth trend
-        const growthRate = subscriberKPIs.growth_rate || 0;
-        const trendElement = document.getElementById('subscriberTrend');
-        if (trendElement) {
-          trendElement.textContent = (growthRate >= 0 ? '+' : '') + growthRate + '%';
-          trendElement.className = growthRate >= 0 ? 'kpi-trend' : 'kpi-trend negative';
-        }
-        
-        // Event KPIs
-        const eventKPIs = kpis.events || {};
-        document.getElementById('totalEvents').textContent = eventKPIs.total || 0;
-        document.getElementById('totalRegistrations').textContent = eventKPIs.total_registrations || 0;
-        document.getElementById('capacityUtil').textContent = (eventKPIs.avg_capacity_utilization || 0) + '%';
-        
-        // Update status banner
-        document.getElementById('quickEventCount').textContent = eventKPIs.total || 0;
-        
-        const upcomingBadge = document.getElementById('upcomingEventsBadge');
-        if (upcomingBadge) {
-          upcomingBadge.textContent = (eventKPIs.upcoming || 0) + ' upcoming';
-        }
-        
-        // Revenue KPIs
-        const revenueKPIs = kpis.revenue || {};
-        document.getElementById('totalRevenue').textContent = '£' + (revenueKPIs.total || 0).toFixed(2);
-        document.getElementById('avgRevenuePerEvent').textContent = '£' + (revenueKPIs.avg_per_event || 0).toFixed(2);
-        
-        // Update status banner
-        document.getElementById('quickRevenue').textContent = '£' + (revenueKPIs.total || 0).toFixed(0);
-        
-        const paidEventsBadge = document.getElementById('paidEventsBadge');
-        if (paidEventsBadge) {
-          paidEventsBadge.textContent = (revenueKPIs.paid_events || 0) + ' paid events';
-        }
-        
-        // Engagement KPIs
-        const engagementKPIs = kpis.engagement || {};
-        document.getElementById('engagementRate').textContent = (engagementKPIs.engagement_rate || 0) + '%';
-        document.getElementById('engagedSubscribers').textContent = engagementKPIs.engaged_subscribers || 0;
-        
-        // Calculate average registrations per event
-        const avgRegsPerEvent = eventKPIs.total > 0 ? Math.round((eventKPIs.total_registrations || 0) / eventKPIs.total) : 0;
-        document.getElementById('avgRegistrationsPerEvent').textContent = avgRegsPerEvent;
-        
-        const attendanceTrend = document.getElementById('attendanceTrend');
-        if (attendanceTrend) {
-          attendanceTrend.textContent = (engagementKPIs.attendance_rate || 0) + '%';
-        }
-        
-        // Update business health score
-        updateBusinessHealthScore(kpis);
-        
-        // Update insights
-        updateInsights(kpis);
-        
-        // Update performance summary
-        updatePerformanceSummary(kpis);
-        
-      } catch (error) {
-        console.error('Error updating KPIs:', error);
-      }
-    }
-
-    // Business health score calculation
-    function updateBusinessHealthScore(kpis) {
-      try {
-        const subscriber = kpis.subscribers || {};
-        const events = kpis.events || {};
-        const engagement = kpis.engagement || {};
-        
-        let score = 0;
-        let status = 'Good';
-        let color = '#FFD700';
-        
-        // Score factors
-        if (subscriber.growth_rate > 20) score += 25;
-        else if (subscriber.growth_rate > 0) score += 15;
-        else score += 5;
-        
-        if (engagement.engagement_rate > 50) score += 25;      // Excellent
-        else if (engagement.engagement_rate > 30) score += 20; // Good  
-        else if (engagement.engagement_rate > 15) score += 10; // Fair
-        else score += 5; 
-        
-        if (events.avg_capacity_utilization > 70) score += 25;
-        else if (events.avg_capacity_utilization > 40) score += 15;
-        else score += 5;
-        
-        if (events.upcoming > 0) score += 25;
-        else score += 10;
-        
-        // Determine status
-        if (score >= 80) {
-          status = 'Excellent';
-          color = '#00ff88';
-        } else if (score >= 60) {
-          status = 'Good';
-          color = '#FFD700';
-        } else if (score >= 40) {
-          status = 'Fair';
-          color = '#FFA500';
-        } else {
-          status = 'Needs Attention';
-          color = '#ff6b35';
-        }
-        
-        const healthElement = document.getElementById('businessHealthScore');
-        if (healthElement) {
-          healthElement.textContent = status;
-          healthElement.style.color = color;
-        }
-        
-      } catch (error) {
-        console.error('Error updating business health score:', error);
-      }
-    }
-
-    
-
-    function updateAnalyticsCharts(trends) {
-      try {
-        updateMainGrowthChart(trends); // ← New function name
-        // Remove the old function calls:
-        // updateSubscriberGrowthChart(trends.subscriber_growth || []);
-        // updateRegistrationTrendChart(trends.registration_trend || []);
-      } catch (error) {
-        console.error('Error updating charts:', error);
-      }
-    }
-
-    // Export analytics report
-    async function exportAnalyticsReport() {
-      try {
-        const timeRange = document.getElementById('analyticsTimeRange')?.value || 30;
-        showSuccess('📊 Generating analytics report...');
-        
-        // Get current analytics data
-        const response = await fetch(`${API_BASE}/api/analytics/kpis?days=${timeRange}`);
-        const data = await response.json();
-        
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to fetch analytics data');
-        }
-        
-        // Create CSV content
-        const timestamp = new Date().toISOString().split('T')[0];
-        let csvContent = `SideQuest Analytics Report - ${timestamp}\n\n`;
-        
-        csvContent += `SUBSCRIBER METRICS (Last ${timeRange} days)\n`;
-        csvContent += `Total Subscribers,${data.kpis.subscribers.total}\n`;
-        csvContent += `New Subscribers,${data.kpis.subscribers.new_this_period}\n`;
-        csvContent += `Weekly Growth,${data.kpis.subscribers.weekly_growth}\n`;
-        csvContent += `Growth Rate,${data.kpis.subscribers.growth_rate}%\n\n`;
-        
-        csvContent += `EVENT METRICS\n`;
-        csvContent += `Total Events,${data.kpis.events.total}\n`;
-        csvContent += `Upcoming Events,${data.kpis.events.upcoming}\n`;
-        csvContent += `Total Registrations,${data.kpis.events.total_registrations}\n`;
-        csvContent += `Avg Capacity Utilization,${data.kpis.events.avg_capacity_utilization}%\n\n`;
-        
-        csvContent += `REVENUE METRICS\n`;
-        csvContent += `Total Revenue,£${data.kpis.revenue.total}\n`;
-        csvContent += `Paid Events,${data.kpis.revenue.paid_events}\n`;
-        csvContent += `Avg Revenue per Event,£${data.kpis.revenue.avg_per_event}\n\n`;
-        
-        csvContent += `ENGAGEMENT METRICS\n`;
-        csvContent += `Engagement Rate,${data.kpis.engagement.engagement_rate}%\n`;
-        csvContent += `Active Subscribers,${data.kpis.engagement.engaged_subscribers}\n`;
-        csvContent += `Attendance Rate,${data.kpis.engagement.attendance_rate}%\n`;
-        
-        // Download the report
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `sidequest_analytics_${timestamp}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
-        showSuccess('📊 Analytics report downloaded!');
-        
-      } catch (error) {
-        console.error('Error exporting analytics report:', error);
-        alert('Failed to export analytics report: ' + error.message);
-      }
-    }
-
-    // Event mix optimization suggestions
-    function optimizeEventMix() {
-      const suggestions = [
-        "🎯 Your tournaments have high engagement - consider adding more competitive events",
-        "🎮 Game nights are popular - try themed nights (retro, indie, etc.)",
-        "💡 Consider adding beginner-friendly events to attract new participants", 
-        "🏆 Premium tournaments could increase revenue while maintaining engagement",
-        "📅 Weekly recurring events could boost regular attendance"
-      ];
-      
-      const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
-      alert("💡 Recommendation:\n\n" + randomSuggestion);
-    }
-
-    // Insight action execution
-    function executeInsightAction(action) {
-      const actions = {
-        'Plan more events': () => {
-          document.querySelector('.tab[data-tab="events"]').click();
-          setTimeout(() => switchEventView('create'), 500);
-        },
-        'Launch growth campaign': () => {
-          document.querySelector('.tab[data-tab="campaigns"]').click();
-        },
-        'Boost engagement': () => {
-          alert('💡 Try these engagement boosters:\n\n• Send personalized event invitations\n• Create member-exclusive events\n• Add loyalty rewards\n• Host community challenges');
-        },
-        'Create paid events': () => {
-          document.querySelector('.tab[data-tab="events"]').click();
-          setTimeout(() => {
-            switchEventView('create');
-            setTimeout(() => {
-              const feeInput = document.getElementById('eventFee');
-              if (feeInput) {
-                feeInput.focus();
-                feeInput.value = '10.00';
-              }
-            }, 1000);
-          }, 500);
-        },
-        'Scale successful events': () => {
-          alert('💰 Revenue optimization ideas:\n\n• Increase capacity for popular events\n• Create tiered pricing (VIP, Standard)\n• Add merchandise sales\n• Offer event packages');
-        },
-        'Expand capacity': () => {
-          alert('📈 Capacity expansion options:\n\n• Book larger venues\n• Add multiple sessions\n• Create waiting lists\n• Live stream popular events');
-        },
-        'Maintain momentum': () => {
-          alert('🚀 Keep the momentum:\n\n• Regular communication with community\n• Consistent event schedule\n• Member feedback surveys\n• Referral incentives');
-        }
-      };
-      
-      if (actions[action]) {
-        actions[action]();
-      } else {
-        alert('💡 Action: ' + action);
-      }
-    }
-
-
-    // Generate AI insights
-    function updateInsights(kpis) {
-      try {
-        const insights = [];
-        const subscriber = kpis.subscribers || {};
-        const events = kpis.events || {};
-        const engagement = kpis.engagement || {};
-        const revenue = kpis.revenue || {};
-        
-        // Growth insights
-        if (subscriber.growth_rate > 50) {
-          insights.push({
-            type: 'success',
-            icon: '🚀',
-            title: 'Explosive Growth!',
-            description: `Your subscriber base is growing ${subscriber.growth_rate}% faster than the previous period. Consider scaling your event capacity.`,
-            action: 'Plan more events'
-          });
-        } else if (subscriber.growth_rate < 0) {
-          insights.push({
-            type: 'warning',
-            icon: '⚠️',
-            title: 'Growth Slowdown',
-            description: 'Subscriber growth has declined. Consider running a promotional campaign or special event.',
-            action: 'Launch growth campaign'
-          });
-        }
-        
-        // Engagement insights
-        if (engagement.engagement_rate > 60) {  // 60%+ is truly high
-          insights.push({
-            type: 'success',
-            icon: '🎯',
-            title: 'Excellent Engagement',
-            description: `${engagement.engagement_rate}% of subscribers actively participate in events. Outstanding community engagement!`,
-            action: 'Maintain momentum'
-          });
-        } else if (engagement.engagement_rate > 35) {  // 35-60% is good
-          insights.push({
-            type: 'success',
-            icon: '👍',
-            title: 'Good Engagement',
-            description: `${engagement.engagement_rate}% participation rate shows solid community engagement.`,
-            action: 'Scale successful events'
-          });
-        } else if (engagement.engagement_rate > 20) {  // 20-35% is average
-          insights.push({
-            type: 'opportunity',
-            icon: '📈',
-            title: 'Room for Growth',
-            description: `${engagement.engagement_rate}% participation rate has potential for improvement. Consider more diverse events.`,
-            action: 'Boost engagement'
-          });
-        } else {  // Under 20% needs attention
-          insights.push({
-            type: 'warning',
-            icon: '⚠️',
-            title: 'Low Engagement',
-            description: `Only ${engagement.engagement_rate}% of subscribers are participating in events. Consider survey feedback or promotional campaigns.`,
-            action: 'Launch engagement campaign'
-          });
-        }
-        
-        // Revenue insights
-        if (revenue.paid_events === 0) {
-          insights.push({
-            type: 'opportunity',
-            icon: '💰',
-            title: 'Revenue Opportunity',
-            description: 'All events are currently free. Consider introducing premium events or workshops to generate revenue.',
-            action: 'Create paid events'
-          });
-        } else if (revenue.avg_per_event > 15) {
-          insights.push({
-            type: 'success',
-            icon: '💎',
-            title: 'Strong Revenue per Event',
-            description: `Averaging £${revenue.avg_per_event.toFixed(2)} per event shows healthy monetization.`,
-            action: 'Scale successful events'
-          });
-        }
-        
-        // Capacity insights
-        if (events.avg_capacity_utilization > 90) {
-          insights.push({
-            type: 'warning',
-            icon: '📈',
-            title: 'High Demand',
-            description: 'Events are consistently at capacity. Consider increasing venue size or adding more sessions.',
-            action: 'Expand capacity'
-          });
-        }
-        
-        renderInsights(insights);
-        
-      } catch (error) {
-        console.error('Error updating insights:', error);
-      }
-    }
-
-    // Render insights
-    function renderInsights(insights) {
-      const container = document.getElementById('aiInsights');
-      if (!container) return;
-      
-      if (insights.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center">No insights available yet. Check back as your data grows!</p>';
-        return;
-      }
-      
-      container.innerHTML = insights.map(insight => `
-        <div class="insight-card ${insight.type}" onclick="executeInsightAction('${insight.action}')">
-          <div class="insight-header">
-            <span class="insight-icon">${insight.icon}</span>
-            <span class="insight-title">${insight.title}</span>
-          </div>
-          <div class="insight-description">${insight.description}</div>
-          <div class="insight-action">${insight.action} →</div>
-        </div>
-      `).join('');
-    }
-
-    // Performance summary
-    function updatePerformanceSummary(kpis) {
-      try {
-        const container = document.getElementById('performanceSummary');
-        if (!container) return;
-        
-        const subscriber = kpis.subscribers || {};
-        const events = kpis.events || {};
-        const engagement = kpis.engagement || {};
-        const revenue = kpis.revenue || {};
-        
-        const metrics = [
-          {
-            label: 'Growth Rate',
-            value: `${subscriber.growth_rate || 0}%`,
-            trend: subscriber.growth_rate > 0 ? 'up' : subscriber.growth_rate < 0 ? 'down' : 'neutral',
-            icon: subscriber.growth_rate > 0 ? '↗️' : subscriber.growth_rate < 0 ? '↘️' : '➡️'
-          },
-          {
-            label: 'Event Participation',
-            value: `${engagement.engagement_rate || 0}%`,
-            trend: engagement.engagement_rate > 25 ? 'up' : engagement.engagement_rate < 15 ? 'down' : 'neutral',
-            icon: engagement.engagement_rate > 25 ? '🎯' : '👥'
-          },
-          {
-            label: 'Avg Capacity',
-            value: `${events.avg_capacity_utilization || 0}%`,
-            trend: events.avg_capacity_utilization > 70 ? 'up' : events.avg_capacity_utilization < 40 ? 'down' : 'neutral',
-            icon: events.avg_capacity_utilization > 70 ? '🔥' : '📊'
-          },
-          {
-            label: 'Revenue/Event',
-            value: `£${(revenue.avg_per_event || 0).toFixed(2)}`,
-            trend: revenue.avg_per_event > 10 ? 'up' : revenue.avg_per_event < 5 ? 'down' : 'neutral',
-            icon: '💰'
-          }
-        ];
-        
-        container.innerHTML = metrics.map(metric => `
-          <div class="performance-metric">
-            <span class="metric-label">${metric.icon} ${metric.label}</span>
-            <div>
-              <span class="metric-value">${metric.value}</span>
-              <span class="metric-trend trend-${metric.trend}"></span>
-            </div>
-          </div>
-        `).join('');
-        
-      } catch (error) {
-        console.error('Error updating performance summary:', error);
-      }
-    }
-    // Replace the chart data generation in updateMainGrowthChart function
-    function updateMainGrowthChart(trends) {
-      try {
-        const ctx = document.getElementById('mainGrowthChart');
-        if (!ctx) return;
-        
-        if (subscriberGrowthChart) {
-          subscriberGrowthChart.destroy();
-        }
-        
-        let chartConfig;
-        
-        if (currentChartView === 'subscribers') {
-          const subscriberData = trends.subscriber_growth || [];
-          
-          if (subscriberData.length === 0) {
-            // Show empty state
-            const chartCtx = ctx.getContext('2d');
-            chartCtx.clearRect(0, 0, ctx.width, ctx.height);
-            chartCtx.fillStyle = '#666';
-            chartCtx.font = '16px Arial';
-            chartCtx.textAlign = 'center';
-            chartCtx.fillText('No subscriber data available', ctx.width/2, ctx.height/2);
-            return;
-          }
-          
-          const labels = subscriberData.map(item => {
-            const date = new Date(item.date);
-            return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
-          });
-          
-          const newSubscribers = subscriberData.map(item => item.new_subscribers || 0);
-          
-          // Calculate cumulative properly - start from current total and work backwards
-          const totalSubs = subscribers.length || 0;
-          let runningTotal = totalSubs;
-          const cumulativeSubscribers = [];
-          
-          // Work backwards from the end to calculate proper cumulative values
-          for (let i = subscriberData.length - 1; i >= 0; i--) {
-            cumulativeSubscribers.unshift(runningTotal);
-            runningTotal -= (subscriberData[i].new_subscribers || 0);
-          }
-          
-          // Ensure we don't have negative values
-          const minValue = Math.max(0, Math.min(...cumulativeSubscribers));
-          const adjustedCumulative = cumulativeSubscribers.map(val => Math.max(minValue, val));
-          
-          chartConfig = {
-            type: 'line',
-            data: {
-              labels: labels,
-              datasets: [
-                {
-                  label: 'New Subscribers',
-                  data: newSubscribers,
-                  borderColor: '#FFD700',
-                  backgroundColor: 'rgba(255, 215, 0, 0.1)',
-                  borderWidth: 3,
-                  fill: true,
-                  tension: 0.4,
-                  pointBackgroundColor: '#FFD700',
-                  pointBorderColor: '#1a1a1a',
-                  pointBorderWidth: 2,
-                  pointRadius: 6,
-                  yAxisID: 'y'
-                },
-                {
-                  label: 'Total Subscribers',
-                  data: adjustedCumulative,
-                  borderColor: '#4ECDC4',
-                  backgroundColor: 'rgba(78, 205, 196, 0.1)',
-                  borderWidth: 3,
-                  fill: false,
-                  tension: 0.3,
-                  pointBackgroundColor: '#4ECDC4',
-                  pointBorderColor: '#1a1a1a',
-                  pointBorderWidth: 2,
-                  pointRadius: 5,
-                  yAxisID: 'y1'
-                }
-              ]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              interaction: {
-                mode: 'index',
-                intersect: false,
-              },
-              plugins: {
-                legend: {
-                  display: true,
-                  position: 'top',
-                  labels: {
-                    color: '#FFD700',
-                    font: { weight: 'bold' },
-                    usePointStyle: true
-                  }
-                },
-                tooltip: {
-                  backgroundColor: '#2a2a2a',
-                  titleColor: '#FFD700',
-                  bodyColor: '#ffffff',
-                  borderColor: '#FFD700',
-                  borderWidth: 1
-                }
-              },
-              scales: {
-                x: {
-                  grid: { color: '#444' },
-                  ticks: { color: '#cccccc', maxRotation: 45 }
-                },
-                y: {
-                  type: 'linear',
-                  display: true,
-                  position: 'left',
-                  beginAtZero: true,
-                  grid: { color: '#444' },
-                  ticks: { color: '#cccccc' },
-                  title: {
-                    display: true,
-                    text: 'New Subscribers',
-                    color: '#FFD700'
-                  }
-                },
-                y1: {
-                  type: 'linear',
-                  display: true,
-                  position: 'right',
-                  beginAtZero: false,
-                  grid: { drawOnChartArea: false },
-                  ticks: { color: '#4ECDC4' },
-                  title: {
-                    display: true,
-                    text: 'Total Subscribers',
-                    color: '#4ECDC4'
-                  }
-                }
-              }
-            }
-          };
-          
-        } else {
-          // Registrations view - FIX THE BROKEN CHART
-          const registrationData = trends.registration_trend || [];
-          
-          if (registrationData.length === 0) {
-            // Create empty chart with message
-            chartConfig = {
-              type: 'bar',
-              data: {
-                labels: ['No Data'],
-                datasets: [{
-                  label: 'Event Registrations',
-                  data: [0],
-                  backgroundColor: 'rgba(139, 92, 246, 0.3)',
-                  borderColor: '#8B5CF6',
-                  borderWidth: 2
-                }]
-              },
-              options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    display: true,
-                    labels: { color: '#8B5CF6', font: { weight: 'bold' } }
-                  }
-                },
-                scales: {
-                  x: { grid: { color: '#444' }, ticks: { color: '#cccccc' } },
-                  y: { 
-                    beginAtZero: true, 
-                    grid: { color: '#444' }, 
-                    ticks: { color: '#cccccc' },
-                    title: { display: true, text: 'Registrations', color: '#8B5CF6' }
-                  }
-                }
-              }
-            };
-          } else {
-            const labels = registrationData.map(item => {
-              const date = new Date(item.date);
-              return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
-            });
-            
-            const registrations = registrationData.map(item => item.registrations || 0);
-            
-            chartConfig = {
-              type: 'bar',
-              data: {
-                labels: labels,
-                datasets: [{
-                  label: 'Event Registrations',
-                  data: registrations,
-                  backgroundColor: 'rgba(139, 92, 246, 0.8)',
-                  borderColor: '#8B5CF6',
-                  borderWidth: 2,
-                  borderRadius: 8,
-                }]
-              },
-              options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    display: true,
-                    position: 'top',
-                    labels: {
-                      color: '#8B5CF6',
-                      font: { weight: 'bold' },
-                      usePointStyle: true
-                    }
-                  }
-                },
-                scales: {
-                  x: { grid: { color: '#444' }, ticks: { color: '#cccccc', maxRotation: 45 } },
-                  y: {
-                    beginAtZero: true,
-                    grid: { color: '#444' },
-                    ticks: { color: '#cccccc' },
-                    title: { display: true, text: 'Registrations', color: '#8B5CF6' }
-                  }
-                }
-              }
-            };
-          }
-        }
-        
-        subscriberGrowthChart = new Chart(ctx, chartConfig);
-        
-      } catch (error) {
-        console.error('Error updating main growth chart:', error);
-        // Show error in chart area
-        const chartCtx = ctx.getContext('2d');
-        chartCtx.clearRect(0, 0, ctx.width, ctx.height);
-        chartCtx.fillStyle = '#ff6b35';
-        chartCtx.font = '16px Arial';
-        chartCtx.textAlign = 'center';
-        chartCtx.fillText('Chart error - check console', ctx.width/2, ctx.height/2);
-      }
-    }
-
-    // Update event types performance
-    function updateEventTypesPerformance(eventTypes) {
-      try {
-        const container = document.getElementById('eventTypesPerformance');
-        if (!container) return;
-        
-        if (!eventTypes || eventTypes.length === 0) {
-          container.innerHTML = '<p class="text-muted text-center">No event data available</p>';
-          return;
-        }
-        
-        container.innerHTML = eventTypes.map(eventType => {
-          const typeClass = eventType.event_type.toLowerCase().replace(/\s+/g, '_');
-          const capacityUtil = Math.round(eventType.avg_capacity_util || 0);
-          
-          return `
-            <div class="event-type-card ${typeClass}">
-              <div class="event-type-header">
-                <span class="event-type-title">${eventType.event_type.replace('_', ' ')}</span>
-                <span class="event-type-count">${eventType.event_count}</span>
-              </div>
-              <div class="event-type-stats">
-                <div class="event-type-stat">
-                  <span class="event-type-stat-value">${eventType.total_registrations || 0}</span>
-                  <span class="event-type-stat-label">Registrations</span>
-                </div>
-                <div class="event-type-stat">
-                  <span class="event-type-stat-value">${capacityUtil}%</span>
-                  <span class="event-type-stat-label">Avg Capacity</span>
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('');
-        
-      } catch (error) {
-        console.error('Error updating event types performance:', error);
-      }
-    }
-
-    // Show loading state
-    function showAnalyticsLoading() {
-      // Update KPI cards to show loading
-      const kpiValues = document.querySelectorAll('.kpi-value, .kpi-detail-value');
-      kpiValues.forEach(element => {
-        element.textContent = '-';
-      });
-      
-      // Show loading for charts
-      const chartContainers = document.querySelectorAll('.chart-container canvas');
-      chartContainers.forEach(canvas => {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      });
-      
-      // Show loading for event types
-      const eventTypesContainer = document.getElementById('eventTypesPerformance');
-      if (eventTypesContainer) {
-        eventTypesContainer.innerHTML = `
-          <div class="loading-placeholder">
-            <div class="spinner"></div>
-            <p>Loading performance data...</p>
-          </div>
-        `;
-      }
-    }
-
-    // Show error state
-    function showAnalyticsError(message) {
-      console.error('Analytics error:', message);
-      
-      const eventTypesContainer = document.getElementById('eventTypesPerformance');
-      if (eventTypesContainer) {
-        eventTypesContainer.innerHTML = `
-          <div style="text-align: center; padding: 40px; color: #ff6b35;">
-            <p>❌ ${message}</p>
-            <button class="btn btn-primary btn-sm" onclick="loadAnalyticsData()">
-              🔄 Retry
-            </button>
-          </div>
-        `;
-      }
-    }
-
-    // Refresh analytics
-    async function refreshAnalytics() {
-      await loadAnalyticsData();
-      showSuccess('Analytics data refreshed!');
-    }
-
-    // Initialize analytics when tab is clicked
-    document.addEventListener('DOMContentLoaded', function() {
-      // Add event listener for analytics time range change
-      const timeRangeSelect = document.getElementById('analyticsTimeRange');
-      if (timeRangeSelect) {
-        timeRangeSelect.addEventListener('change', loadAnalyticsData);
-      }
-      
-      // Load analytics when analytics tab is clicked
-      const analyticsTab = document.querySelector('.tab[data-tab="analytics"]');
-      if (analyticsTab) {
-        analyticsTab.addEventListener('click', function() {
-          // Small delay to ensure tab content is visible
-          setTimeout(loadAnalyticsData, 200);
-        });
-      }
     });
-
-    // Initialize tabs
-    function initializeTabs() {
-      try {
-        const tabs = document.querySelectorAll('.tab');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        tabs.forEach(tab => {
-          tab.addEventListener('click', function() {
-            const targetTab = this.dataset.tab;
-            
-            // Remove active class from all tabs and contents
-            tabs.forEach(t => t.classList.remove('active'));
-            tabContents.forEach(content => content.classList.remove('active'));
-            
-            // Add active class to clicked tab and corresponding content
-            this.classList.add('active');
-            const targetContent = document.getElementById(targetTab);
-            if (targetContent) {
-              targetContent.classList.add('active');
-            }
-            
-            // FIXED: Reset edit state when switching away from events tab
-            if (targetTab !== 'events' && currentEditingEventId !== null) {
-              console.log('🔧 Resetting edit state due to tab switch');
-              currentEditingEventId = null;
-              resetCreateFormUI();
-              resetEventForm();
-            }
-            
-            // Load appropriate data based on tab
-            if (targetTab === 'campaigns') {
-              updateCampaignRecipientCount();
-            } else if (targetTab === 'analytics') {
-              setTimeout(loadAnalyticsData, 200);
-            } else if (targetTab === 'events') {
-              // FIXED: Reset to list view and clear edit state when returning to events
-              setTimeout(() => {
-                loadEvents();
-                if (currentEditingEventId !== null) {
-                  console.log('🔧 Clearing edit state on events tab return');
-                  currentEditingEventId = null;
-                  resetCreateFormUI();
-                  resetEventForm();
-                  switchEventView('list'); // Always go back to list view
-                }
-              }, 100);
-            }
-            
-            if (targetTab === 'analytics' && document.getElementById('growthChart')) {
-              setTimeout(() => {
-                if (subscriberDetails.length > 0) {
-                  initializeGrowthChart();
-                }
-              }, 100);
-            }
-          });
-        });
-      } catch (error) {
-        console.error('Error initializing tabs:', error);
-      }
-    }
-
-    function showSuccess(message) {
-      try {
-        // Success notification with SideQuest styling
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-          color: #1a1a1a;
-          padding: 18px 25px;
-          border-radius: 12px;
-          box-shadow: 0 8px 32px rgba(255, 215, 0, 0.4);
-          z-index: 1000;
-          animation: slideIn 0.3s ease;
-          font-weight: 600;
-          border: 2px solid #FFD700;
-        `;
-        notification.textContent = `✅ ${message}`;
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-          notification.style.animation = 'slideOut 0.3s ease';
-          setTimeout(() => {
-            if (document.body.contains(notification)) {
-              document.body.removeChild(notification);
-            }
-          }, 300);
-        }, 3000);
-      } catch (error) {
-        console.error('Error showing success notification:', error);
-      }
-    }
-
-    // Handle Enter key in email input
-    document.addEventListener('DOMContentLoaded', function() {
-      try {
-        const emailInput = document.getElementById('newSubscriberEmail');
-        if (emailInput) {
-          emailInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-              addSubscriber();
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error setting up enter key handler:', error);
-      }
-    });
-    
-
-    
-  </script>
+    </script>
 </body>
+</html>'''
+    response = make_response(signup_html)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache' 
+    response.headers['Expires'] = '0'
+    return response
 
+# Add this route to your backend.py file after the existing /signup route
+
+@app.route('/signup/event/<int:event_id>')
+@limiter.limit("3 per hour")
+def event_signup_page(event_id):
+    """Event-specific signup page"""
+    try:
+        # Get event details
+        conn = get_db_connection()
+        if not conn:
+            return "Database connection failed", 500
+            
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                e.*,
+                COUNT(r.id) as registration_count,
+                CASE 
+                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
+                    ELSE NULL
+                END as spots_available
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.id = %s
+            GROUP BY e.id
+        """, (event_id,))
+        
+        event_data = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if not event_data:
+            return "Event not found", 404
+        
+        # Convert to dictionary for easier access
+        event = dict(event_data)
+        
+        # Format date/time
+        event_date = event['date_time']
+        if event_date:
+            formatted_date = event_date.strftime('%A, %B %d, %Y')
+            formatted_time = event_date.strftime('%I:%M %p')
+        else:
+            formatted_date = "TBD"
+            formatted_time = "TBD"
+        
+        # Check if event is full
+        is_full = event['capacity'] > 0 and event['registration_count'] >= event['capacity']
+        
+        # Generate the HTML for event-specific signup
+        event_signup_html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register for {event['title']} - SideQuest</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); 
+            color: #ffffff; 
+            min-height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 20px; 
+        }}
+        
+        .container {{ 
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5); 
+            border: 2px solid #FFD700; 
+            max-width: 600px; 
+            width: 100%; 
+            text-align: center; 
+            position: relative; 
+            overflow: hidden; 
+        }}
+        
+        .container::before {{ 
+            content: ''; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            height: 6px; 
+            background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%); 
+        }}
+        
+        .logo {{ 
+            width: 60px; 
+            height: 60px; 
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
+            border-radius: 12px; 
+            margin: 0 auto 20px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: 900; 
+            color: #1a1a1a; 
+            font-size: 18px; 
+        }}
+        
+        .event-badge {{
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }}
+        
+        .badge-tournament {{ background: #FF6B35; color: white; }}
+        .badge-game_night {{ background: #4ECDC4; color: #1a1a1a; }}
+        .badge-special {{ background: #8B5CF6; color: white; }}
+        .badge-birthday {{ background: #FF69B4; color: white; }}
+        
+        h1 {{ 
+            font-size: 2rem; 
+            margin-bottom: 10px; 
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            background-clip: text; 
+            font-weight: 800; 
+        }}
+        
+        .event-details {{ 
+            background: #1a1a1a; 
+            border-radius: 15px; 
+            padding: 25px; 
+            margin: 25px 0; 
+            text-align: left; 
+        }}
+        
+        .detail-row {{ 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 12px; 
+            padding-bottom: 8px; 
+            border-bottom: 1px solid #444; 
+        }}
+        
+        .detail-row:last-child {{ border-bottom: none; margin-bottom: 0; }}
+        
+        .detail-label {{ 
+            color: #FFD700; 
+            font-weight: 600; 
+        }}
+        
+        .detail-value {{ 
+            color: #ffffff; 
+            font-weight: 500; 
+        }}
+        
+        .form-container {{ 
+            margin: 30px 0; 
+            text-align: left; 
+        }}
+        
+        .form-row {{ 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 15px; 
+            margin-bottom: 20px; 
+        }}
+        
+        .form-group {{ 
+            margin-bottom: 20px; 
+        }}
+        
+        label {{ 
+            display: block; 
+            margin-bottom: 8px; 
+            color: #FFD700; 
+            font-weight: 600; 
+            font-size: 14px; 
+        }}
+        
+        input[type="text"], input[type="email"] {{ 
+            width: 100%; 
+            padding: 16px 20px; 
+            border: 2px solid #444; 
+            border-radius: 12px; 
+            font-size: 16px; 
+            background: #1a1a1a; 
+            color: #ffffff; 
+            transition: all 0.3s ease; 
+            font-weight: 500; 
+        }}
+        
+        input[type="text"]:focus, input[type="email"]:focus {{ 
+            outline: none; 
+            border-color: #FFD700; 
+            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
+            background: #2a2a2a; 
+        }}
+        
+        /* GDPR Consent Styling */
+        .gdpr-consent {{
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }}
+
+        .gdpr-title {{
+            color: #FFD700;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 15px;
+        }}
+
+        .consent-checkbox {{
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }}
+
+        .consent-checkbox input[type="checkbox"] {{
+            margin-top: 2px;
+            transform: scale(1.2);
+            accent-color: #FFD700;
+        }}
+
+        .consent-text {{
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #cccccc;
+            font-weight: normal;
+        }}
+        
+        .submit-btn {{ 
+            width: 100%; 
+            padding: 18px 25px; 
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
+            border: none; 
+            border-radius: 12px; 
+            color: #1a1a1a; 
+            font-size: 16px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            transition: all 0.3s ease; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3); 
+        }}
+        
+        .submit-btn:hover {{ 
+            transform: translateY(-2px); 
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4); 
+        }}
+        
+        .submit-btn:disabled {{ 
+            opacity: 0.7; 
+            cursor: not-allowed; 
+            transform: none; 
+        }}
+        
+        .message {{ 
+            margin-top: 20px; 
+            padding: 15px 20px; 
+            border-radius: 10px; 
+            font-weight: 500; 
+            opacity: 0; 
+            transition: all 0.3s ease; 
+        }}
+        
+        .message.show {{ opacity: 1; }}
+        
+        .message.success {{ 
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); 
+            color: #1a1a1a; 
+            border: 2px solid #00ff88; 
+        }}
+        
+        .message.error {{ 
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%); 
+            color: #ffffff; 
+            border: 2px solid #ff6b35; 
+        }}
+        
+        .capacity-warning {{
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }}
+        
+        .spots-remaining {{
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            display: inline-block;
+            margin-bottom: 20px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">SQ</div>
+        
+        <span class="event-badge badge-{event['event_type']}">{event['event_type'].replace('_', ' ').upper()}</span>
+        
+        <h1>{event['title']}</h1>
+        
+        {f'<div class="spots-remaining">⚡ Only {event["spots_available"]} spots left!</div>' if event['capacity'] > 0 and event['spots_available'] <= 5 and event['spots_available'] > 0 else ''}
+        
+        {'<div class="capacity-warning">❌ This event is currently full. You can still register for the waiting list.</div>' if is_full else ''}
+        
+        <div class="event-details">
+            <div class="detail-row">
+                <span class="detail-label">📅 Date</span>
+                <span class="detail-value">{formatted_date}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">🕒 Time</span>
+                <span class="detail-value">{formatted_time}</span>
+            </div>
+            {f'<div class="detail-row"><span class="detail-label">🎮 Game</span><span class="detail-value">{event["game_title"]}</span></div>' if event.get('game_title') else ''}
+            <div class="detail-row">
+                <span class="detail-label">👥 Capacity</span>
+                <span class="detail-value">{f"{event['registration_count']}/{event['capacity']}" if event['capacity'] > 0 else f"{event['registration_count']} registered"}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">💰 Entry Fee</span>
+                <span class="detail-value">{"£{:.2f}".format(event['entry_fee']) if event['entry_fee'] > 0 else 'FREE'}</span>
+            </div>
+            {f'<div class="detail-row"><span class="detail-label">📝 Description</span><span class="detail-value">{event["description"]}</span></div>' if event.get('description') else ''}
+        </div>
+        
+        <form class="form-container" id="registrationForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="firstName">First Name *</label>
+                    <input type="text" id="firstName" name="firstName" required>
+                </div>
+                <div class="form-group">
+                    <label for="lastName">Last Name *</label>
+                    <input type="text" id="lastName" name="lastName" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="playerName">Player/Gamer Name</label>
+                <input type="text" id="playerName" name="playerName" placeholder="Your gaming handle or preferred name">
+            </div>
+            
+            <!-- GDPR Consent Section -->
+            <div class="gdpr-consent">
+                <div class="gdpr-title">Newsletter Subscription (Optional)</div>
+                <div class="consent-checkbox">
+                    <input type="checkbox" id="emailConsent" name="emailConsent">
+                    <label for="emailConsent" class="consent-text">
+                        I want to receive gaming event updates, newsletters, and promotional communications from SideQuest Gaming. 
+                        I understand I can unsubscribe at any time.
+                        <br><small>Note: This is separate from your event registration and is optional.</small>
+                    </label>
+                </div>
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">
+                {'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}
+            </button>
+        </form>
+        
+        <div id="message" class="message"></div>
+    </div>
+    
+    <script>
+        document.getElementById('registrationForm').addEventListener('submit', async (e) => {{
+            console.log('🔍 Form submission started');
+            e.preventDefault();
+            
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const playerName = document.getElementById('playerName').value.trim() || `${{firstName}} ${{lastName}}`;
+            const emailConsent = document.getElementById('emailConsent').checked; // Add consent checkbox
+            
+            console.log('🔍 Form data collected:', {{ firstName, lastName, email, playerName, emailConsent }});
+            
+            const messageDiv = document.getElementById('message');
+            const submitButton = document.getElementById('submitBtn');
+            
+            if (!firstName || !lastName || !email) {{
+                console.log('❌ Validation failed - missing required fields');
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Please fill in all required fields';
+                return;
+            }}
+            
+            console.log('✅ Validation passed, making API request...');
+            
+            submitButton.innerHTML = 'Registering...';
+            submitButton.disabled = true;
+            
+            try {{
+                const requestUrl = '/api/events/{event_id}/register-public';
+                console.log('🔍 Request URL:', requestUrl);
+                
+                const requestData = {{ 
+                    email, 
+                    player_name: playerName,
+                    first_name: firstName,
+                    last_name: lastName,
+                    email_consent: emailConsent  // Include consent in request
+                }};
+                console.log('🔍 Request data:', requestData);
+                
+                const response = await fetch(requestUrl, {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify(requestData)
+                }});
+                
+                console.log('🔍 Response status:', response.status);
+                console.log('🔍 Response ok:', response.ok);
+                
+                const data = await response.json();
+                console.log('🔍 Response data:', data);
+                
+                if (data.success) {{
+                    let successMessage = `🎉 Registration successful!<br>
+                        <strong>Confirmation Code: ${{data.confirmation_code}}</strong><br>
+                        Please save this code and bring it to the event.`;
+                    
+                    // Add Discord invitation for tournaments
+                    if (data.show_discord && data.discord_invite) {{
+                        successMessage += `<br><br>
+                            <div style="background: #5865F2; color: white; padding: 15px; border-radius: 10px; margin-top: 15px;">
+                                <strong>🎮 Join our Discord community!</strong><br>
+                                <a href="${{data.discord_invite}}" target="_blank" style="color: #fff; text-decoration: underline; font-weight: bold;">
+                                    ${{data.discord_invite}}
+                                </a><br>
+                                <small>Connect with other tournament players and get updates!</small>
+                            </div>`;
+                    }}
+                    
+                    messageDiv.className = 'message success show';
+                    messageDiv.innerHTML = successMessage;
+                    
+                    document.getElementById('registrationForm').reset();
+                    submitButton.innerHTML = '✅ Registered!';
+                    
+                    console.log('✅ Success message displayed');
+                }} else {{
+                    console.log('❌ Registration failed:', data.error);
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = '❌ ' + (data.error || 'Registration failed');
+                    submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
+                    submitButton.disabled = false;
+                }}
+            }} catch (error) {{
+                console.error('❌ Network error:', error);
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Network error. Please try again later.';
+                submitButton.innerHTML = '{'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}';
+                submitButton.disabled = false;
+            }}
+        }});
+    </script>
+</body>
+</html>'''
+        
+        return event_signup_html
+        
+    except Exception as e:
+        print(f"Error in event signup page: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return f"Error loading event: {str(e)}", 500
+
+# Add the login template
+LOGIN_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SideQuest Admin Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 2px solid #FFD700;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 12px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1a1a1a;
+            font-weight: 900;
+            font-size: 18px;
+        }
+        h1 {
+            color: #FFD700;
+            margin-bottom: 30px;
+            font-size: 1.8rem;
+        }
+        .form-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #FFD700;
+            font-weight: 600;
+        }
+        input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #444;
+            border-radius: 10px;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+        }
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+        }
+        .error {
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">SQ</div>
+        <h1>Admin Login</h1>
+        
+        ERROR_PLACEHOLDER
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autofocus>
+            </div>
+            <button type="submit" class="btn">🔓 Access Dashboard</button>
+        </form>
+        
+        <div class="footer">
+            <p>SideQuest Gaming Cafe</p>
+            <p>Canterbury Admin Panel</p>
+        </div>
+    </div>
+</body>
 </html>
+'''
+
+# Error handlers
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({"success": False, "error": "Bad request", "message": str(error)}), 400
+
+@app.errorhandler(401)
+def unauthorized(error):
+    return jsonify({"success": False, "error": "Unauthorized", "message": str(error)}), 401
+
+@app.errorhandler(403)
+def forbidden(error):
+    return jsonify({"success": False, "error": "Forbidden", "message": str(error)}), 403
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"success": False, "error": "Not found", "message": str(error)}), 404
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    return jsonify({"success": False, "error": "Method not allowed", "message": str(error)}), 405
+
+@app.errorhandler(429)
+def too_many_requests(error):
+    return jsonify({"success": False, "error": "Too many requests", "message": "Please try again later"}), 429
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    print(f"Server Error: {error}")
+    print(f"Traceback: {traceback.format_exc()}")
+    return jsonify({"success": False, "error": "Internal server error", "message": "An unexpected error occurred"}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    print(f"Unhandled Exception: {error}")
+    print(f"Traceback: {traceback.format_exc()}")
+    return jsonify({"success": False, "error": "Server error", "message": "An unexpected error occurred"}), 500
+
+# =============================
+# Database Connection
+# =============================
+
+def get_db_connection():
+    """Get PostgreSQL connection using Railway's DATABASE_URL"""
+    try:
+        # Railway provides DATABASE_URL automatically
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            # Railway uses 'postgresql://', but psycopg2 needs 'postgres://'
+            if database_url.startswith('postgres://'):
+                database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            conn = psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+        else:
+            # Fallback for local development
+            conn = psycopg2.connect(
+                host=os.environ.get('PGHOST', 'localhost'),
+                port=os.environ.get('PGPORT', 5432),
+                database=os.environ.get('PGDATABASE', 'sidequest'),
+                user=os.environ.get('PGUSER', 'postgres'),
+                password=os.environ.get('PGPASSWORD', ''),
+                cursor_factory=RealDictCursor
+            )
+        return conn
+    except Exception as e:
+        log_error(f"Database connection error: {e}")
+        return None
+
+def execute_query(query, params=None, fetch=True):
+    """Execute a database query with error handling"""
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return None
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        
+        if fetch:
+            result = cursor.fetchall()
+        else:
+            conn.commit()
+            result = cursor.rowcount
+            
+        return result
+    except Exception as e:
+        log_error(f"Query execution error: {e}")
+        if conn:
+            conn.rollback()
+        return None
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+def execute_query_one(query, params=None):
+    """Execute a query and return the first result"""
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            log_error("Failed to get database connection")
+            return None
+            
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        log_activity(f"Executing query: {query[:100]}..." if len(query) > 100 else query, "info")
+        log_activity(f"With params: {params}", "info")
+        
+        cursor.execute(query, params)
+        
+        # For INSERT/UPDATE/DELETE with RETURNING, we need to fetch the result
+        if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')) and 'RETURNING' in query.upper():
+            result = cursor.fetchone()
+            conn.commit()  # Important: commit the transaction
+            log_activity(f"Query executed successfully, returning: {result}", "success")
+            return dict(result) if result else None
+        
+        # For SELECT queries
+        elif query.strip().upper().startswith('SELECT'):
+            result = cursor.fetchone()
+            log_activity(f"Query executed successfully, returning: {result}", "success")
+            return dict(result) if result else None
+        
+        # For other queries without RETURNING
+        else:
+            conn.commit()
+            log_activity(f"Query executed successfully, no return data", "success")
+            return {"affected_rows": cursor.rowcount}
+            
+    except psycopg2.Error as e:
+        log_error(f"Database error in execute_query_one: {e}")
+        log_error(f"Query was: {query}")
+        log_error(f"Params were: {params}")
+        if conn:
+            conn.rollback()
+        return None
+        
+    except Exception as e:
+        log_error(f"Unexpected error in execute_query_one: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        if conn:
+            conn.rollback()
+        return None
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# =============================
+# Event Management Routes
+# =============================
+
+@app.route('/api/events', methods=['GET'])
+def get_events():
+    """Get all events with optional filtering"""
+    try:
+        event_type = request.args.get('type', 'all')
+        status = request.args.get('status', 'all')
+        upcoming_only = request.args.get('upcoming', 'false').lower() == 'true'
+        
+        query = """
+            SELECT 
+                e.*,
+                COUNT(r.id) as registration_count,
+                CASE 
+                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
+                    ELSE NULL
+                END as spots_available
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE 1=1
+        """
+        params = []
+        
+        if event_type != 'all':
+            query += " AND e.event_type = %s"
+            params.append(event_type)
+            
+        if status != 'all':
+            query += " AND e.status = %s"
+            params.append(status)
+            
+        if upcoming_only:
+            query += " AND e.date_time > CURRENT_TIMESTAMP"
+            
+        query += " GROUP BY e.id ORDER BY e.date_time ASC"
+        
+        events = execute_query(query, params)
+        
+        if events is None:
+            return jsonify({"success": False, "error": "Database error"}), 500
+            
+        # Convert datetime objects to ISO format
+        for event in events:
+            if event['date_time']:
+                event['date_time'] = event['date_time'].isoformat()
+            if event['end_time']:
+                event['end_time'] = event['end_time'].isoformat()
+            if event['created_at']:
+                event['created_at'] = event['created_at'].isoformat()
+                
+        log_activity(f"Retrieved {len(events)} events", "info")
+        
+        return jsonify({
+            "success": True,
+            "events": events,
+            "count": len(events)
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting events: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events/<int:event_id>', methods=['GET'])
+def get_event(event_id):
+    """Get single event with registration details"""
+    try:
+        query = """
+            SELECT 
+                e.*,
+                COUNT(r.id) as registration_count,
+                CASE 
+                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
+                    ELSE NULL
+                END as spots_available,
+                ARRAY_AGG(
+                    CASE WHEN r.id IS NOT NULL THEN
+                        json_build_object(
+                            'email', r.subscriber_email,
+                            'player_name', r.player_name,
+                            'registered_at', r.registered_at,
+                            'attended', r.attended
+                        )
+                    ELSE NULL END
+                ) FILTER (WHERE r.id IS NOT NULL) as registrations
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.id = %s
+            GROUP BY e.id
+        """
+        
+        event = execute_query_one(query, (event_id,))
+        
+        if not event:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+            
+        # Convert datetime objects
+        if event['date_time']:
+            event['date_time'] = event['date_time'].isoformat()
+        if event['end_time']:
+            event['end_time'] = event['end_time'].isoformat()
+        if event['created_at']:
+            event['created_at'] = event['created_at'].isoformat()
+            
+        return jsonify({
+            "success": True,
+            "event": event
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting event {event_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events', methods=['POST'])
+@csrf_required
+def create_event():
+    """Create a new event"""
+    try:
+        data = request.json or {}
+        
+        # Log the incoming request
+        log_activity(f"Received create_event request: {data}", "info")
+        
+        # Validate required fields
+        required_fields = ['title', 'event_type', 'date_time']
+        for field in required_fields:
+            if field not in data:
+                log_error(f"Missing required field: {field}")
+                return jsonify({"success": False, "error": f"{field} is required"}), 400
+        
+        # Parse date_time
+        try:
+            date_time = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
+            log_activity(f"Parsed date_time: {date_time}", "info")
+        except Exception as e:
+            log_error(f"Date parsing error: {e}")
+            return jsonify({"success": False, "error": "Invalid date_time format"}), 400
+            
+        # Parse end_time if provided
+        end_time = None
+        if data.get('end_time'):
+            try:
+                end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
+                log_activity(f"Parsed end_time: {end_time}", "info")
+            except Exception as e:
+                log_error(f"End time parsing error: {e}")
+                pass
+                
+        query = """
+            INSERT INTO events (
+                title, event_type, game_title, date_time, end_time,
+                capacity, description, entry_fee, prize_pool, status,
+                image_url, requirements
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """
+        
+        params = (
+            data['title'],
+            data['event_type'],
+            data.get('game_title'),
+            date_time,
+            end_time,
+            data.get('capacity', 0),
+            data.get('description', ''),
+            data.get('entry_fee', 0),
+            data.get('prize_pool'),
+            data.get('status', 'draft'),
+            data.get('image_url'),
+            data.get('requirements')
+        )
+        
+        log_activity(f"About to execute query: {query}", "info")
+        log_activity(f"With params: {params}", "info")
+        
+        # Execute the query and get detailed feedback
+        result = execute_query_one(query, params)
+        
+        log_activity(f"Query result type: {type(result)}", "info")
+        log_activity(f"Query result value: {result}", "info")
+        
+        if result is None:
+            log_error("execute_query_one returned None - check database connection and query")
+            return jsonify({"success": False, "error": "Database query failed - check logs"}), 500
+        
+        if isinstance(result, dict) and 'id' in result:
+            event_id = result['id']
+            log_activity(f"Successfully created event: {data['title']} (ID: {event_id})", "success")
+            
+            # Verify the event was actually inserted
+            verify_query = "SELECT id, title FROM events WHERE id = %s"
+            verification = execute_query_one(verify_query, (event_id,))
+            
+            if verification:
+                log_activity(f"Event verification successful: {verification}", "success")
+            else:
+                log_error(f"Event was not found after insert! ID: {event_id}")
+                return jsonify({"success": False, "error": "Event creation failed - not found after insert"}), 500
+            
+            return jsonify({
+                "success": True,
+                "event_id": event_id,
+                "message": "Event created successfully"
+            })
+        else:
+            log_error(f"Unexpected result format from execute_query_one: {result}")
+            return jsonify({"success": False, "error": "Unexpected database response format"}), 500
+            
+    except Exception as e:
+        log_error(f"Error creating event: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events/<int:event_id>', methods=['DELETE'])
+@csrf_required
+def delete_event(event_id):
+    """Delete an event"""
+    try:
+        force = request.args.get('force', 'false').lower() == 'true'
+        
+        # Check if event has registrations
+        registration_check = execute_query_one(
+            "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
+            (event_id,)
+        )
+        
+        has_registrations = registration_check and registration_check['count'] > 0
+        
+        if has_registrations and not force:
+            return jsonify({
+                "success": False,
+                "error": "Cannot delete event with registrations. Use force=true to delete anyway.",
+                "has_registrations": True
+            }), 400
+        
+        # If force delete or no registrations, proceed
+        if has_registrations and force:
+            # Delete registrations first
+            delete_registrations_query = "DELETE FROM event_registrations WHERE event_id = %s"
+            execute_query_one(delete_registrations_query, (event_id,))
+            log_activity(f"Force deleted registrations for event {event_id}", "warning")
+        
+        # Delete the event
+        delete_query = "DELETE FROM events WHERE id = %s RETURNING title"
+        result = execute_query_one(delete_query, (event_id,))
+        
+        if result:
+            log_activity(f"Deleted event: {result['title']} (ID: {event_id})", "success")
+            return jsonify({
+                "success": True,
+                "message": f"Event '{result['title']}' deleted successfully"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Event not found"
+            }), 404
+            
+    except Exception as e:
+        log_error(f"Error deleting event {event_id}: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/events/<int:event_id>', methods=['PUT'])
+def update_event(event_id):
+    """Update an existing event"""
+    try:
+        data = request.json or {}
+        
+        # Check if event exists
+        existing_event = execute_query_one("SELECT id FROM events WHERE id = %s", (event_id,))
+        if not existing_event:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        # Parse date_time
+        date_time = None
+        if data.get('date_time'):
+            try:
+                date_time = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
+            except Exception as e:
+                log_error(f"Date parsing error: {e}")
+                return jsonify({"success": False, "error": "Invalid date_time format"}), 400
+        
+        # Parse end_time if provided
+        end_time = None
+        if data.get('end_time'):
+            try:
+                end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
+            except:
+                pass
+        
+        # Build update query dynamically based on provided fields
+        update_fields = []
+        params = []
+        
+        if 'title' in data:
+            update_fields.append("title = %s")
+            params.append(data['title'])
+        
+        if 'event_type' in data:
+            update_fields.append("event_type = %s")
+            params.append(data['event_type'])
+            
+        if 'game_title' in data:
+            update_fields.append("game_title = %s")
+            params.append(data.get('game_title'))
+            
+        if date_time:
+            update_fields.append("date_time = %s")
+            params.append(date_time)
+            
+        if 'end_time' in data:
+            update_fields.append("end_time = %s")
+            params.append(end_time)
+            
+        if 'capacity' in data:
+            update_fields.append("capacity = %s")
+            params.append(int(data.get('capacity', 0)))
+            
+        if 'description' in data:
+            update_fields.append("description = %s")
+            params.append(data.get('description', ''))
+            
+        if 'entry_fee' in data:
+            update_fields.append("entry_fee = %s")
+            params.append(float(data.get('entry_fee', 0)))
+            
+        if 'prize_pool' in data:
+            update_fields.append("prize_pool = %s")
+            params.append(data.get('prize_pool'))
+            
+        if 'status' in data:
+            update_fields.append("status = %s")
+            params.append(data.get('status', 'draft'))
+            
+        if 'image_url' in data:
+            update_fields.append("image_url = %s")
+            params.append(data.get('image_url'))
+            
+        if 'requirements' in data:
+            update_fields.append("requirements = %s")
+            params.append(data.get('requirements'))
+        
+        if not update_fields:
+            return jsonify({"success": False, "error": "No fields to update"}), 400
+        
+        # Add event_id to params for WHERE clause
+        params.append(event_id)
+        
+        query = f"""
+            UPDATE events 
+            SET {', '.join(update_fields)}, updated_at = NOW()
+            WHERE id = %s
+            RETURNING id, title
+        """
+        
+        log_activity(f"Updating event {event_id} with query: {query}", "info")
+        log_activity(f"Update params: {params}", "info")
+        
+        result = execute_query_one(query, params)
+        
+        if result:
+            log_activity(f"Successfully updated event: {result['title']} (ID: {event_id})", "success")
+            return jsonify({
+                "success": True,
+                "event_id": event_id,
+                "message": f"Event '{result['title']}' updated successfully"
+            })
+        else:
+            log_error("Update query returned no result")
+            return jsonify({"success": False, "error": "Failed to update event"}), 500
+            
+    except Exception as e:
+        log_error(f"Error updating event {event_id}: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# Add this code right after the update_event function ends:
+
+# Replace your register_for_event function with this fixed version:
+
+@app.route('/api/events/<int:event_id>/register', methods=['POST'])
+@csrf_required
+def register_for_event(event_id):
+    """Register a subscriber for an event"""
+    conn = None
+    cursor = None
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        player_name = data.get('player_name', '')
+        
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+            
+        if not is_valid_email(email):
+            return jsonify({"success": False, "error": "Invalid email format"}), 400
+        
+        # Check if event exists
+        event_check = execute_query_one("SELECT id, title, capacity FROM events WHERE id = %s", (event_id,))
+        if not event_check:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        # Auto-add to subscribers if not exists
+        subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
+        if not subscriber_check:
+            if add_subscriber_to_db(email, 'event_registration', None, None, None, True):
+                log_activity(f"Auto-added {email} to subscribers via event registration", "info")
+            else:
+                log_activity(f"Failed to auto-add {email} to subscribers, but allowing registration", "warning")
+
+        # Check if already registered
+        existing_registration = execute_query_one(
+            "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
+            (event_id, email)
+        )
+        if existing_registration:
+            return jsonify({"success": False, "error": "Already registered for this event"}), 400
+        
+        # Check capacity
+        if event_check['capacity'] > 0:
+            current_count = execute_query_one(
+                "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
+                (event_id,)
+            )
+            if current_count and current_count['count'] >= event_check['capacity']:
+                return jsonify({"success": False, "error": "Event is at full capacity"}), 400
+        
+        # Generate confirmation code
+        import random
+        import string
+        confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        # Manual database handling to ensure commit
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor()
+        
+        # Register for event with manual transaction control
+        register_query = """
+            INSERT INTO event_registrations (event_id, subscriber_email, player_name, confirmation_code)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+        """
+        
+        cursor.execute(register_query, (event_id, email, player_name or email.split('@')[0], confirmation_code))
+        result = cursor.fetchone()
+        
+        if result:
+            # EXPLICITLY commit the transaction
+            conn.commit()
+            log_activity(f"Registered {email} for event: {event_check['title']} (Confirmation: {confirmation_code})", "success")
+            
+            # Verify the registration was saved by checking immediately
+            verify_query = "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s"
+            cursor.execute(verify_query, (event_id, email))
+            verification = cursor.fetchone()
+            
+            if verification:
+                log_activity(f"Registration verified in database for {email}", "success")
+            else:
+                log_error(f"Registration not found after insert for {email}!")
+                
+            return jsonify({
+                "success": True,
+                "message": "Registration successful",
+                "confirmation_code": confirmation_code,
+                "event_title": event_check['title']
+            })
+        else:
+            conn.rollback()
+            return jsonify({"success": False, "error": "Registration failed - no result"}), 500
+            
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        log_error(f"Error registering for event {event_id}: {e}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": str(e)}), 500
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# 1. BACKEND FIX - Replace your get_event_attendees function:
+
+# Replace your get_event_attendees function with this SIMPLE version:
+
+# Replace your get_event_attendees function with this ULTRA-DEBUG version:
+
+# Replace your get_event_attendees function with this FIXED version:
+
+@app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
+def get_event_attendees(event_id):
+    """Get list of attendees for an event - FIXED VERSION"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor()
+        
+        # Simple event check - FIXED: use dictionary key instead of index
+        cursor.execute("SELECT title FROM events WHERE id = %s", (event_id,))
+        event_row = cursor.fetchone()
+        
+        if not event_row:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        event_title = event_row['title']  # FIXED: Use dict key instead of event_row[0]
+        
+        # Get attendees
+        cursor.execute("""
+            SELECT 
+                subscriber_email,
+                player_name,
+                confirmation_code,
+                registered_at,
+                attended
+            FROM event_registrations 
+            WHERE event_id = %s 
+            ORDER BY registered_at ASC
+        """, (event_id,))
+        
+        rows = cursor.fetchall()
+        
+        # Convert to list of dictionaries - FIXED: use dict keys
+        attendees = []
+        for row in rows:
+            attendee = {
+                'subscriber_email': row['subscriber_email'],      # FIXED: dict key
+                'player_name': row['player_name'],                # FIXED: dict key  
+                'confirmation_code': row['confirmation_code'],    # FIXED: dict key
+                'registered_at': row['registered_at'].isoformat() if row['registered_at'] else None,  # FIXED: dict key
+                'attended': row['attended'] if row['attended'] is not None else False  # FIXED: dict key
+            }
+            attendees.append(attendee)
+        
+        cursor.close()
+        conn.close()
+        
+        print(f"✅ Successfully retrieved {len(attendees)} attendees for event {event_id}")
+        
+        return jsonify({
+            "success": True,
+            "attendees": attendees,
+            "event_title": event_title,
+            "total_count": len(attendees)
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in get_event_attendees: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        
+        try:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'conn' in locals():
+                conn.close()
+        except:
+            pass
+        
+        return jsonify({
+            "success": False, 
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+# 2. ALSO ADD THIS DEBUG ENDPOINT to test if registrations exist:
+
+@app.route('/api/events/<int:event_id>/debug', methods=['GET'])
+def debug_event_registrations(event_id):
+    """Debug endpoint to check event registrations"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Check if event exists
+        cursor.execute("SELECT * FROM events WHERE id = %s", (event_id,))
+        event = cursor.fetchone()
+        
+        # Check registrations
+        cursor.execute("SELECT * FROM event_registrations WHERE event_id = %s", (event_id,))
+        registrations = cursor.fetchall()
+        
+        # Check all registrations
+        cursor.execute("SELECT event_id, COUNT(*) as count FROM event_registrations GROUP BY event_id")
+        all_registrations = cursor.fetchall()
+        
+        return jsonify({
+            "event_exists": event is not None,
+            "event_data": dict(event) if event else None,
+            "registrations_for_this_event": [dict(r) for r in registrations],
+            "registration_count": len(registrations),
+            "all_event_registrations": [dict(r) for r in all_registrations]
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# Replace your existing checkin_attendee route with this improved version:
+
+@app.route('/api/events/<int:event_id>/checkin', methods=['POST'])
+def checkin_attendee(event_id):
+    """Check in an attendee for an event - SIMPLIFIED VERSION"""
+    conn = None
+    cursor = None
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        notes = data.get('notes', '')
+        
+        if not email:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Check if registration exists
+        cursor.execute(
+            "SELECT id, attended, confirmation_code FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
+            (event_id, email)
+        )
+        registration = cursor.fetchone()
+        
+        if not registration:
+            return jsonify({"success": False, "error": "Registration not found"}), 404
+        
+        if registration['attended']:
+            return jsonify({"success": False, "error": "Already checked in"}), 400
+        
+        # Check in attendee - REMOVE check_in_time to avoid column error
+        cursor.execute("""
+            UPDATE event_registrations 
+            SET attended = TRUE, notes = %s
+            WHERE event_id = %s AND subscriber_email = %s
+            RETURNING confirmation_code, attended
+        """, (notes, event_id, email))
+        
+        result = cursor.fetchone()
+        
+        if result:
+            conn.commit()
+            log_activity(f"Checked in {email} for event ID {event_id}", "success")
+            
+            return jsonify({
+                "success": True,
+                "message": "Check-in successful",
+                "confirmation_code": result['confirmation_code'],
+                "attended": result['attended']
+            })
+        else:
+            return jsonify({"success": False, "error": "Check-in update failed"}), 500
+            
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        log_error(f"Error checking in attendee for event {event_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+@app.route('/api/events/calendar', methods=['GET'])
+def get_events_calendar():
+    """Get events in calendar format"""
+    try:
+        query = """
+            SELECT 
+                id,
+                title,
+                event_type,
+                date_time as start,
+                end_time as end,
+                description,
+                CASE 
+                    WHEN event_type = 'tournament' THEN '#FF6B35'
+                    WHEN event_type = 'game_night' THEN '#4ECDC4'
+                    WHEN event_type = 'special' THEN '#FFD700'
+                    WHEN event_type = 'birthday' THEN '#FF69B4'
+                    ELSE '#FFD700'
+                END as color
+            FROM events 
+            WHERE date_time >= CURRENT_DATE - INTERVAL '30 days'
+            ORDER BY date_time ASC
+        """
+        
+        events = execute_query(query)
+        
+        if events is None:
+            return jsonify({"success": False, "error": "Database error"}), 500
+        
+        # Convert datetime objects to ISO format
+        for event in events:
+            if event['start']:
+                event['start'] = event['start'].isoformat()
+            if event['end']:
+                event['end'] = event['end'].isoformat()
+        
+        return jsonify({
+            "success": True,
+            "events": events
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting calendar events: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# =============================
+# Event Registration System
+# =============================
+
+# Add this function to your backend to verify/fix tables:
+
+def verify_event_tables():
+    """Verify and create missing event tables"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            print("❌ Could not connect to database")
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Check if event_registrations table exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'event_registrations'
+            );
+        """)
+        
+        table_exists = cursor.fetchone()[0]
+        
+        if not table_exists:
+            print("⚠️ event_registrations table missing - creating now...")
+            
+            # Create event registrations table
+            cursor.execute('''
+                CREATE TABLE event_registrations (
+                    id SERIAL PRIMARY KEY,
+                    event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                    subscriber_email VARCHAR(255) NOT NULL,
+                    player_name VARCHAR(255),
+                    confirmation_code VARCHAR(50) UNIQUE NOT NULL,
+                    registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    attended BOOLEAN DEFAULT FALSE,
+                    check_in_time TIMESTAMP,
+                    notes TEXT
+                )
+            ''')
+            
+            # Create index for better performance
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_event_registrations_event_id ON event_registrations(event_id);
+            ''')
+            
+            cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_event_registrations_email ON event_registrations(subscriber_email);
+            ''')
+            
+            conn.commit()
+            print("✅ Created event_registrations table with indexes")
+        else:
+            print("✅ event_registrations table exists")
+            
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error verifying event tables: {e}")
+        return False
+
+# Then call this function in your init_database() function by adding this line:
+# verify_event_tables()
+
+# =============================
+# Event Email Automation
+# =============================
+
+def schedule_event_emails(event_id, event_date):
+    """Schedule automated emails for an event"""
+    try:
+        # Schedule announcement (immediate)
+        schedule_email(event_id, 'announcement', datetime.now())
+        
+        # Schedule reminders
+        if event_date > datetime.now() + timedelta(days=7):
+            schedule_email(event_id, 'reminder_week', event_date - timedelta(days=7))
+            
+        if event_date > datetime.now() + timedelta(days=1):
+            schedule_email(event_id, 'reminder_day', event_date - timedelta(days=1))
+            
+        if event_date > datetime.now() + timedelta(hours=2):
+            schedule_email(event_id, 'reminder_hour', event_date - timedelta(hours=2))
+            
+        log_activity(f"Scheduled emails for event ID: {event_id}", "info")
+        
+    except Exception as e:
+        log_error(f"Error scheduling emails for event {event_id}: {e}")
+
+def schedule_email(event_id, email_type, scheduled_for):
+    """Schedule a single email"""
+    query = """
+        INSERT INTO event_emails (event_id, email_type, scheduled_for)
+        VALUES (%s, %s, %s)
+        ON CONFLICT DO NOTHING
+    """
+    execute_query(query, (event_id, email_type, scheduled_for), fetch=False)
+
+def send_registration_confirmation(email, event, confirmation_code):
+    """Send registration confirmation email"""
+    try:
+        if not api_instance:
+            return
+            
+        subject = f"Registration Confirmed: {event['title']}"
+        html_content = f"""
+        <h2>You're registered for {event['title']}!</h2>
+        <p><strong>Date:</strong> {event['date_time']}</p>
+        <p><strong>Confirmation Code:</strong> {confirmation_code}</p>
+        <p>Show this code at check-in.</p>
+        <p>See you at SideQuest Gaming Cafe!</p>
+        """
+        
+        send_email = sib_api_v3_sdk.SendSmtpEmail(
+            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
+            to=[{"email": email}],
+            subject=subject,
+            html_content=html_content
+        )
+        
+        api_instance.send_transac_email(send_email)
+        log_activity(f"Sent confirmation email to {email}", "success")
+        
+    except Exception as e:
+        log_error(f"Error sending confirmation email: {e}")
+
+# =============================
+# PHASE 2: PUBLIC EVENT SIGNUP - STEP 1
+# =============================
+
+@app.route('/api/events/<int:event_id>/public', methods=['GET'])
+def get_public_event(event_id):
+    """Get public event details for signup page"""
+    try:
+        query = """
+            SELECT 
+                e.*,
+                COUNT(r.id) as registration_count,
+                CASE 
+                    WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
+                    ELSE NULL
+                END as spots_available
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.id = %s
+            GROUP BY e.id
+        """
+        
+        event = execute_query_one(query, (event_id,))
+        
+        if not event:
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        # Convert datetime objects
+        if event['date_time']:
+            event['date_time'] = event['date_time'].isoformat()
+        if event['end_time']:
+            event['end_time'] = event['end_time'].isoformat()
+        if event['created_at']:
+            event['created_at'] = event['created_at'].isoformat()
+        if event['updated_at']:
+            event['updated_at'] = event['updated_at'].isoformat()
+            
+        return jsonify({
+            "success": True,
+            "event": event
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting public event {event_id}: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+
+# Add this API route to handle public registrations (if not already present)
+
+
+@app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
+@limiter.limit("3 per hour")
+def register_public(event_id):
+    try:
+        data = request.json or {}
+        email = (data.get('email') or '').strip().lower()
+        player_name = (data.get('player_name') or '').strip()
+        first_name = (data.get('first_name') or '').strip()
+        last_name = (data.get('last_name') or '').strip()
+        email_consent = bool(data.get('email_consent', False))
+
+        # Basic validation
+        if not (email and player_name and first_name and last_name):
+            return jsonify({"success": False, "error": "All fields except consent are required"}), 400
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            return jsonify({"success": False, "error": "Please enter a valid email address"}), 400
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+        cursor = conn.cursor()  # RealDictCursor from connection
+
+        # 1) Load event
+        cursor.execute("SELECT * FROM events WHERE id = %s", (event_id,))
+        event = cursor.fetchone()
+        if not event:
+            cursor.close(); conn.close()
+            return jsonify({"success": False, "error": "Event not found"}), 404
+
+        # 2) Duplicate check (correct column name)
+        cursor.execute("""
+            SELECT id FROM event_registrations
+            WHERE event_id = %s AND subscriber_email = %s
+        """, (event_id, email))
+        if cursor.fetchone():
+            cursor.close(); conn.close()
+            return jsonify({"success": False, "error": "You are already registered for this event"}), 400
+
+        # 3) Capacity check (dict access)
+        cursor.execute("""
+            SELECT COUNT(*) AS current_count
+            FROM event_registrations
+            WHERE event_id = %s
+        """, (event_id,))
+        row = cursor.fetchone() or {"current_count": 0}
+        current_count = int(row["current_count"])
+        is_waiting_list = bool(event.get('capacity', 0) > 0 and current_count >= event['capacity'])
+
+        # 4) Generate confirmation code
+        import random, string
+        confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+        # 5) Insert registration (match table columns)
+        cursor.execute("""
+            INSERT INTO event_registrations
+                (event_id, subscriber_email, player_name, confirmation_code, registered_at, attended, notes)
+            VALUES (%s, %s, %s, %s, NOW(), FALSE, %s)
+            RETURNING id
+        """, (event_id, email, player_name, confirmation_code,
+              ("WAITING LIST" if is_waiting_list else None)))
+        reg = cursor.fetchone()
+        conn.commit()
+
+        # 6) Optional: upsert into subscribers only if consented, using existing columns
+        if email_consent:
+            cursor = conn.cursor()  # new cursor after commit (still RealDictCursor)
+            cursor.execute("""
+                INSERT INTO subscribers
+                    (email, first_name, last_name, source, date_added, status, gdpr_consent_given, consent_date)
+                VALUES
+                    (%s, %s, %s, %s, NOW(), 'active', %s, %s)
+                ON CONFLICT (email) DO UPDATE SET
+                    first_name = COALESCE(subscribers.first_name, EXCLUDED.first_name),
+                    last_name  = COALESCE(subscribers.last_name,  EXCLUDED.last_name),
+                    source = EXCLUDED.source,
+                    status = 'active',
+                    gdpr_consent_given = TRUE,
+                    consent_date = NOW()
+            """, (email, first_name, last_name, 'event_registration', True, datetime.now()))
+            conn.commit()
+            log_activity(f"Subscriber consent recorded for {email}", "info")
+        else:
+            log_activity(f"Event registration without newsletter consent: {email}", "info")
+
+        # Response
+        resp = {
+            "success": True,
+            "confirmation_code": confirmation_code,
+            "is_waiting_list": is_waiting_list
+        }
+        if event.get('event_type') == 'tournament':
+            resp.update({"show_discord": True, "discord_invite": "https://discord.gg/your-server-link"})
+
+        cursor.close(); conn.close()
+        return jsonify(resp)
+
+    except Exception as e:
+        log_activity(f"Error in register_public: {str(e)}", "error")
+        try:
+            if 'conn' in locals() and conn:
+                conn.rollback()
+        except: pass
+        return jsonify({"success": False, "error": "Registration failed. Please try again later."}), 500
+
+@app.route('/api/events/<int:event_id>/debug-registration', methods=['POST'])
+def debug_registration(event_id):
+    """Debug endpoint to check registration flow step by step"""
+    try:
+        data = request.json or {}
+        email = data.get('email', '').strip().lower()
+        
+        debug_info = {
+            "step_1_event_lookup": None,
+            "step_2_existing_check": None,
+            "step_3_capacity_check": None,
+            "step_4_subscriber_add": None,
+            "step_5_registration_insert": None,
+            "final_result": None
+        }
+        
+        # Step 1: Check if event exists
+        event_check = execute_query_one("""
+            SELECT id, title, capacity, event_type, status
+            FROM events 
+            WHERE id = %s
+        """, (event_id,))
+        
+        debug_info["step_1_event_lookup"] = {
+            "found": event_check is not None,
+            "event_data": dict(event_check) if event_check else None
+        }
+        
+        if not event_check:
+            return jsonify({"success": False, "debug": debug_info, "error": "Event not found"})
+        
+        # Step 2: Check existing registration
+        existing_registration = execute_query_one(
+            "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s",
+            (event_id, email)
+        )
+        
+        debug_info["step_2_existing_check"] = {
+            "already_registered": existing_registration is not None,
+            "registration_id": existing_registration['id'] if existing_registration else None
+        }
+        
+        # Step 3: Check capacity
+        current_count = execute_query_one(
+            "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
+            (event_id,)
+        )
+        
+        debug_info["step_3_capacity_check"] = {
+            "event_capacity": event_check['capacity'],
+            "current_registrations": current_count['count'] if current_count else 0,
+            "has_space": event_check['capacity'] == 0 or (current_count and current_count['count'] < event_check['capacity'])
+        }
+        
+        # Step 4: Check if subscriber exists
+        subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
+        debug_info["step_4_subscriber_add"] = {
+            "subscriber_exists": subscriber_check is not None
+        }
+        
+        # Step 5: Try to insert registration (dry run)
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor()
+            
+            # Generate test confirmation code
+            import random
+            import string
+            test_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            
+            try:
+                register_query = """
+                    INSERT INTO event_registrations (event_id, subscriber_email, player_name, confirmation_code)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id, confirmation_code
+                """
+                
+                cursor.execute(register_query, (event_id, email, f"Test User", test_code))
+                result = cursor.fetchone()
+                
+                if result:
+                    conn.rollback()  # Don't actually save the test registration
+                    debug_info["step_5_registration_insert"] = {
+                        "can_insert": True,
+                        "test_id": result['id'] if result else None,
+                        "test_code": result['confirmation_code'] if result else None
+                    }
+                else:
+                    debug_info["step_5_registration_insert"] = {
+                        "can_insert": False,
+                        "error": "No result returned from insert"
+                    }
+                    
+            except Exception as e:
+                conn.rollback()
+                debug_info["step_5_registration_insert"] = {
+                    "can_insert": False,
+                    "error": str(e)
+                }
+                
+            cursor.close()
+            conn.close()
+        
+        # Final summary
+        debug_info["final_result"] = {
+            "should_work": all([
+                debug_info["step_1_event_lookup"]["found"],
+                not debug_info["step_2_existing_check"]["already_registered"],
+                debug_info["step_3_capacity_check"]["has_space"],
+                debug_info["step_5_registration_insert"]["can_insert"]
+            ])
+        }
+        
+        return jsonify({
+            "success": True,
+            "event_id": event_id,
+            "email": email,
+            "debug": debug_info
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "debug": debug_info
+        }), 500
+
+
+# Also add this endpoint to check what's in your database
+@app.route('/api/events/<int:event_id>/check-data', methods=['GET'])
+def check_event_data(event_id):
+    """Check what's actually in the database for this event"""
+    try:
+        # Get event details
+        event = execute_query_one("SELECT * FROM events WHERE id = %s", (event_id,))
+        
+        # Get all registrations for this event
+        registrations = execute_query(
+            "SELECT * FROM event_registrations WHERE event_id = %s ORDER BY registered_at DESC",
+            (event_id,)
+        )
+        
+        # Get recent subscribers
+        recent_subscribers = execute_query(
+            "SELECT * FROM subscribers WHERE date_added > NOW() - INTERVAL '24 hours' ORDER BY date_added DESC LIMIT 10"
+        )
+        
+        return jsonify({
+            "success": True,
+            "event": dict(event) if event else None,
+            "registrations": [dict(r) for r in registrations] if registrations else [],
+            "registration_count": len(registrations) if registrations else 0,
+            "recent_subscribers": [dict(s) for s in recent_subscribers] if recent_subscribers else []
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
+# =============================
+# Event Statistics
+# =============================
+
+@app.route('/api/events/stats', methods=['GET'])
+def get_event_stats():
+    """Get event statistics for dashboard"""
+    try:
+        stats_query = """
+            SELECT 
+                COUNT(DISTINCT e.id) as total_events,
+                COUNT(DISTINCT CASE WHEN e.date_time > CURRENT_TIMESTAMP THEN e.id END) as upcoming_events,
+                COUNT(DISTINCT CASE WHEN e.date_time <= CURRENT_TIMESTAMP AND e.status = 'completed' THEN e.id END) as completed_events,
+                COUNT(DISTINCT r.id) as total_registrations,
+                COUNT(DISTINCT CASE WHEN r.attended = true THEN r.id END) as total_attended,
+                AVG(CASE WHEN e.capacity > 0 THEN (e.current_registrations::float / e.capacity * 100) END) as avg_capacity_filled
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.status != 'cancelled'
+        """
+        
+        stats = execute_query_one(stats_query)
+        
+        # Get popular events
+        popular_query = """
+            SELECT 
+                e.title,
+                e.event_type,
+                COUNT(r.id) as registration_count
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            GROUP BY e.id, e.title, e.event_type
+            ORDER BY registration_count DESC
+            LIMIT 5
+        """
+        
+        popular_events = execute_query(popular_query)
+        
+        # Get revenue stats if needed
+        revenue_query = """
+            SELECT 
+                SUM(e.entry_fee * e.current_registrations) as total_revenue,
+                AVG(e.entry_fee * e.current_registrations) as avg_revenue_per_event
+            FROM events e
+            WHERE e.status = 'completed'
+        """
+        
+        revenue_stats = execute_query_one(revenue_query)
+        
+        return jsonify({
+            "success": True,
+            "stats": {
+                "total_events": stats['total_events'] or 0,
+                "upcoming_events": stats['upcoming_events'] or 0,
+                "completed_events": stats['completed_events'] or 0,
+                "total_registrations": stats['total_registrations'] or 0,
+                "total_attended": stats['total_attended'] or 0,
+                "avg_capacity_filled": round(stats['avg_capacity_filled'] or 0, 1),
+                "total_revenue": float(revenue_stats['total_revenue'] or 0),
+                "avg_revenue_per_event": float(revenue_stats['avg_revenue_per_event'] or 0)
+            },
+            "popular_events": popular_events or []
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting event stats: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500 
+
+@app.route('/api/analytics/kpis', methods=['GET'])
+def get_analytics_kpis():
+    """Get comprehensive KPIs for analytics dashboard"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Core subscriber KPIs
+        subscriber_kpis = execute_query_one(f"""
+            SELECT 
+                COUNT(*)::integer as total_subscribers,
+                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '{days} days' THEN 1 END)::integer as new_subscribers,
+                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END)::integer as weekly_growth,
+                COUNT(CASE WHEN date_added >= CURRENT_DATE - INTERVAL '1 day' THEN 1 END)::integer as daily_growth
+            FROM subscribers
+            WHERE status = 'active' OR status IS NULL
+        """)
+        
+        # Event performance KPIs
+        event_kpis = execute_query_one(f"""
+            SELECT 
+                COUNT(DISTINCT e.id) as total_events,
+                COUNT(DISTINCT CASE WHEN e.date_time >= CURRENT_DATE - INTERVAL '{days} days' THEN e.id END) as recent_events,
+                COUNT(DISTINCT CASE WHEN e.date_time > CURRENT_TIMESTAMP THEN e.id END) as upcoming_events,
+                COUNT(DISTINCT r.id) as total_registrations,
+                COUNT(DISTINCT CASE WHEN r.attended = true THEN r.id END) as total_attended,
+                COALESCE(AVG(
+                    CASE WHEN e.capacity > 0 THEN 
+                        (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id)::float / e.capacity * 100
+                    END
+                ), 0) as avg_capacity_utilization
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.created_at >= CURRENT_DATE - INTERVAL '{days} days'
+        """)
+        
+        # Revenue KPIs
+        revenue_kpis = execute_query_one(f"""
+            SELECT 
+                COALESCE(SUM(e.entry_fee * attended_counts.attended_count), 0) as total_revenue,
+                COALESCE(AVG(e.entry_fee * attended_counts.attended_count), 0) as avg_revenue_per_event,
+                COUNT(CASE WHEN e.entry_fee > 0 THEN 1 END) as paid_events,
+                COALESCE(SUM(CASE WHEN e.entry_fee > 0 THEN e.entry_fee * attended_counts.attended_count END), 0) as paid_events_revenue
+            FROM events e
+            LEFT JOIN (
+                SELECT event_id, 
+                    COUNT(CASE WHEN attended = true THEN 1 END) as attended_count,
+                    COUNT(*) as total_registrations
+                FROM event_registrations
+                GROUP BY event_id
+            ) attended_counts ON e.id = attended_counts.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '{days} days'
+        """)
+        # Engagement KPIs
+        engagement_kpis = execute_query_one(f"""
+            SELECT 
+                COUNT(DISTINCT s.email) as total_subscribers,
+                COUNT(DISTINCT r.subscriber_email) as engaged_subscribers,
+                COUNT(DISTINCT CASE WHEN r.attended = true THEN r.subscriber_email END) as active_attendees,
+                COALESCE(
+                    COUNT(DISTINCT r.subscriber_email)::float / NULLIF(COUNT(DISTINCT s.email), 0) * 100, 0
+                ) as engagement_rate,
+                COALESCE(
+                    COUNT(DISTINCT CASE WHEN r.attended = true THEN r.subscriber_email END)::float / 
+                    NULLIF(COUNT(DISTINCT r.subscriber_email), 0) * 100, 0
+                ) as attendance_rate
+            FROM subscribers s
+            LEFT JOIN event_registrations r ON s.email = r.subscriber_email
+            LEFT JOIN events e ON r.event_id = e.id
+            WHERE s.date_added >= CURRENT_DATE - INTERVAL '{days} days'
+            OR e.date_time >= CURRENT_DATE - INTERVAL '{days} days'
+        """)
+        
+        # Popular event types
+        event_types = execute_query(f"""
+            SELECT 
+                event_type,
+                COUNT(*) as event_count,
+                COUNT(r.id) as total_registrations,
+                COALESCE(AVG(
+                    CASE WHEN e.capacity > 0 THEN 
+                        (SELECT COUNT(*) FROM event_registrations WHERE event_id = e.id)::float / e.capacity * 100
+                    END
+                ), 0) as avg_capacity_util
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '{days} days'
+            GROUP BY event_type
+            ORDER BY total_registrations DESC
+        """)
+        
+        # Growth trend data (last 30 days)
+        growth_data = execute_query(f"""
+            WITH RECURSIVE date_series AS (
+                -- Generate a series of dates for the last N days
+                SELECT CURRENT_DATE - INTERVAL '{days} days' AS date_val
+                UNION ALL
+                SELECT date_val + INTERVAL '1 day'
+                FROM date_series
+                WHERE date_val < CURRENT_DATE
+            ),
+            daily_signups AS (
+                SELECT 
+                    DATE(date_added) as signup_date,
+                    COUNT(*) as new_subscribers
+                FROM subscribers 
+                WHERE date_added >= CURRENT_DATE - INTERVAL '{days} days'
+                GROUP BY DATE(date_added)
+            ),
+            cumulative_data AS (
+                SELECT 
+                    ds.date_val as date,
+                    COALESCE(ds_signup.new_subscribers, 0) as new_subscribers,
+                    -- FIXED: Calculate true cumulative including subscribers before the chart period
+                    (
+                        SELECT COUNT(*) 
+                        FROM subscribers s 
+                        WHERE DATE(s.date_added) <= ds.date_val
+                    ) as cumulative_subscribers
+                FROM date_series ds
+                LEFT JOIN daily_signups ds_signup ON ds.date_val = ds_signup.signup_date
+                ORDER BY ds.date_val
+            )
+            SELECT 
+                date,
+                new_subscribers,
+                cumulative_subscribers
+            FROM cumulative_data
+            ORDER BY date
+        """, (days,))
+        
+        # Event registration trend
+        registration_trend = execute_query(f"""
+            WITH RECURSIVE date_series AS (
+                SELECT CURRENT_DATE - INTERVAL '{days} days' AS date_val
+                UNION ALL
+                SELECT date_val + INTERVAL '1 day'
+                FROM date_series
+                WHERE date_val < CURRENT_DATE
+            ),
+            daily_registrations AS (
+                SELECT 
+                    DATE(r.registered_at) as reg_date,
+                    COUNT(*) as registrations
+                FROM event_registrations r
+                JOIN events e ON r.event_id = e.id
+                WHERE r.registered_at >= CURRENT_DATE - INTERVAL '{days} days'
+                GROUP BY DATE(r.registered_at)
+            )
+            SELECT 
+                ds.date_val as date,
+                COALESCE(dr.registrations, 0) as registrations
+            FROM date_series ds
+            LEFT JOIN daily_registrations dr ON ds.date_val = dr.reg_date
+            ORDER BY ds.date_val
+        """)
+        
+        # Calculate growth rates
+        previous_period_subscribers = execute_query_one(f"""
+            SELECT COUNT(*) as count
+            FROM subscribers
+            WHERE date_added >= CURRENT_DATE - INTERVAL '{days*2} days'
+            AND date_added < CURRENT_DATE - INTERVAL '{days} days'
+        """)
+        
+        current_new = subscriber_kpis.get('new_subscribers', 0) if subscriber_kpis else 0
+        previous_new = previous_period_subscribers.get('count', 0) if previous_period_subscribers else 0
+        
+        growth_rate = 0
+        if previous_new > 0:
+            growth_rate = round(((current_new - previous_new) / previous_new) * 100, 1)
+        elif current_new > 0:
+            growth_rate = 100
+            
+        # Convert datetime objects to strings for JSON serialization
+        for item in growth_data or []:
+            if 'date' in item and item['date']:
+                item['date'] = item['date'].isoformat()
+                
+        for item in registration_trend or []:
+            if 'date' in item and item['date']:
+                item['date'] = item['date'].isoformat()
+        
+        return jsonify({
+            "success": True,
+            "kpis": {
+                "subscribers": {
+                    "total": subscriber_kpis.get('total_subscribers', 0) if subscriber_kpis else 0,
+                    "new_this_period": current_new,
+                    "weekly_growth": subscriber_kpis.get('weekly_growth', 0) if subscriber_kpis else 0,
+                    "daily_growth": subscriber_kpis.get('daily_growth', 0) if subscriber_kpis else 0,
+                    "growth_rate": growth_rate
+                },
+                "events": {
+                    "total": event_kpis.get('total_events', 0) if event_kpis else 0,
+                    "recent": event_kpis.get('recent_events', 0) if event_kpis else 0,
+                    "upcoming": event_kpis.get('upcoming_events', 0) if event_kpis else 0,
+                    "total_registrations": event_kpis.get('total_registrations', 0) if event_kpis else 0,
+                    "avg_capacity_utilization": round(event_kpis.get('avg_capacity_utilization', 0), 1) if event_kpis else 0
+                },
+                "revenue": {
+                    "total": float(revenue_kpis.get('total_revenue', 0)) if revenue_kpis else 0,
+                    "avg_per_event": round(float(revenue_kpis.get('avg_revenue_per_event', 0)), 2) if revenue_kpis else 0,
+                    "paid_events": revenue_kpis.get('paid_events', 0) if revenue_kpis else 0,
+                    "paid_events_revenue": float(revenue_kpis.get('paid_events_revenue', 0)) if revenue_kpis else 0
+                },
+                "engagement": {
+                    "engagement_rate": round(engagement_kpis.get('engagement_rate', 0), 1) if engagement_kpis else 0,
+                    "attendance_rate": round(engagement_kpis.get('attendance_rate', 0), 1) if engagement_kpis else 0,
+                    "engaged_subscribers": engagement_kpis.get('engaged_subscribers', 0) if engagement_kpis else 0,
+                    "active_attendees": engagement_kpis.get('active_attendees', 0) if engagement_kpis else 0
+                }
+            },
+            "trends": {
+                "subscriber_growth": growth_data or [],
+                "registration_trend": registration_trend or [],
+                "event_types": event_types or []
+            }
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting analytics KPIs: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
+@app.route('/api/analytics/subscriber-data', methods=['GET'])
+def get_subscriber_analytics():
+    """Get subscriber analytics data"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Get growth data
+        growth_query = """
+            SELECT 
+                DATE(date_added) as date,
+                COUNT(*) as signups,
+                SUM(COUNT(*)) OVER (ORDER BY DATE(date_added)) as cumulative
+            FROM subscribers 
+            WHERE date_added >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY DATE(date_added)
+            ORDER BY date
+        """
+        growth_data = execute_query(growth_query, (days,))
+        
+        # Get engagement metrics
+        engagement_query = """
+            SELECT 
+                COUNT(DISTINCT s.email) as total_subscribers,
+                COUNT(DISTINCT r.subscriber_email) as active_subscribers,
+                COUNT(DISTINCT CASE WHEN r.attended = true THEN r.subscriber_email END) as attending_subscribers
+            FROM subscribers s
+            LEFT JOIN event_registrations r ON s.email = r.subscriber_email
+            WHERE s.date_added >= CURRENT_DATE - INTERVAL '%s days'
+        """
+        engagement_data = execute_query_one(engagement_query, (days,))
+        
+        return jsonify({
+            "success": True,
+            "growth_data": growth_data or [],
+            "engagement_data": engagement_data or {}
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting subscriber analytics: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/event-data', methods=['GET'])
+def get_event_analytics():
+    """Get event analytics data"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Event performance by type
+        performance_query = """
+            SELECT 
+                event_type,
+                COUNT(*) as event_count,
+                COUNT(r.id) as total_registrations,
+                COUNT(CASE WHEN r.attended = true THEN r.id END) as total_attended,
+                AVG(CASE WHEN e.capacity > 0 THEN (COUNT(r.id)::float / e.capacity * 100) END) as avg_capacity_util
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY event_type
+        """
+        performance_data = execute_query(performance_query, (days,))
+        
+        # Popular games
+        games_query = """
+            SELECT 
+                game_title,
+                COUNT(*) as event_count,
+                COUNT(r.id) as total_registrations
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.game_title IS NOT NULL 
+            AND e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY game_title
+            ORDER BY total_registrations DESC
+            LIMIT 10
+        """
+        games_data = execute_query(games_query, (days,))
+        
+        # Registration timeline
+        timeline_query = """
+            SELECT 
+                DATE(r.registered_at) as date,
+                COUNT(*) as registrations
+            FROM event_registrations r
+            JOIN events e ON r.event_id = e.id
+            WHERE r.registered_at >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY DATE(r.registered_at)
+            ORDER BY date
+        """
+        timeline_data = execute_query(timeline_query, (days,))
+        
+        return jsonify({
+            "success": True,
+            "performance_data": performance_data or [],
+            "games_data": games_data or [],
+            "timeline_data": timeline_data or []
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting event analytics: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/revenue-data', methods=['GET'])
+def get_revenue_analytics():
+    """Get revenue analytics data"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Revenue by event type
+        revenue_query = """
+            SELECT 
+                e.event_type,
+                SUM(e.entry_fee * COUNT(r.id)) as total_revenue,
+                AVG(e.entry_fee * COUNT(r.id)) as avg_revenue,
+                COUNT(DISTINCT e.id) as event_count
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            AND e.entry_fee > 0
+            GROUP BY e.event_type, e.id
+        """
+        revenue_data = execute_query(revenue_query, (days,))
+        
+        # Monthly revenue trend
+        monthly_query = """
+            SELECT 
+                DATE_TRUNC('week', e.date_time) as week,
+                SUM(e.entry_fee * COUNT(r.id)) as weekly_revenue
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY DATE_TRUNC('week', e.date_time), e.id
+            ORDER BY week
+        """
+        monthly_data = execute_query(monthly_query, (days,))
+        
+        return jsonify({
+            "success": True,
+            "revenue_by_type": revenue_data or [],
+            "monthly_revenue": monthly_data or []
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting revenue analytics: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/analytics/insights', methods=['GET'])
+def get_analytics_insights():
+    """Get detailed analytics insights"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        # Top performing events
+        top_events_query = """
+            SELECT 
+                e.title,
+                e.event_type,
+                COUNT(r.id) as registration_count,
+                COUNT(CASE WHEN r.attended = true THEN r.id END) as attendance_count,
+                e.entry_fee * COUNT(r.id) as revenue
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.date_time >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY e.id, e.title, e.event_type, e.entry_fee
+            ORDER BY registration_count DESC
+            LIMIT 5
+        """
+        top_events = execute_query(top_events_query, (days,))
+        
+        # Peak registration times
+        peak_times_query = """
+            SELECT 
+                EXTRACT(hour FROM r.registered_at) as hour,
+                COUNT(*) as registration_count
+            FROM event_registrations r
+            WHERE r.registered_at >= CURRENT_DATE - INTERVAL '%s days'
+            GROUP BY EXTRACT(hour FROM r.registered_at)
+            ORDER BY registration_count DESC
+            LIMIT 5
+        """
+        peak_times = execute_query(peak_times_query, (days,))
+        
+        return jsonify({
+            "success": True,
+            "top_events": top_events or [],
+            "peak_times": peak_times or []
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting analytics insights: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+def calculate_growth_rate(subscriber_data):
+    """Calculate subscriber growth rate"""
+    try:
+        if not subscriber_data.get('growth_data'):
+            return 0
+        
+        growth_data = subscriber_data['growth_data']
+        if len(growth_data) < 2:
+            return 0
+            
+        current_week = sum(day['signups'] for day in growth_data[-7:])
+        previous_week = sum(day['signups'] for day in growth_data[-14:-7])
+        
+        if previous_week == 0:
+            return 100 if current_week > 0 else 0
+            
+        growth_rate = ((current_week - previous_week) / previous_week) * 100
+        return round(growth_rate, 1)
+        
+    except Exception:
+        return 0
+
+def calculate_conversion_rate(subscriber_data, event_data):
+    """Calculate conversion rate (subscribers who attend events)"""
+    try:
+        engagement = subscriber_data.get('engagement_data', {})
+        total = engagement.get('total_subscribers', 0)
+        active = engagement.get('attending_subscribers', 0)
+        
+        if total == 0:
+            return 0
+            
+        return round((active / total) * 100, 1)
+        
+    except Exception:
+        return 0
+
+def calculate_engagement_rate(subscriber_data, event_data):
+    """Calculate engagement rate (subscribers who register for events)"""
+    try:
+        engagement = subscriber_data.get('engagement_data', {})
+        total = engagement.get('total_subscribers', 0)
+        active = engagement.get('active_subscribers', 0)
+        
+        if total == 0:
+            return 0
+            
+        return round((active / total) * 100, 1)
+        
+    except Exception:
+        return 0
+
+def calculate_avg_revenue(revenue_data):
+    """Calculate average revenue per event"""
+    try:
+        revenue_by_type = revenue_data.get('revenue_by_type', [])
+        if not revenue_by_type:
+            return 0
+            
+        total_revenue = sum(item.get('total_revenue', 0) for item in revenue_by_type)
+        total_events = sum(item.get('event_count', 0) for item in revenue_by_type)
+        
+        if total_events == 0:
+            return 0
+            
+        return round(total_revenue / total_events, 2)
+        
+    except Exception:
+        return 0
+
+def calculate_attendance_rate(event_data):
+    """Calculate attendance rate"""
+    try:
+        performance_data = event_data.get('performance_data', [])
+        if not performance_data:
+            return 0
+            
+        total_registrations = sum(item.get('total_registrations', 0) for item in performance_data)
+        total_attended = sum(item.get('total_attended', 0) for item in performance_data)
+        
+        if total_registrations == 0:
+            return 0
+            
+        return round((total_attended / total_registrations) * 100, 1)
+        
+    except Exception:
+        return 0
+
+def calculate_capacity_utilization(event_data):
+    """Calculate average capacity utilization"""
+    try:
+        performance_data = event_data.get('performance_data', [])
+        if not performance_data:
+            return 0
+            
+        utilizations = [item.get('avg_capacity_util', 0) for item in performance_data if item.get('avg_capacity_util')]
+        
+        if not utilizations:
+            return 0
+            
+        return round(sum(utilizations) / len(utilizations), 1)
+        
+    except Exception:
+        return 0
+
+# =============================
+# Main
+# =============================
+if __name__ == '__main__':
+    try:
+        print("🚀 SideQuest Backend starting...")
+        print("=" * 50)
+        
+        # Initialize database
+        print("🗄️  Initializing database...")
+        if init_database():
+            print("✅ Database ready!")
+        else:
+            print("❌ Database initialization failed!")
+        
+        # Test Brevo connection
+        print("🧪 Testing Brevo API connection...")
+        brevo_connected, brevo_status, brevo_email = test_brevo_connection()
+        if brevo_connected:
+            print(f"✅ Brevo connection successful - {brevo_email}")
+        else:
+            print(f"❌ Brevo connection failed: {brevo_status}")
+            print("⚠️  Email campaigns and sync features may not work")
+        
+        log_activity("SideQuest Backend started with PostgreSQL", "info")
+        
+        print(f"📧 Sender email: {SENDER_EMAIL}")
+        print(f"🔄 Brevo Auto-Sync: {'ON' if AUTO_SYNC_TO_BREVO else 'OFF'}")
+        print(f"📋 Brevo List ID: {BREVO_LIST_ID}")
+        print(f"🗄️  Database: PostgreSQL")
+        print(f"🌐 Server running on all interfaces")
+        print(f"📱 Signup page: http://localhost:4000/signup")
+        print(f"🔧 Admin dashboard: http://localhost:4000/admin")
+        print(f"📊 API Health check: http://localhost:4000/health")
+        print("=" * 50)
+        print("✅ SideQuest backend ready! 🎮")
+        
+        port = int(os.environ.get('PORT', 4000))
+        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+        
+    except KeyboardInterrupt:
+        print("\n🛑 Server stopped by user")
+        log_activity("Server stopped by user", "info")
+    except Exception as e:
+        print(f"❌ Critical error starting server: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        log_activity(f"Critical startup error: {str(e)}", "danger")
+    finally:
+        print("🔄 Server shutdown complete")
+
+

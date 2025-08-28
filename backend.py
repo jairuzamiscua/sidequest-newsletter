@@ -2993,7 +2993,6 @@ def create_event():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/events/<int:event_id>', methods=['DELETE'])
-@csrf_required
 def delete_event(event_id):
     """Delete an event"""
     try:
@@ -3277,7 +3276,6 @@ def register_for_event(event_id):
 # Replace your get_event_attendees function with this FIXED version:
 
 @app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
-@csrf_required
 def get_event_attendees(event_id):
     """Get list of attendees for an event - FIXED VERSION"""
     try:

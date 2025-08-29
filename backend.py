@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+import html
 import json
 import traceback
 import psycopg2
@@ -103,6 +104,59 @@ def get_db_connection():
         return None
 
 # Replace your init_database() function with this updated version:
+
+# ============================
+# INPUT SANITIZATION FUNCTIONS
+# ============================
+
+def sanitize_text_input(text, max_length=1000):
+    """Sanitize text input to prevent XSS and other attacks"""
+    if not text:
+        return ""
+    
+    # Remove null bytes and control characters
+    text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', str(text))
+    
+    # Limit length
+    text = text[:max_length]
+    
+    # HTML escape
+    text = html.escape(text.strip())
+    
+    return text
+
+def sanitize_email(email):
+    """Enhanced email validation and sanitization"""
+    if not email:
+        return None
+        
+    email = str(email).strip().lower()
+    
+    # Remove dangerous characters
+    email = re.sub(r'[^\w\.\-@+]', '', email)
+    
+    # Basic email pattern validation
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return None
+        
+    # Length check
+    if len(email) > 254:  # RFC standard
+        return None
+        
+    return email
+
+def sanitize_numeric_input(value, min_val=None, max_val=None):
+    """Sanitize numeric input"""
+    try:
+        num = float(value) if value else 0
+        if min_val is not None and num < min_val:
+            num = min_val
+        if max_val is not None and num > max_val:
+            num = max_val
+        return num
+    except (ValueError, TypeError):
+        return 0
+
 
 # =============================
 # LONG-TERM DATABASE SOLUTION
@@ -2928,38 +2982,49 @@ def get_event(event_id):
 @app.route('/api/events', methods=['POST'])
 @csrf_required
 def create_event():
-    """Create a new event"""
+    """Create a new event with input sanitization"""
     try:
         data = request.json or {}
         
-        # Log the incoming request
-        log_activity(f"Received create_event request: {data}", "info")
+        # Sanitize all text inputs
+        title = sanitize_text_input(data.get('title', ''), 255)
+        event_type = sanitize_text_input(data.get('event_type', ''), 50)
+        game_title = sanitize_text_input(data.get('game_title', ''), 255)
+        description = sanitize_text_input(data.get('description', ''), 2000)
+        prize_pool = sanitize_text_input(data.get('prize_pool', ''), 500)
+        requirements = sanitize_text_input(data.get('requirements', ''), 1000)
+        status = sanitize_text_input(data.get('status', 'draft'), 50)
+        image_url = sanitize_text_input(data.get('image_url', ''), 500)
+        
+        # Sanitize numeric inputs
+        capacity = int(sanitize_numeric_input(data.get('capacity', 0), 0, 1000))
+        entry_fee = sanitize_numeric_input(data.get('entry_fee', 0), 0, 1000)
         
         # Validate required fields
-        required_fields = ['title', 'event_type', 'date_time']
-        for field in required_fields:
-            if field not in data:
-                log_error(f"Missing required field: {field}")
-                return jsonify({"success": False, "error": f"{field} is required"}), 400
+        if not title or len(title) < 3:
+            return jsonify({"success": False, "error": "Title must be at least 3 characters"}), 400
+            
+        if event_type not in ['tournament', 'game_night', 'special', 'birthday']:
+            return jsonify({"success": False, "error": "Invalid event type"}), 400
+            
+        if status not in ['draft', 'published', 'cancelled', 'completed']:
+            return jsonify({"success": False, "error": "Invalid status"}), 400
         
-        # Parse date_time
+        # Validate and parse dates (keep your existing date parsing)
         try:
             date_time = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
-            log_activity(f"Parsed date_time: {date_time}", "info")
         except Exception as e:
             log_error(f"Date parsing error: {e}")
             return jsonify({"success": False, "error": "Invalid date_time format"}), 400
             
-        # Parse end_time if provided
         end_time = None
         if data.get('end_time'):
             try:
                 end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
-                log_activity(f"Parsed end_time: {end_time}", "info")
-            except Exception as e:
-                log_error(f"End time parsing error: {e}")
+            except:
                 pass
                 
+        # Use your existing database query with sanitized inputs
         query = """
             INSERT INTO events (
                 title, event_type, game_title, date_time, end_time,
@@ -2970,46 +3035,30 @@ def create_event():
         """
         
         params = (
-            data['title'],
-            data['event_type'],
-            data.get('game_title'),
+            title,          # sanitized
+            event_type,     # sanitized
+            game_title,     # sanitized
             date_time,
             end_time,
-            data.get('capacity', 0),
-            data.get('description', ''),
-            data.get('entry_fee', 0),
-            data.get('prize_pool'),
-            data.get('status', 'draft'),
-            data.get('image_url'),
-            data.get('requirements')
+            capacity,       # sanitized
+            description,    # sanitized
+            entry_fee,      # sanitized
+            prize_pool,     # sanitized
+            status,         # sanitized
+            image_url,      # sanitized
+            requirements    # sanitized
         )
         
-        log_activity(f"About to execute query: {query}", "info")
-        log_activity(f"With params: {params}", "info")
-        
-        # Execute the query and get detailed feedback
+        # Keep your existing database execution logic
         result = execute_query_one(query, params)
-        
-        log_activity(f"Query result type: {type(result)}", "info")
-        log_activity(f"Query result value: {result}", "info")
         
         if result is None:
             log_error("execute_query_one returned None - check database connection and query")
-            return jsonify({"success": False, "error": "Database query failed - check logs"}), 500
+            return jsonify({"success": False, "error": "Database query failed"}), 500
         
         if isinstance(result, dict) and 'id' in result:
             event_id = result['id']
-            log_activity(f"Successfully created event: {data['title']} (ID: {event_id})", "success")
-            
-            # Verify the event was actually inserted
-            verify_query = "SELECT id, title FROM events WHERE id = %s"
-            verification = execute_query_one(verify_query, (event_id,))
-            
-            if verification:
-                log_activity(f"Event verification successful: {verification}", "success")
-            else:
-                log_error(f"Event was not found after insert! ID: {event_id}")
-                return jsonify({"success": False, "error": "Event creation failed - not found after insert"}), 500
+            log_activity(f"Successfully created event: {title} (ID: {event_id})", "success")
             
             return jsonify({
                 "success": True,
@@ -3018,12 +3067,11 @@ def create_event():
             })
         else:
             log_error(f"Unexpected result format from execute_query_one: {result}")
-            return jsonify({"success": False, "error": "Unexpected database response format"}), 500
+            return jsonify({"success": False, "error": "Database query failed"}), 500
             
     except Exception as e:
         log_error(f"Error creating event: {e}")
-        log_error(f"Full traceback: {traceback.format_exc()}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": "Invalid input data"}), 400
 
 @app.route('/api/events/<int:event_id>', methods=['DELETE'])
 @csrf_required

@@ -16,6 +16,7 @@ import io
 import base64
 from itsdangerous import URLSafeTimedSerializer
 from functools import wraps
+import time
 import secrets
 from urllib.parse import quote
 from psycopg2.extras import RealDictCursor
@@ -47,6 +48,8 @@ limiter = Limiter(
     app=app,
     default_limits=["1000 per day"]
 )
+
+login_attempts = defaultdict(list)
 
 csrf = CSRFProtect(app)
 app.config.update(
@@ -776,16 +779,46 @@ def require_admin_auth(f):
     return decorated_function
 
 @app.route('/admin/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")  # Basic rate limiting
 def admin_login():
     if request.method == 'POST':
+        client_ip = get_remote_address()
         password = request.form.get('password', '')
+        
+        # Check rate limiting (3 attempts per 15 minutes)
+        now = datetime.now()
+        cutoff_time = now - timedelta(minutes=15)
+        
+        # Clean old attempts
+        login_attempts[client_ip] = [
+            attempt_time for attempt_time in login_attempts[client_ip] 
+            if attempt_time > cutoff_time
+        ]
+        
+        # Check if too many attempts
+        if len(login_attempts[client_ip]) >= 3:
+            log_activity(f"Rate limited login attempt from {client_ip}", "warning")
+            time.sleep(2)  # Slow down the response
+            error_html = '<div class="error">Too many failed attempts. Try again in 15 minutes.</div>'
+            return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', error_html), 429
         
         if password == ADMIN_PASSWORD:
             session['admin_authenticated'] = True
             session['last_activity'] = datetime.now().isoformat()
+            session['login_ip'] = client_ip  # Track login IP
             session.permanent = False
+            
+            # Clear failed attempts on successful login
+            login_attempts[client_ip] = []
+            
+            log_activity(f"Admin login successful from {client_ip}", "success")
             return redirect('/admin')
         else:
+            # Record failed attempt
+            login_attempts[client_ip].append(now)
+            log_activity(f"Failed login attempt from {client_ip}", "warning")
+            
+            time.sleep(1)  # Slow down failed attempts
             error_html = '<div class="error">Invalid password</div>'
             return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', error_html)
     

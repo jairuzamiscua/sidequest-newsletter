@@ -2481,6 +2481,7 @@ def event_signup_page(event_id):
             console.log('🔍 Form submission started');
             e.preventDefault();
             
+            const isTournament = '{event["event_type"]}' === 'tournament';
             const firstName = document.getElementById('firstName').value.trim();
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();

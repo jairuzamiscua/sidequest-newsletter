@@ -1,3 +1,66 @@
+
+/* === CSRF Auto-Injector Shim (keeps your existing code style) === */
+(function () {
+  if (typeof window === 'undefined' || !window.fetch) return;
+
+  let __csrfToken = null;
+  async function __getMetaToken() {
+    try {
+      const m = document.querySelector('meta[name="csrf-token"]');
+      return m ? m.content : '';
+    } catch (_) { return ''; }
+  }
+  async function __fetchToken() {
+    try {
+      const res = await window.fetch('/api/csrf-token', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) return '';
+      const data = await res.json();
+      return data && (data.csrf || data.csrf_token || data.token) || '';
+    } catch (_) { return ''; }
+  }
+  async function __ensureToken() {
+    if (__csrfToken) return __csrfToken;
+    let t = await __getMetaToken();
+    if (!t) t = await __fetchToken();
+    __csrfToken = t || '';
+    return __csrfToken;
+  }
+
+  const __origFetch = window.fetch.bind(window);
+  window.fetch = async function(input, init) {
+    init = init || {};
+    const url = (typeof input === 'string') ? input : (input && input.url) || '';
+    const method = ((init.method || 'GET') + '').toUpperCase();
+    const sameOrigin = url && !/^https?:\/\//i.test(url);
+
+    if (sameOrigin && /^(POST|PUT|PATCH|DELETE)$/.test(method)) {
+      const token = await __ensureToken();
+      // Normalize headers
+      let headers = init.headers;
+      if (!(headers instanceof Headers)) {
+        headers = new Headers(headers || {});
+      }
+      if (token && !headers.has('X-CSRFToken')) {
+        headers.set('X-CSRFToken', token);
+      }
+      init.headers = headers;
+      if (!init.credentials) init.credentials = 'same-origin';
+    }
+    return __origFetch(input, init);
+  };
+
+  // Expose for debugging if needed
+  window.__CSRF__ = {
+    get token() { return __csrfToken; },
+    refresh: async () => { __csrfToken = null; return __ensureToken(); }
+  };
+})();
+/* === End CSRF Auto-Injector Shim === */
+
 <!doctype html>
 <html lang="en">
 <head>

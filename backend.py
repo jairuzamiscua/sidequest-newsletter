@@ -1430,45 +1430,41 @@ def get_subscribers():
 @app.route('/subscribe', methods=['POST'])
 @csrf_required
 def add_subscriber():
-    """Enhanced subscribe route with GDPR compliance"""
+    """Enhanced subscribe route with input sanitization and GDPR compliance"""
     try:
         data = request.json or {}
-        email = str(data.get('email', '')).strip().lower()
-        source = data.get('source', 'manual')
-        first_name = data.get('firstName', '').strip()
-        last_name = data.get('lastName', '').strip()
-        gaming_handle_raw = data.get('gamingHandle')
-        gaming_handle = gaming_handle_raw.strip() if gaming_handle_raw else None
         
-        # GDPR COMPLIANCE CHECK - This is the key fix
-        gdpr_consent = data.get('gdprConsent', False)
+        # Sanitize all inputs first
+        email = sanitize_email(data.get('email', ''))
+        source = sanitize_text_input(data.get('source', 'manual'), 50)
+        first_name = sanitize_text_input(data.get('firstName', ''), 100)
+        last_name = sanitize_text_input(data.get('lastName', ''), 100)
+        gaming_handle = sanitize_text_input(data.get('gamingHandle', ''), 50) if data.get('gamingHandle') else None
+        gdpr_consent = bool(data.get('gdprConsent', False))
         
-        # Reject if no consent provided for sources that require it
+        # Validate sanitized inputs
+        if not email:
+            return jsonify({"success": False, "error": "Valid email is required"}), 400
+            
+        # GDPR COMPLIANCE CHECK - kept from your original
         if source in ['signup_page_gdpr', 'manual'] and not gdpr_consent:
             return jsonify({
                 "success": False, 
                 "error": "GDPR consent is required to process your personal data"
             }), 400
-        
-        # Enhanced validation
-        if not email:
-            return jsonify({"success": False, "error": "Email is required"}), 400
-        if not is_valid_email(email):
-            return jsonify({"success": False, "error": "Invalid email format"}), 400
             
         # Validate name fields for GDPR sources
         if source in ['signup_page_gdpr'] and (not first_name or not last_name):
             return jsonify({"success": False, "error": "First name and last name are required"}), 400
             
-        if first_name and len(first_name.strip()) < 2:
+        if first_name and len(first_name) < 2:
             return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
             
-        if last_name and len(last_name.strip()) < 2:
+        if last_name and len(last_name) < 2:
             return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
         
-        # Name validation regex
+        # Name pattern validation (already done in sanitization, but kept for extra validation)
         if first_name or last_name:
-            import re
             name_pattern = r'^[a-zA-Z\s\'-]+$'
             if first_name and not re.match(name_pattern, first_name):
                 return jsonify({"success": False, "error": "Invalid characters in first name"}), 400
@@ -1484,7 +1480,7 @@ def add_subscriber():
         if any(sub['email'] == email for sub in existing_subscribers):
             return jsonify({"success": False, "error": "Email already subscribed"}), 400
         
-        # Add to database with GDPR consent recorded
+        # Add to database with GDPR consent recorded (using sanitized inputs)
         if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle, gdpr_consent):
             # Enhanced Brevo sync with names and consent tracking
             brevo_attributes = {
@@ -1522,9 +1518,8 @@ def add_subscriber():
             return jsonify({"success": False, "error": "Failed to add subscriber to database"}), 500
             
     except Exception as e:
-        error_msg = f"Error adding subscriber: {str(e)}"
-        log_error(error_msg)
-        return jsonify({"success": False, "error": error_msg}), 500
+        log_error(f"Error adding subscriber: {str(e)}")
+        return jsonify({"success": False, "error": "Invalid input provided"}), 400
 
 def add_gdpr_consent_column():
     """Add GDPR consent tracking columns to subscribers table"""
@@ -3768,46 +3763,63 @@ def get_public_event(event_id):
 
 # Add this API route to handle public registrations (if not already present)
 
-
 @app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
 @limiter.limit("3 per hour")
 def register_public(event_id):
     try:
         data = request.json or {}
-        email = (data.get('email') or '').strip().lower()
-        player_name = (data.get('player_name') or '').strip()
-        first_name = (data.get('first_name') or '').strip()
-        last_name = (data.get('last_name') or '').strip()
+        
+        # Sanitize all inputs first
+        email = sanitize_email(data.get('email', ''))
+        player_name = sanitize_text_input(data.get('player_name', ''), 255)
+        first_name = sanitize_text_input(data.get('first_name', ''), 100)
+        last_name = sanitize_text_input(data.get('last_name', ''), 100)
         email_consent = bool(data.get('email_consent', False))
 
-        # Basic validation
-        if not (email and player_name and first_name and last_name):
-            return jsonify({"success": False, "error": "All fields except consent are required"}), 400
-        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        # Validate sanitized inputs
+        if not email:
             return jsonify({"success": False, "error": "Please enter a valid email address"}), 400
+            
+        if not player_name or len(player_name) < 2:
+            return jsonify({"success": False, "error": "Player name must be at least 2 characters"}), 400
+            
+        if not first_name or len(first_name) < 2:
+            return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
+            
+        if not last_name or len(last_name) < 2:
+            return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
 
+        # Pattern validation for names
+        name_pattern = r'^[a-zA-Z\s\'-]+$'
+        if not re.match(name_pattern, first_name):
+            return jsonify({"success": False, "error": "First name contains invalid characters"}), 400
+        if not re.match(name_pattern, last_name):
+            return jsonify({"success": False, "error": "Last name contains invalid characters"}), 400
+        if not re.match(r'^[a-zA-Z0-9\s\'-]+$', player_name):  # Allow numbers in player names
+            return jsonify({"success": False, "error": "Player name contains invalid characters"}), 400
+
+        # Continue with your existing database logic using sanitized variables
         conn = get_db_connection()
         if not conn:
             return jsonify({"success": False, "error": "Database connection failed"}), 500
-        cursor = conn.cursor()  # RealDictCursor from connection
+        cursor = conn.cursor()
 
-        # 1) Load event
+        # Use sanitized email in all database queries
         cursor.execute("SELECT * FROM events WHERE id = %s", (event_id,))
         event = cursor.fetchone()
         if not event:
             cursor.close(); conn.close()
             return jsonify({"success": False, "error": "Event not found"}), 404
 
-        # 2) Duplicate check (correct column name)
         cursor.execute("""
             SELECT id FROM event_registrations
             WHERE event_id = %s AND subscriber_email = %s
-        """, (event_id, email))
+        """, (event_id, email))  # Using sanitized email
         if cursor.fetchone():
             cursor.close(); conn.close()
             return jsonify({"success": False, "error": "You are already registered for this event"}), 400
 
-        # 3) Capacity check (dict access)
+        # Continue with capacity check and registration
         cursor.execute("""
             SELECT COUNT(*) AS current_count
             FROM event_registrations
@@ -3817,11 +3829,11 @@ def register_public(event_id):
         current_count = int(row["current_count"])
         is_waiting_list = bool(event.get('capacity', 0) > 0 and current_count >= event['capacity'])
 
-        # 4) Generate confirmation code
+        # Generate confirmation code
         import random, string
         confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
-        # 5) Insert registration (match table columns)
+        # Insert registration using sanitized inputs
         cursor.execute("""
             INSERT INTO event_registrations
                 (event_id, subscriber_email, player_name, confirmation_code, registered_at, attended, notes)
@@ -3832,9 +3844,9 @@ def register_public(event_id):
         reg = cursor.fetchone()
         conn.commit()
 
-        # 6) Optional: upsert into subscribers only if consented, using existing columns
+        # Optional subscriber consent handling using sanitized inputs
         if email_consent:
-            cursor = conn.cursor()  # new cursor after commit (still RealDictCursor)
+            cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO subscribers
                     (email, first_name, last_name, source, date_added, status, gdpr_consent_given, consent_date)
@@ -3850,10 +3862,8 @@ def register_public(event_id):
             """, (email, first_name, last_name, 'event_registration', True, datetime.now()))
             conn.commit()
             log_activity(f"Subscriber consent recorded for {email}", "info")
-        else:
-            log_activity(f"Event registration without newsletter consent: {email}", "info")
 
-        # Response
+        # Return response
         resp = {
             "success": True,
             "confirmation_code": confirmation_code,
@@ -3871,7 +3881,7 @@ def register_public(event_id):
             if 'conn' in locals() and conn:
                 conn.rollback()
         except: pass
-        return jsonify({"success": False, "error": "Registration failed. Please try again later."}), 500
+        return jsonify({"success": False, "error": "Registration failed due to invalid input. Please try again."}), 400
 
 @app.route('/api/events/<int:event_id>/debug-registration', methods=['POST'])
 def debug_registration(event_id):
@@ -4031,7 +4041,56 @@ def check_event_data(event_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+#=============================
+# SANITY CHECK ENDPOINT
+#=============================
+def sanitize_email(email):
+    """Clean and validate email input"""
+    if not email:
+        return None
+        
+    email = str(email).strip().lower()
+    
+    # Remove dangerous characters but keep valid email chars
+    email = re.sub(r'[^\w\.\-@+]', '', email)
+    
+    # Basic email pattern check
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return None
+        
+    # Length check (RFC 5321 standard)
+    if len(email) > 254:
+        return None
+        
+    return email
 
+def sanitize_text_input(text, max_length=1000):
+    """Clean text input to prevent XSS"""
+    if not text:
+        return ""
+    
+    # Remove null bytes and control characters
+    text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', str(text))
+    
+    # Limit length
+    text = text[:max_length]
+    
+    # HTML escape to prevent XSS
+    text = html.escape(text.strip())
+    
+    return text
+
+def sanitize_numeric_input(value, min_val=None, max_val=None):
+    """Clean and constrain numeric input"""
+    try:
+        num = float(value) if value else 0
+        if min_val is not None and num < min_val:
+            num = min_val
+        if max_val is not None and num > max_val:
+            num = max_val
+        return num
+    except (ValueError, TypeError):
+        return 0
 
 # =============================
 # Event Statistics

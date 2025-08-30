@@ -379,55 +379,50 @@ class CampaignForm(FlaskForm):
 
 
 def csrf_required(f):
+    """Decorator that validates CSRF token and form data"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
             # Get CSRF token from multiple sources
-            csrf_token = None
+            csrf_token = (
+                request.headers.get('X-CSRFToken') or 
+                request.form.get('csrf_token') or 
+                (request.json.get('csrf_token') if request.json else None)
+            )
             
-            # 1. Try JSON body first (for AJAX requests)
-            if request.is_json and request.content_type == 'application/json':
-                try:
-                    json_data = request.get_json()
-                    if json_data:
-                        csrf_token = json_data.get('csrf_token')
-                except:
-                    pass  # Not JSON or malformed JSON
-            
-            # 2. Try form data (for HTML form submissions - THIS FIXES SIGNUP)
-            if not csrf_token and request.form:
-                csrf_token = request.form.get('csrf_token')
-            
-            # 3. Try headers (common for AJAX requests - THIS FIXES DELETE)
             if not csrf_token:
-                csrf_token = request.headers.get('X-CSRFToken') or request.headers.get('X-CSRF-Token')
-            
-            # 4. Try query parameters (fallback)
-            if not csrf_token:
-                csrf_token = request.args.get('csrf_token')
+                log_activity(f"CSRF token missing for {request.path} from {request.remote_addr}", "warning")
+                return jsonify({
+                    "success": False, 
+                    "error": "CSRF token required",
+                    "code": "CSRF_TOKEN_MISSING"
+                }), 400
             
             # Validate the token
-            if not csrf_token:
-                log_error(f"CSRF validation error: No CSRF token provided in {request.method} {request.path}")
-                log_error(f"Content-Type: {request.content_type}")
-                log_error(f"Has form data: {bool(request.form)}")
-                log_error(f"Has JSON: {request.is_json}")
-                return jsonify({"success": False, "error": "CSRF token required"}), 403
+            validate_csrf(csrf_token)
             
-            # Here you would validate the token against your stored session token
-            # This is a placeholder - implement your actual CSRF validation logic
-            session_token = session.get('csrf_token')
-            if not session_token or csrf_token != session_token:
-                log_error("CSRF validation error: Invalid CSRF token")
-                return jsonify({"success": False, "error": "Invalid CSRF token"}), 403
+            # Log successful validation for critical operations
+            if request.method in ['POST', 'PUT', 'DELETE']:
+                log_activity(f"CSRF validation passed for {request.method} {request.path}", "info")
             
-            log_info(f"CSRF validation passed for {request.method} {request.path}")
             return f(*args, **kwargs)
+            
+        except CSRFError as e:
+            log_activity(f"CSRF validation failed for {request.path}: {str(e)}", "warning")
+            return jsonify({
+                "success": False,
+                "error": "Invalid or expired CSRF token",
+                "code": "CSRF_TOKEN_INVALID",
+                "message": "Please refresh the page and try again"
+            }), 403
             
         except Exception as e:
             log_error(f"CSRF validation error: {e}")
-            log_error(f"Traceback: {traceback.format_exc()}")
-            return jsonify({"success": False, "error": "CSRF validation failed"}), 500
+            return jsonify({
+                "success": False,
+                "error": "CSRF validation failed",
+                "code": "CSRF_VALIDATION_ERROR"
+            }), 500
     
     return decorated_function
 

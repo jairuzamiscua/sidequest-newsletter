@@ -1426,7 +1426,6 @@ def get_subscribers():
         error_msg = f"Error getting subscribers: {str(e)}"
         print(f"Subscribers error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
-
 def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
     """Send automated welcome email with high deliverability (avoids promotions tab)"""
     if not api_instance:
@@ -1454,465 +1453,296 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         else:
             subject = "Welcome to SideQuest Canterbury - Account Details & Member Benefits"
         
-        # Create redesigned HTML email with clean, brand-consistent styling
+        # Create HTML email content with reduced promotional language
         html_content = f"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to SideQuest Canterbury!</title>
+    <title>Welcome to SideQuest Canterbury</title>
     <style>
         body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f8f9fa;
-            color: #1a1a1a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
             line-height: 1.6;
             margin: 0;
             padding: 20px;
         }}
         
-        .email-wrapper {{
-            max-width: 600px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 20px;
+        .container {{ 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: #1a1a1a;
+            border-radius: 15px;
             overflow: hidden;
-            box-shadow: 0 10px 40px rgba(26, 26, 26, 0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }}
         
         .header {{
             background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
             color: #1a1a1a;
-            padding: 40px 30px;
+            padding: 30px 25px;
             text-align: center;
-            position: relative;
-            overflow: hidden;
+            border: 2px solid #FFD700;
         }}
         
-        .header::before {{
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(26, 26, 26, 0.05) 0%, transparent 50%);
-            animation: float 6s ease-in-out infinite;
-        }}
-        
-        @keyframes float {{
-            0%, 100% {{ transform: rotate(0deg) translate(-10px, -10px); }}
-            50% {{ transform: rotate(180deg) translate(10px, 10px); }}
-        }}
-        
-        .logo {{
-            font-size: 2.5rem;
-            font-weight: 900;
-            letter-spacing: -2px;
-            margin-bottom: 15px;
-            position: relative;
-            z-index: 2;
-        }}
-        
-        .header-subtitle {{
-            font-size: 1.3rem;
-            font-weight: 600;
-            margin: 0;
-            opacity: 0.9;
-            position: relative;
-            z-index: 2;
-        }}
-        
-        .content {{
-            padding: 40px 30px;
-        }}
-        
-        .greeting {{
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: #1a1a1a;
-            margin-bottom: 20px;
-        }}
-        
-        .intro-text {{
-            font-size: 1.1rem;
-            color: #4a5568;
-            margin-bottom: 35px;
-            line-height: 1.7;
-        }}
-        
-        .section {{
-            margin-bottom: 40px;
-        }}
-        
-        .section-title {{
-            font-size: 1.5rem;
-            font-weight: 800;
-            color: #1a1a1a;
-            margin-bottom: 20px;
-            text-align: center;
-            position: relative;
-            padding-bottom: 10px;
-        }}
-        
-        .section-title::after {{
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 3px;
-            background: linear-gradient(90deg, #FFD700, #FFA500);
-            border-radius: 2px;
-        }}
-        
-        .facilities-grid {{
-            display: grid;
-            gap: 15px;
-            margin-top: 25px;
-        }}
-        
-        .facility-item {{
-            display: flex;
-            align-items: flex-start;
-            padding: 20px;
-            background: #f8f9fa;
+        .logo-placeholder {{
+            width: 350px;
+            height: 100px;
+            background: #1a1a1a;
             border-radius: 12px;
-            border-left: 4px solid #FFD700;
-            transition: all 0.3s ease;
-        }}
-        
-        .facility-icon {{
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #FFD700, #FFA500);
-            border-radius: 50%;
+            margin: 0 auto 15px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 15px;
-            font-weight: 900;
-            color: #1a1a1a;
-            font-size: 1.2rem;
-            flex-shrink: 0;
-        }}
-        
-        .facility-content {{
-            flex: 1;
-        }}
-        
-        .facility-title {{
-            font-weight: 700;
-            color: #1a1a1a;
-            margin-bottom: 5px;
-            font-size: 1.1rem;
-        }}
-        
-        .facility-desc {{
-            color: #4a5568;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }}
-        
-        .experience-section {{
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            color: #ffffff;
-            padding: 40px 30px;
-            border-radius: 20px;
-            margin: 40px 0;
-            position: relative;
-            overflow: hidden;
-        }}
-        
-        .experience-section::before {{
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 100px;
-            height: 100px;
-            background: rgba(255, 215, 0, 0.1);
-            border-radius: 50%;
-            transform: translate(30px, -30px);
-        }}
-        
-        .experience-section::after {{
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 60px;
-            height: 60px;
-            background: rgba(255, 165, 0, 0.1);
-            border-radius: 50%;
-            transform: translate(-20px, 20px);
-        }}
-        
-        .experience-title {{
-            font-size: 2rem;
-            font-weight: 900;
-            text-align: center;
             color: #FFD700;
-            margin-bottom: 15px;
-            position: relative;
-            z-index: 2;
-        }}
-        
-        .experience-subtitle {{
-            text-align: center;
-            font-size: 1.1rem;
-            color: #cbd5e0;
-            margin-bottom: 30px;
-            font-style: italic;
-            position: relative;
-            z-index: 2;
-        }}
-        
-        .experience-grid {{
-            display: grid;
-            gap: 20px;
-            position: relative;
-            z-index: 2;
-        }}
-        
-        .experience-item {{
-            background: rgba(255, 215, 0, 0.1);
-            padding: 20px;
-            border-radius: 15px;
-            border-left: 4px solid;
-            backdrop-filter: blur(10px);
-        }}
-        
-        .experience-item.tournaments {{ border-left-color: #FFD700; }}
-        .experience-item.food {{ border-left-color: #FFA500; }}
-        .experience-item.study {{ border-left-color: #4CAF50; }}
-        .experience-item.community {{ border-left-color: #9C27B0; }}
-        
-        .experience-item-title {{
-            font-size: 1.3rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }}
-        
-        .experience-item.tournaments .experience-item-title {{ color: #FFD700; }}
-        .experience-item.food .experience-item-title {{ color: #FFA500; }}
-        .experience-item.study .experience-item-title {{ color: #4CAF50; }}
-        .experience-item.community .experience-item-title {{ color: #9C27B0; }}
-        
-        .experience-item-desc {{
-            color: #e2e8f0;
-            font-size: 1rem;
-            line-height: 1.6;
-        }}
-        
-        .offer-section {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 35px;
-            border-radius: 20px;
-            text-align: center;
-            margin: 40px 0;
-            position: relative;
-            overflow: hidden;
-        }}
-        
-        .offer-section::before {{
-            content: '';
-            position: absolute;
-            top: -10px;
-            right: -10px;
-            width: 40px;
-            height: 40px;
-            background: rgba(26, 26, 26, 0.1);
-            border-radius: 50%;
-        }}
-        
-        .offer-title {{
             font-size: 2rem;
             font-weight: 900;
-            margin-bottom: 20px;
+            letter-spacing: 2px;
         }}
         
-        .offer-text {{
+        .header p {{
             font-size: 1.2rem;
+            margin: 0;
             font-weight: 600;
-            margin-bottom: 20px;
-            line-height: 1.5;
         }}
         
-        .offer-highlight {{
-            font-size: 1.6rem;
-            font-weight: 900;
-            display: block;
-            margin: 10px 0;
+        .content {{
+            padding: 30px 25px;
+            background: #2d2d2d;
         }}
         
-        .offer-expiry {{
-            font-size: 1rem;
-            font-weight: 700;
-            margin-top: 20px;
-            opacity: 0.9;
-        }}
-        
-        .cta-button {{
-            display: inline-block;
-            background: #1a1a1a;
-            color: #FFD700;
-            padding: 15px 30px;
-            border-radius: 50px;
-            font-weight: 700;
+        .welcome-text {{
             font-size: 1.1rem;
-            text-decoration: none;
-            margin-top: 20px;
-            transition: all 0.3s ease;
-            border: 2px solid #1a1a1a;
+            margin-bottom: 25px;
+            color: #ffffff;
         }}
         
-        .cta-button:hover {{
-            background: transparent;
-            color: #1a1a1a;
-            border-color: #1a1a1a;
-        }}
-        
-        .account-section {{
-            text-align: center;
-            margin: 40px 0;
-        }}
-        
-        .account-button {{
-            display: inline-block;
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            padding: 20px 40px;
-            border-radius: 50px;
-            font-weight: 700;
-            font-size: 1.2rem;
-            text-decoration: none;
-            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.3);
-            transition: all 0.3s ease;
-        }}
-        
-        .account-button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
-        }}
-        
-        .terms {{
-            background: #f8f9fa;
-            padding: 20px;
+        .facilities {{
+            background: linear-gradient(135deg, #333 0%, #444 100%);
+            padding: 25px;
             border-radius: 12px;
-            margin: 30px 0;
-            border-left: 4px solid #e2e8f0;
+            margin: 25px 0;
+            border: 1px solid #555;
         }}
         
-        .terms-title {{
+        .facilities h2 {{
+            color: #FFD700;
+            font-size: 1.4rem;
+            margin-bottom: 15px;
             font-weight: 700;
-            color: #1a1a1a;
-            margin-bottom: 10px;
         }}
         
-        .terms-list {{
-            color: #4a5568;
-            font-size: 0.9rem;
-            line-height: 1.6;
+        .facility-list {{
+            list-style: none;
+            padding: 0;
             margin: 0;
         }}
         
-        .footer {{
-            background: #1a1a1a;
-            color: #a0aec0;
-            padding: 35px 30px;
-            text-align: center;
+        .facility-list li {{
+            padding: 8px 0;
+            border-bottom: 1px solid #555;
+            font-size: 1rem;
         }}
         
-        .footer-brand {{
-            color: #FFD700;
+        .facility-list li:last-child {{
+            border-bottom: none;
+        }}
+        
+        .member-benefit-box {{
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 30px 0;
+            border: 2px solid #FFD700;
+            box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3);
+        }}
+        
+        .member-benefit-box h2 {{
+            font-size: 1.6rem;
+            margin-bottom: 15px;
             font-weight: 700;
+        }}
+        
+        .benefit-text {{
             font-size: 1.1rem;
             margin-bottom: 15px;
+            font-weight: 600;
         }}
         
-        .footer-info {{
-            margin-bottom: 20px;
-            line-height: 1.7;
+        .expiry {{
+            font-size: 1rem;
+            font-weight: 700;
+            margin-top: 15px;
         }}
         
-        .footer-hours {{
-            color: #718096;
+        .terms-info {{
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 0.85rem;
+            color: #ccc;
+        }}
+        
+        .footer {{
+            padding: 25px;
+            text-align: center;
+            background: #1a1a1a;
+            color: #888;
             font-size: 0.9rem;
-            margin-bottom: 25px;
         }}
         
-        .footer-legal {{
-            font-size: 0.8rem;
-            color: #718096;
-            border-top: 1px solid #2d3748;
-            padding-top: 20px;
-            margin-top: 20px;
-        }}
-        
-        .footer-legal a {{
+        .footer a {{
             color: #FFD700;
             text-decoration: none;
         }}
         
-        .closing-message {{
-            font-size: 1.2rem;
-            font-weight: 600;
+        .location-button {{
+            background: #1a1a1a;
             color: #FFD700;
-            text-align: center;
-            margin: 30px 0;
+            padding: 12px 25px;
+            border-radius: 8px;
+            display: inline-block;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border: 2px solid #1a1a1a;
+            text-decoration: none;
+            margin-top: 10px;
+        }}
+        
+        .account-button {{
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            display: inline-block;
+            font-size: 1.2rem;
+            font-weight: 700;
+            box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+            text-decoration: none;
         }}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
+    <div class="container">
         <div class="header">
-            <div class="logo">SIDEQUEST</div>
-            <p class="header-subtitle">Welcome to Canterbury's Premier Gaming Hub</p>
+            <div class="logo-placeholder">SIDEQUEST</div>
+            <p>Your Gaming Community Account is Ready</p>
         </div>
         
         <div class="content">
-            <h1 class="greeting">{greeting}</h1>
+            <div class="welcome-text">
+                <h2 style="color: #FFD700; margin-bottom: 15px;">{greeting}</h2>
+                <p>Thank you for joining the SideQuest Canterbury community. Your account has been created successfully and you now have access to member benefits and event notifications.</p>
+            </div>
             
-            <p class="intro-text">
-                Welcome to the SideQuest Canterbury family! Your gaming journey starts here, where cutting-edge technology meets community spirit. We're thrilled to have you join our passionate gaming community.
+            <div class="facilities">
+                <h2>Your Gaming Hub Features:</h2>
+                <ul class="facility-list">
+                    <li><strong>35 High-Performance PCs</strong> - Latest games and competitive setups</li>
+                    <li><strong>Console Area with 4 PS5s</strong> - Latest PlayStation exclusives</li>
+                    <li><strong>2 Professional Driving Rigs</strong> - Racing simulation experience</li>
+                    <li><strong>VR Gaming Station</strong> - Immersive virtual reality</li>
+                    <li><strong>Nintendo Switch Setup</strong> - Party games and exclusives</li>
+                    <li><strong>Premium Bubble Tea Bar</strong> - Fuel your gaming sessions</li>
+                    <li><strong>Study & Chill Zone</strong> - Perfect for work or relaxation</li>
+                </ul>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); padding: 30px 25px; border-radius: 15px; margin: 30px 0; border: 2px solid #FFD700;">
+                <h2 style="color: #FFD700; font-size: 1.8rem; margin-bottom: 20px; font-weight: 700; text-align: center;">
+                    Community Features
+                </h2>
+                <p style="text-align: center; font-size: 1.1rem; color: #ccc; margin-bottom: 25px;">
+                    As a community member, you'll receive notifications about:
+                </p>
+                
+                <div style="display: grid; gap: 15px;">
+                    <div style="background: rgba(255, 215, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFD700;">
+                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFD700;">Tournament Events</strong></div>
+                        <div style="color: #ddd; font-size: 1rem;">Competitive gaming across FPS, FIFA, and board games</div>
+                    </div>
+                    
+                    <div style="background: rgba(255, 165, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFA500;">
+                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFA500;">Community Nights</strong></div>
+                        <div style="color: #ddd; font-size: 1rem;">Social gaming sessions and special events</div>
+                    </div>
+                    
+                    <div style="background: rgba(76, 175, 80, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #4CAF50;">
+                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #4CAF50;">Member Events</strong></div>
+                        <div style="color: #ddd; font-size: 1rem;">Exclusive member-only gatherings and previews</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="member-benefit-box">
+                <h2>Welcome Member Benefit</h2>
+                <div class="benefit-text">
+                    Present this email on your first visit to receive:<br>
+                    <strong style="font-size: 1.3rem;">30% member discount on any bubble tea</strong>
+                </div>
+                <div class="expiry">Valid until: {expiry_date}</div>
+                
+                <div style="margin-top: 20px;">
+                    <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="location-button">
+                        View Location & Hours
+                    </a>
+                </div>
+            </div>
+            
+            <div class="terms-info">
+                <strong>Member Benefit Terms:</strong><br>
+                • Valid for first-time members only<br>
+                • Present this email on your mobile device in-store<br>
+                • One use per member account<br>
+                • Valid for 7 days from account creation
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="https://sidequesthub.com/home" style="text-decoration: none;">
+                    <div class="account-button">
+                        Complete Your Account Setup<br>
+                        <span style="font-size: 1rem; font-weight: 600;">Unlock 30 Minutes Free Gaming Time</span>
+                    </div>
+                </a>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <p style="font-size: 1.1rem; color: #FFD700;">Welcome to the community. See you at SideQuest!</p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div style="margin-bottom: 15px;">
+                <strong style="color: #FFD700;">SideQuest Canterbury Gaming Lounge</strong><br>
+                C10, The Riverside, 1 Sturry Rd<br>
+                Canterbury CT1 1BU<br>
+                01227 915058<br>
+                <a href="mailto:marketing@sidequestcanterbury.com" style="color: #FFD700;">marketing@sidequestcanterbury.com</a>
+            </div>
+            
+            <div style="margin-bottom: 15px; font-size: 0.9rem;">
+                <strong style="color: #FFD700;">Opening Hours:</strong><br>
+                <span style="color: #ccc;">
+                Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed<br>
+                Friday: 2-9pm • Saturday: 12-9pm
+                </span>
+            </div>
+            
+            <p style="margin-top: 15px; font-size: 0.8rem;">
+                You received this account notification because you subscribed to community updates. 
+                <a href="{unsubscribe_url}" style="color: #FFD700;">Manage preferences</a>
             </p>
-            
-            <div class="section">
-                <h2 class="section-title">Your Gaming Arsenal</h2>
-                <div class="facilities-grid">
-                    <div class="facility-item">
-                        <div class="facility-icon">PC</div>
-                        <div class="facility-content">
-                            <div class="facility-title">35 High-Performance Gaming PCs</div>
-                            <div class="facility-desc">Latest games, competitive setups, and pro-grade peripherals</div>
-                        </div>
-                    </div>
-                    
-                    <div class="facility-item">
-                        <div class="facility-icon">PS</div>
-                        <div class="facility-content">
-                            <div class="facility-title">Console Gaming Zone with 4 PS5s</div>
-                            <div class="facility-desc">Latest PlayStation exclusives and multiplayer experiences</div>
-                        </div>
-                    </div>
-                    
-                    <div class="facility-item">
-                        <div class="facility-icon">VR</div>
-                        <div class="facility-content">
-                            <div class="facility-title">VR Station & Racing Simulators</div>
-                            <div class="facility-desc">Immersive virtual reality and professional driving rigs</div>
-                        </div>
-                    </div>
-                    
-                    <div class="facility-item">
-                        <div class="facility-icon">SW</div>
-                        <div class="facility-content">
-                            <div class="facility-title">Nintendo Switch & Study Zone</div>
-                            <div class="facility-desc">Party games,
+        </div>
+    </div>
+</body>
+</html>
         """
         
         # Plain text version (also less promotional)

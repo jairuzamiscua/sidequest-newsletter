@@ -1541,9 +1541,10 @@ def add_subscriber():
         return jsonify({{"success": False, "error": "Invalid input provided"}}), 400
 
 def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
-    """Send automated welcome email via Brevo API"""
-    if not BREVO_API_KEY:
-        return {"success": False, "error": "Brevo API key not configured"}
+    """Send automated welcome email via Brevo SDK (consistent with tournament confirmations)"""
+    if not api_instance:
+        log_error("Brevo API not initialized")
+        return {"success": False, "error": "Brevo API not configured"}
     
     try:
         # Personalize greeting
@@ -1557,7 +1558,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         # Calculate expiry date (7 days from now)
         expiry_date = (datetime.now() + timedelta(days=7)).strftime("%B %d, %Y")
         
-        # Create HTML email content
+        # Create HTML email content (same as your original)
         html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -1923,51 +1924,31 @@ TikTok: https://www.tiktok.com/@sidequestcanterbury
 You received this email because you subscribed to our newsletter.
         """
         
-        # Brevo API endpoint
-        url = "https://api.brevo.com/v3/smtp/email"
-        
-        headers = {{
-            "accept": "application/json",
-            "api-key": BREVO_API_KEY,
-            "content-type": "application/json"
-        }}
-        
-        # Email payload
-        payload = {{
-            "sender": {{
-                "name": SENDER_NAME,
-                "email": SENDER_EMAIL
-            }},
-            "to": [
-                {{
-                    "email": email,
-                    "name": f"{first_name} {last_name}".strip() if first_name or last_name else ""
-                }}
-            ],
-            "subject": "🎮 Welcome to SideQuest Canterbury - 30% Off Bubble Tea + Free Gaming Time! 🧋",
-            "htmlContent": html_content,
-            "textContent": text_content,
-            "tags": ["welcome_email", "new_subscriber", "bubble_tea_offer", "free_gaming_time"]
-        }}
+        # Use the SDK instead of requests
+        send_email = sib_api_v3_sdk.SendSmtpEmail(
+            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
+            to=[{
+                "email": email,
+                "name": f"{first_name} {last_name}".strip() if first_name or last_name else ""
+            }],
+            subject="🎮 Welcome to SideQuest Canterbury - 30% Off Bubble Tea + Free Gaming Time! 🧋",
+            html_content=html_content,
+            text_content=text_content,
+            tags=["welcome_email", "new_subscriber", "bubble_tea_offer", "free_gaming_time"]
+        )
         
         # Send the email
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response = api_instance.send_transac_email(send_email)
         
-        if response.status_code == 201:
-            return {{
-                "success": True, 
-                "message": "Welcome email sent successfully",
-                "message_id": response.json().get("messageId")
-            }}
-        else:
-            return {{
-                "success": False, 
-                "error": f"Failed to send email: {{response.status_code}} - {{response.text}}"
-            }}
+        return {
+            "success": True, 
+            "message": "Welcome email sent successfully",
+            "message_id": response.message_id if hasattr(response, 'message_id') else None
+        }
             
     except Exception as e:
-        return {{"success": False, "error": f"Error sending welcome email: {{str(e)}}"}}
-
+        log_error(f"Error sending welcome email: {str(e)}")
+        return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
 
 def add_gdpr_consent_column():
     """Add GDPR consent tracking columns to subscribers table"""
@@ -2005,7 +1986,6 @@ def add_gdpr_consent_column():
     except Exception as e:
         print(f"Error adding GDPR consent columns: {e}")
         return False
-
 
 @app.route('/unsubscribe', methods=['POST'])
 @csrf_required

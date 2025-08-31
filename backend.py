@@ -1454,7 +1454,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         else:
             subject = "Your SideQuest account is ready"
         
-        # Gmail-optimized HTML email with SideQuest branding (light mode safe)
+        # Gmail-optimized HTML email with SideQuest branding
         html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -1463,11 +1463,11 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Welcome to SideQuest Canterbury</title>
     <style>
-        /* Gmail-safe CSS with SideQuest branding - Light mode with dark accents */
+        /* Gmail-safe CSS with SideQuest branding */
         body {{ 
             font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
-            color: #333333;
+            background-color: #1a1a1a;
+            color: #ffffff;
             line-height: 1.5;
             margin: 0;
             padding: 20px;
@@ -1476,97 +1476,90 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         .container {{ 
             max-width: 600px; 
             margin: 0 auto; 
-            background-color: #ffffff;
-            border: 3px solid #ffd700;
+            background-color: #2c2c2c;
+            border: 2px solid #ffd700;
             border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }}
         
         .header {{
-            background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+            background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%);
             color: #ffffff;
             padding: 30px 25px;
             text-align: center;
-            border-bottom: 4px solid #ffd700;
+            border-bottom: 3px solid #ffd700;
         }}
         
         .logo {{
-            font-size: 32px;
+            font-size: 28px;
             font-weight: bold;
             color: #ffd700;
             margin-bottom: 10px;
-            letter-spacing: 3px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            letter-spacing: 2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }}
         
         .header-subtitle {{
             font-size: 16px;
-            color: #e0e0e0;
+            color: #cccccc;
             margin: 0;
-            font-weight: 500;
         }}
         
         .content {{
             padding: 30px 25px;
-            background-color: #ffffff;
-            color: #333333;
+            background-color: #2c2c2c;
+            color: #ffffff;
         }}
         
         .greeting {{
-            font-size: 18px;
+            font-size: 16px;
             margin-bottom: 20px;
-            color: #2c2c2c;
+            color: #ffd700;
             font-weight: bold;
         }}
         
         .intro-text {{
-            color: #555555;
+            color: #e0e0e0;
             margin-bottom: 25px;
-            font-size: 16px;
         }}
         
         .info-box {{
-            background-color: #f8f9fa;
-            border-left: 5px solid #ffd700;
+            background-color: #1a1a1a;
+            border: 1px solid #ffd700;
             border-radius: 6px;
-            padding: 25px;
+            padding: 20px;
             margin: 25px 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }}
         
         .info-box h3 {{
-            color: #2c2c2c;
-            font-size: 20px;
+            color: #ffd700;
+            font-size: 18px;
             margin: 0 0 15px 0;
-            text-align: left;
-            font-weight: bold;
-            border-bottom: 2px solid #ffd700;
-            padding-bottom: 8px;
-            display: inline-block;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }}
         
         .facility-list {{
-            margin: 15px 0 0 0;
+            margin: 0;
             padding: 0;
             list-style: none;
         }}
         
         .facility-list li {{
             padding: 8px 0;
-            color: #555555;
+            border-bottom: 1px solid #444444;
+            color: #e0e0e0;
             position: relative;
-            padding-left: 25px;
-            border-bottom: 1px solid #e9ecef;
+            padding-left: 20px;
         }}
         
         .facility-list li:before {{
-            content: "⚡";
+            content: "▶";
             color: #ffd700;
             position: absolute;
             left: 0;
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 12px;
         }}
         
         .facility-list li:last-child {{
@@ -1575,18 +1568,18 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         
         .benefit-box {{
             background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            border: 3px solid #e6c200;
-            border-radius: 10px;
-            padding: 30px;
+            border: 2px solid #e6c200;
+            border-radius: 8px;
+            padding: 25px;
             text-align: center;
-            margin: 30px 0;
-            box-shadow: 0 6px 15px rgba(255, 215, 0, 0.3);
+            margin: 25px 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }}
         
         .benefit-title {{
-            color: #2c2c2c;
-            font-size: 22px;
-            margin: 0 0 12px 0;
+            color: #1a1a1a;
+            font-size: 20px;
+            margin: 0 0 10px 0;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -1594,50 +1587,48 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         
         .benefit-text {{
             color: #1a1a1a;
-            font-size: 18px;
+            font-size: 16px;
             margin: 0 0 15px 0;
             font-weight: 600;
         }}
         
         .expiry-text {{
-            color: #444444;
+            color: #333333;
             font-size: 14px;
             font-style: italic;
-            font-weight: 500;
         }}
         
         .button {{
             display: inline-block;
-            background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
-            color: #ffd700;
-            padding: 15px 35px;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            color: #1a1a1a;
+            padding: 15px 30px;
             text-decoration: none;
             border-radius: 6px;
             font-weight: bold;
-            margin: 25px 0;
+            margin: 20px 0;
             text-transform: uppercase;
             letter-spacing: 1px;
-            border: 2px solid #ffd700;
-            font-size: 16px;
+            border: 2px solid #e6c200;
+            transition: all 0.3s ease;
         }}
         
         .button:hover {{
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            color: #1a1a1a;
+            background: linear-gradient(135deg, #ffed4e 0%, #ffd700 100%);
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 8px rgba(255, 215, 0, 0.3);
         }}
         
         .location-link {{
             display: inline-block;
-            color: #2c2c2c;
+            color: #ffd700;
             text-decoration: none;
-            padding: 12px 25px;
+            padding: 10px 20px;
             border: 2px solid #ffd700;
-            border-radius: 6px;
-            margin: 15px 0;
+            border-radius: 4px;
+            margin: 10px 0;
             font-weight: bold;
-            background-color: #fff9e6;
+            transition: all 0.3s ease;
         }}
         
         .location-link:hover {{
@@ -1646,11 +1637,11 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         }}
         
         .footer {{
-            background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+            background-color: #1a1a1a;
             padding: 25px;
-            color: #e0e0e0;
+            color: #cccccc;
             font-size: 14px;
-            border-top: 4px solid #ffd700;
+            border-top: 3px solid #ffd700;
         }}
         
         .footer-section {{
@@ -1672,36 +1663,24 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         }}
         
         .terms-text {{
-            background-color: #f8f9fa;
-            border: 1px solid #ffd700;
+            background-color: #1a1a1a;
+            border: 1px solid #444444;
             border-radius: 4px;
-            padding: 20px;
+            padding: 15px;
             font-size: 13px;
-            color: #555555;
+            color: #cccccc;
             margin-top: 25px;
-        }}
-        
-        .terms-text strong {{
-            color: #2c2c2c;
         }}
         
         .unsubscribe {{
             font-size: 12px;
-            color: #cccccc;
+            color: #999999;
             margin-top: 15px;
             text-align: center;
         }}
         
         .unsubscribe a {{
             color: #ffd700;
-        }}
-        
-        .highlight-accent {{
-            background-color: #fff9e6;
-            border-left: 4px solid #ffd700;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 0 6px 6px 0;
         }}
         
         /* Gmail mobile fixes */
@@ -1713,9 +1692,8 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 border-right: none !important;
             }}
             .content, .header, .footer {{ padding: 20px 15px !important; }}
-            .logo {{ font-size: 26px !important; }}
-            .benefit-title {{ font-size: 20px !important; }}
-            .benefit-text {{ font-size: 16px !important; }}
+            .logo {{ font-size: 24px !important; }}
+            .benefit-title {{ font-size: 18px !important; }}
         }}
     </style>
 </head>
@@ -1731,7 +1709,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 {greeting}
             </div>
             
-            <p class="intro-text">Your account has been created successfully! Welcome to the SideQuest Canterbury community - where gaming meets excellence.</p>
+            <p class="intro-text">Your account has been created successfully. You're now part of the SideQuest Canterbury community - where gaming meets excellence.</p>
             
             <div class="info-box">
                 <h3>What we offer?</h3>
@@ -1746,9 +1724,9 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 </ul>
             </div>
             
-            <div class="highlight-accent">
-                <strong style="color: #2c2c2c; font-size: 16px;">Member Benefits:</strong><br>
-                <span style="color: #555555;">Priority booking • Tournament notifications • Community events • Exclusive member rates</span>
+            <div class="info-box">
+                <h3>Member Benefits</h3>
+                <p style="margin: 0; color: #e0e0e0; text-align: center;">Priority booking • Tournament notifications • Community events • Exclusive member rates</p>
             </div>
             
             <div class="benefit-box">
@@ -1766,7 +1744,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             </p>
             
             <div class="terms-text">
-                <strong>Terms:</strong> First-time members only. Present this email in-store. One use per account. Valid for 7 days from account creation.
+                <strong style="color: #ffd700;">Terms:</strong> First-time members only. Present this email in-store. One use per account. Valid for 7 days from account creation.
             </div>
         </div>
         
@@ -1805,16 +1783,16 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
 
 {greeting}
 
-Your account has been created successfully! Welcome to the SideQuest Canterbury community - where gaming meets excellence.
+Your account has been created successfully. You're now part of the SideQuest Canterbury community - where gaming meets excellence.
 
-🎮 WHAT WE OFFER:
-⚡ 35 Gaming PCs with latest titles
-⚡ 4 PlayStation 5 consoles  
-⚡ 2 Racing simulator rigs
-⚡ VR gaming setup
-⚡ Nintendo Switch station
-⚡ Bubble tea bar
-⚡ Study and social area
+🎮 GAMING ARSENAL:
+▶ 35 Gaming PCs with latest titles
+▶ 4 PlayStation 5 consoles  
+▶ 2 Racing simulator rigs
+▶ VR gaming setup
+▶ Nintendo Switch station
+▶ Bubble tea bar
+▶ Study and social area
 
 🏆 MEMBER BENEFITS:
 Priority booking • Tournament notifications • Community events • Exclusive member rates

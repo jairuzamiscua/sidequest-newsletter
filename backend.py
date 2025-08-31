@@ -1454,22 +1454,37 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         else:
             subject = "Welcome to SideQuest Canterbury - Account Details & Member Benefits"
         
-        # HTML (flat gray/black; no gradients; CSS braces escaped)
+        # HTML — original look, with Dark/Light Mode handling per Litmus
         html_content = f"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Dark/Light Mode signals -->
     <meta name="color-scheme" content="light dark">
     <meta name="supported-color-schemes" content="light dark">
     <title>Welcome to SideQuest Canterbury</title>
     <style>
-        /* Base */
+        /* Base tokens */
+        :root {{
+            /* brand gold stays consistent, avoid 'near-white' to reduce unwanted inversion */
+            --gold: #FFD700;
+            --gold-warm: #FFA500; /* matches your original header */
+            --ink-dark: #1a1a1a;
+            --ink: #222;
+            --white: #ffffff;
+            --bg-black: #000000;
+            --bg-1: #1a1a1a;
+            --bg-2: #2d2d2d;
+            --bg-3: #333333;
+            --muted: #ccc;
+        }}
+
         body {{ 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #000;              /* pure black page */
-            color: #ffffff;
+            background: var(--bg-black);
+            color: var(--white);
             line-height: 1.6;
             margin: 0;
             padding: 20px;
@@ -1478,172 +1493,220 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         .container {{ 
             max-width: 600px; 
             margin: 0 auto; 
-            background: #1a1a1a;          /* dark gray card like original */
+            background: var(--bg-1);
             border-radius: 15px;
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            border: 1px solid #2a2a2a;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }}
         
-        /* Header — flat gray bar, original logo box feel */
+        /* === HEADER (original gold/orange gradient + centered text) === */
         .header {{
-            background: #2d2d2d;          /* flat medium gray */
-            color: #f1f1f1;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-warm) 100%);
+            color: var(--ink-dark);
             padding: 30px 25px;
             text-align: center;
-            border-bottom: 1px solid #3a3a3a;
+            border: 2px solid var(--gold);
         }}
+        
         .logo-placeholder {{
             width: 350px;
             height: 100px;
-            background: #1a1a1a;          /* original dark inner box */
+            background: var(--ink-dark);
             border-radius: 12px;
             margin: 0 auto 15px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #f5f5f5;               /* WHITE text to avoid yellow/brown issue */
+            color: var(--gold);
             font-size: 2rem;
             font-weight: 900;
             letter-spacing: 2px;
-            border: 1px solid #3a3a3a;
         }}
+        
         .header p {{
             font-size: 1.2rem;
             margin: 0;
             font-weight: 600;
-            color: #e6e6e6;
         }}
         
         .content {{
             padding: 30px 25px;
-            background: #2d2d2d;          /* original dark gray content */
+            background: var(--bg-2);
         }}
         
         .welcome-text {{
             font-size: 1.1rem;
             margin-bottom: 25px;
-            color: #ffffff;
+            color: var(--white);
         }}
         
-        /* Facilities — flat gray cards, no brand yellows */
+        /* === FACILITIES (keep original list look) === */
         .facilities {{
-            background: #333333;
+            background: var(--bg-3);
             padding: 25px;
             border-radius: 12px;
             margin: 25px 0;
-            border: 1px solid #4a4a4a;
+            border: 1px solid #555;
         }}
+        
         .facilities h2 {{
-            color: #f0f0f0;
+            color: var(--gold);
             font-size: 1.4rem;
             margin-bottom: 15px;
             font-weight: 700;
-            text-align: center;
         }}
-        .facility-grid {{
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 12px;
+        
+        .facility-list {{
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }}
-        .facility-card {{
-            background: #262626;          /* flat dark tile */
-            padding: 14px 16px;
-            border-radius: 10px;
+        
+        .facility-list li {{
+            padding: 8px 0;
+            border-bottom: 1px solid #555;
             font-size: 1rem;
-            line-height: 1.45;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-            border-left: 4px solid #6e6e6e; /* neutral accent */
-            color: #e8e8e8;
+            color: #eee;
         }}
-        .facility-card strong {{
-            display: block;
-            margin-bottom: 4px;
-            font-weight: 800;
-            color: #ffffff;
+        
+        .facility-list li:last-child {{
+            border-bottom: none;
         }}
-        /* subtle variants */
-        .accent-1 {{ border-left-color: #7a7a7a; }}
-        .accent-2 {{ border-left-color: #8a8a8a; }}
-        .accent-3 {{ border-left-color: #9a9a9a; }}
-
-        /* Member benefit — flat gray panel */
+        
+        /* === COMMUNITY FEATURES (unchanged from your original) === */
+        /* left inline in markup, but colors will be locked via mode queries below */
+        
         .member-benefit-box {{
-            background: #2b2b2b;
-            color: #f0f0f0;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-warm) 100%);
+            color: var(--ink-dark);
             padding: 25px;
             border-radius: 12px;
             text-align: center;
             margin: 30px 0;
-            border: 1px solid #3a3a3a;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            border: 2px solid var(--gold);
+            box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3);
         }}
+        
         .member-benefit-box h2 {{
             font-size: 1.6rem;
             margin-bottom: 15px;
             font-weight: 700;
-            color: #ffffff;
         }}
+        
         .benefit-text {{
-            font-size: 1.05rem;
+            font-size: 1.1rem;
             margin-bottom: 15px;
             font-weight: 600;
-            color: #f0f0f0;
         }}
+        
         .expiry {{
-            font-size: 0.95rem;
+            font-size: 1rem;
             font-weight: 700;
             margin-top: 15px;
-            color: #dcdcdc;
         }}
         
         .terms-info {{
-            background: #262626;
+            background: #333;
             padding: 15px;
             border-radius: 8px;
             margin: 15px 0;
-            font-size: 0.9rem;
-            color: #d0d0d0;
-            border: 1px solid #383838;
+            font-size: 0.85rem;
+            color: #ccc;
         }}
         
         .footer {{
             padding: 25px;
             text-align: center;
-            background: #1a1a1a;
-            color: #b0b0b0;
+            background: var(--bg-1);
+            color: #888;
             font-size: 0.9rem;
         }}
+        
         .footer a {{
-            color: #e6e6e6;
-            text-decoration: underline;
+            color: var(--gold);
+            text-decoration: none;
         }}
         
         .location-button {{
-            background: #1a1a1a;
-            color: #f0f0f0;
+            background: var(--bg-1);
+            color: var(--gold);
             padding: 12px 25px;
             border-radius: 8px;
             display: inline-block;
-            font-size: 1.05rem;
+            font-size: 1.1rem;
             font-weight: 700;
-            border: 1px solid #3a3a3a;
+            border: 2px solid var(--ink-dark);
             text-decoration: none;
             margin-top: 10px;
         }}
         
         .account-button {{
-            background: #444444;          /* flat gray CTA */
-            color: #ffffff;
-            padding: 18px 26px;
+            background: #4CAF50;
+            color: white;
+            padding: 20px 30px;
             border-radius: 12px;
             display: inline-block;
-            font-size: 1.15rem;
+            font-size: 1.2rem;
             font-weight: 700;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-            border: 1px solid #5a5a5a;
+            box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
             text-decoration: none;
         }}
+
+        /* =========================
+           DARK & LIGHT MODE OVERRIDES
+           ========================= */
+
+        /* Custom Dark Mode (Apple Mail, iOS Mail, some Outlook, etc.) */
+        @media (prefers-color-scheme: dark) {{
+            .header, .member-benefit-box {{
+                background: linear-gradient(135deg, var(--gold) 0%, var(--gold-warm) 100%) !important;
+                color: var(--ink-dark) !important;
+            }}
+            .logo-placeholder {{
+                background: var(--ink-dark) !important;
+                color: var(--gold) !important;
+            }}
+            .content {{ background: var(--bg-2) !important; }}
+            .facilities {{ background: var(--bg-3) !important; }}
+            .facility-list li {{ color: #eee !important; }}
+            .footer a {{ color: var(--gold) !important; }}
+        }}
+
+        /* Light Mode explicit colors (guard against weird auto-tinting) */
+        @media (prefers-color-scheme: light) {{
+            .header, .member-benefit-box {{
+                background: linear-gradient(135deg, var(--gold) 0%, var(--gold-warm) 100%) !important;
+                color: var(--ink-dark) !important;
+            }}
+            .logo-placeholder {{
+                background: var(--ink-dark) !important;
+                color: var(--gold) !important;
+            }}
+            .content {{ background: var(--bg-2) !important; }}
+            .facilities {{ background: var(--bg-3) !important; }}
+            .facility-list li {{ color: #222 !important; }}
+            .footer a {{ color: var(--gold) !important; }}
+        }}
+
+        /* Outlook apps (Android/iOS) Dark Mode targeting via [data-ogsc] */
+        [data-ogsc] .header, 
+        [data-ogsc] .member-benefit-box {{
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-warm) 100%) !important;
+            color: var(--ink-dark) !important;
+        }}
+        [data-ogsc] .logo-placeholder {{
+            background: var(--ink-dark) !important;
+            color: var(--gold) !important;
+        }}
+        [data-ogsc] .content {{ background: var(--bg-2) !important; }}
+        [data-ogsc] .facilities {{ background: var(--bg-3) !important; }}
+        [data-ogsc] .facility-list li {{ color: #eee !important; }}
+        [data-ogsc] .footer a {{ color: var(--gold) !important; }}
+
+        /* Note: Some Gmail apps fully invert and ignore media queries; this setup
+           follows Litmus guidance. If you still see "brownish" gold in Gmail iOS,
+           we can add the advanced CSS blend-mode hack specifically for that client. */
     </style>
 </head>
 <body>
@@ -1655,68 +1718,47 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         
         <div class="content">
             <div class="welcome-text">
-                <h2 style="color: #ffffff; margin-bottom: 15px;">{greeting}</h2>
+                <h2 style="color: var(--gold); margin-bottom: 15px;">{greeting}</h2>
                 <p>Thank you for joining the SideQuest Canterbury community!</p>
             </div>
             
-            <!-- Gaming Hub Features (flat gray, mobile-friendly cards) -->
+            <!-- Gaming Hub Features (original list) -->
             <div class="facilities">
-                <h2>Your Gaming Hub Features</h2>
-                <div class="facility-grid">
-                    <div class="facility-card">
-                        <strong>35 High-Performance PCs</strong>
-                        Latest games and competitive setups
-                    </div>
-                    <div class="facility-card accent-1">
-                        <strong>Console Area with 4 PS5s</strong>
-                        Latest PlayStation exclusives
-                    </div>
-                    <div class="facility-card accent-2">
-                        <strong>2 Professional Driving Rigs</strong>
-                        Racing simulation experience
-                    </div>
-                    <div class="facility-card accent-3">
-                        <strong>VR Gaming Station</strong>
-                        Immersive virtual reality
-                    </div>
-                    <div class="facility-card accent-1">
-                        <strong>Nintendo Switch Setup</strong>
-                        Party games and exclusives
-                    </div>
-                    <div class="facility-card accent-2">
-                        <strong>Premium Bubble Tea Bar</strong>
-                        Fuel your gaming sessions
-                    </div>
-                    <div class="facility-card accent-3">
-                        <strong>Study & Chill Zone</strong>
-                        Perfect for work or relaxation
-                    </div>
-                </div>
+                <h2>Your Gaming Hub Features:</h2>
+                <ul class="facility-list">
+                    <li><strong>35 High-Performance PCs</strong> - Latest games and competitive setups</li>
+                    <li><strong>Console Area with 4 PS5s</strong> - Latest PlayStation exclusives</li>
+                    <li><strong>2 Professional Driving Rigs</strong> - Racing simulation experience</li>
+                    <li><strong>VR Gaming Station</strong> - Immersive virtual reality</li>
+                    <li><strong>Nintendo Switch Setup</strong> - Party games and exclusives</li>
+                    <li><strong>Premium Bubble Tea Bar</strong> - Fuel your gaming sessions</li>
+                    <li><strong>Study & Chill Zone</strong> - Perfect for work or relaxation</li>
+                </ul>
             </div>
 
-            <!-- Community Features (same structure, flat gray) -->
-            <div style="background:#333333; padding:30px 25px; border-radius:15px; margin:30px 0; border:1px solid #4a4a4a;">
-                <h2 style="color:#ffffff; font-size:1.6rem; margin-bottom:20px; font-weight:700; text-align:center;">
+            <!-- Community Features (unchanged HTML from your original) -->
+            <div style="background: #2a2a2a; padding: 30px 25px; border-radius: 15px; margin: 30px 0; border: 2px solid var(--gold);">
+                <h2 style="color: var(--gold); font-size: 1.8rem; margin-bottom: 20px; font-weight: 700; text-align: center;">
                     Community Features
                 </h2>
-                <p style="text-align:center; font-size:1.05rem; color:#d0d0d0; margin-bottom:22px;">
+                <p style="text-align: center; font-size: 1.1rem; color: #ccc; margin-bottom: 25px;">
                     As a community member, you'll receive notifications about:
                 </p>
                 
-                <div style="display:grid; gap:15px;">
-                    <div style="background:#262626; padding:15px 20px; border-radius:10px; border-left:4px solid #6e6e6e;">
-                        <div style="font-size:1.15rem; margin-bottom:5px;"><strong style="color:#ffffff;">Tournament Events</strong></div>
-                        <div style="color:#dcdcdc; font-size:1rem;">Competitive gaming across FPS, FIFA, and board games</div>
+                <div style="display: grid; gap: 15px;">
+                    <div style="background: rgba(255, 215, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid var(--gold);">
+                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: var(--gold);">Tournament Events</strong></div>
+                        <div style="color: #ddd; font-size: 1rem;">Competitive gaming across FPS, FIFA, and board games</div>
                     </div>
                     
-                    <div style="background:#262626; padding:15px 20px; border-radius:10px; border-left:4px solid #8a8a8a;">
-                        <div style="font-size:1.15rem; margin-bottom:5px;"><strong style="color:#ffffff;">Community Nights</strong></div>
-                        <div style="color:#dcdcdc; font-size:1rem;">Social gaming sessions and special events</div>
+                    <div style="background: rgba(255, 165, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid var(--gold-warm);">
+                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: var(--gold-warm);">Community Nights</strong></div>
+                        <div style="color: #ddd; font-size: 1rem;">Social gaming sessions and special events</div>
                     </div>
                     
-                    <div style="background:#262626; padding:15px 20px; border-radius:10px; border-left:4px solid #9a9a9a;">
-                        <div style="font-size:1.15rem; margin-bottom:5px;"><strong style="color:#ffffff;">Member Events</strong></div>
-                        <div style="color:#dcdcdc; font-size:1rem;">Exclusive member-only gatherings and previews</div>
+                    <div style="background: rgba(76, 175, 80, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #4CAF50;">
+                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #4CAF50;">Member Events</strong></div>
+                        <div style="color: #ddd; font-size: 1rem;">Exclusive member-only gatherings and previews</div>
                     </div>
                 </div>
             </div>
@@ -1725,12 +1767,12 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 <h2>Welcome Member Benefit</h2>
                 <div class="benefit-text">
                     Present this email on your first visit to receive:<br>
-                    <strong style="font-size: 1.25rem;">30% member discount on any bubble tea</strong>
+                    <strong style="font-size: 1.3rem;">30% member discount on any bubble tea</strong>
                 </div>
                 <div class="expiry">Valid until: {expiry_date}</div>
                 
                 <div style="margin-top: 20px;">
-                    <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu" class="location-button">
+                    <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="location-button">
                         View Location & Hours
                     </a>
                 </div>
@@ -1748,28 +1790,28 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 <a href="https://sidequesthub.com/home" style="text-decoration: none;">
                     <div class="account-button">
                         Complete Your Account Setup<br>
-                        <span style="font-size: 0.95rem; font-weight: 600;">Unlock 30 Minutes Free Gaming Time</span>
+                        <span style="font-size: 1rem; font-weight: 600;">Unlock 30 Minutes Free Gaming Time</span>
                     </div>
                 </a>
             </div>
             
             <div style="text-align: center; margin-top: 20px;">
-                <p style="font-size: 1.05rem; color: #e8e8e8;">Welcome to the community. See you at SideQuest!</p>
+                <p style="font-size: 1.1rem; color: var(--gold);">Welcome to the community. See you at SideQuest!</p>
             </div>
         </div>
         
         <div class="footer">
             <div style="margin-bottom: 15px;">
-                <strong style="color: #ffffff;">SideQuest Canterbury Gaming Lounge</strong><br>
+                <strong style="color: var(--gold);">SideQuest Canterbury Gaming Lounge</strong><br>
                 C10, The Riverside, 1 Sturry Rd<br>
                 Canterbury CT1 1BU<br>
                 01227 915058<br>
-                <a href="mailto:marketing@sidequestcanterbury.com">marketing@sidequestcanterbury.com</a>
+                <a href="mailto:marketing@sidequestcanterbury.com" style="color: var(--gold);">marketing@sidequestcanterbury.com</a>
             </div>
             
             <div style="margin-bottom: 15px; font-size: 0.9rem;">
-                <strong style="color: #ffffff;">Opening Hours:</strong><br>
-                <span style="color: #d0d0d0;">
+                <strong style="color: var(--gold);">Opening Hours:</strong><br>
+                <span style="color: #ccc;">
                 Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed<br>
                 Friday: 2-9pm • Saturday: 12-9pm
                 </span>
@@ -1777,7 +1819,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             
             <p style="margin-top: 15px; font-size: 0.8rem;">
                 You received this account notification because you subscribed to community updates. 
-                <a href="{unsubscribe_url}">Manage preferences</a>
+                <a href="{unsubscribe_url}" style="color: var(--gold);">Manage preferences</a>
             </p>
         </div>
     </div>
@@ -1785,7 +1827,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
 </html>
         """
         
-        # Plain text version (structure unchanged)
+        # Plain text version (unchanged structure)
         text_content = f"""
 {greeting}
 
@@ -1824,7 +1866,7 @@ Friday: 2-9pm • Saturday: 12-9pm
 Manage preferences: {unsubscribe_url}
         """
         
-        # Send config (same pattern)
+        # Enhanced email configuration for better deliverability
         send_email = sib_api_v3_sdk.SendSmtpEmail(
             sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
             reply_to={"name": "SideQuest Support", "email": SENDER_EMAIL},
@@ -1858,8 +1900,6 @@ Manage preferences: {unsubscribe_url}
     except Exception as e:
         log_error(f"Error sending welcome email: {str(e)}")
         return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
-
-
 
 
 @app.route('/subscribe', methods=['POST'])

@@ -1432,8 +1432,8 @@ def get_subscribers():
 def add_subscriber():
     """Enhanced subscribe route with input sanitization, GDPR compliance, and automated welcome email"""
     try:
-        data = request.json or {{}}
-        
+        data = request.get_json(silent=True) or {}
+
         # Sanitize all inputs first
         email = sanitize_email(data.get('email', ''))
         source = sanitize_text_input(data.get('source', 'manual'), 50)
@@ -1441,104 +1441,108 @@ def add_subscriber():
         last_name = sanitize_text_input(data.get('lastName', ''), 100)
         gaming_handle = sanitize_text_input(data.get('gamingHandle', ''), 50) if data.get('gamingHandle') else None
         gdpr_consent = bool(data.get('gdprConsent', False))
-        
+
         # Validate sanitized inputs
         if not email:
-            return jsonify({{"success": False, "error": "Valid email is required"}}), 400
-            
+            return jsonify({"success": False, "error": "Valid email is required"}), 400
+
         # GDPR COMPLIANCE CHECK
         if source in ['signup_page_gdpr', 'manual'] and not gdpr_consent:
-            return jsonify({{
-                "success": False, 
+            return jsonify({
+                "success": False,
                 "error": "GDPR consent is required to process your personal data"
-            }}), 400
-            
+            }), 400
+
         # Validate name fields for GDPR sources
         if source in ['signup_page_gdpr'] and (not first_name or not last_name):
-            return jsonify({{"success": False, "error": "First name and last name are required"}}), 400
-            
+            return jsonify({"success": False, "error": "First name and last name are required"}), 400
+
         if first_name and len(first_name) < 2:
-            return jsonify({{"success": False, "error": "First name must be at least 2 characters"}}), 400
-            
+            return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
+
         if last_name and len(last_name) < 2:
-            return jsonify({{"success": False, "error": "Last name must be at least 2 characters"}}), 400
-        
+            return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
+
         # Name pattern validation
         if first_name or last_name:
             name_pattern = r'^[a-zA-Z\s\'-]+$'
             if first_name and not re.match(name_pattern, first_name):
-                return jsonify({{"success": False, "error": "Invalid characters in first name"}}), 400
+                return jsonify({"success": False, "error": "Invalid characters in first name"}), 400
             if last_name and not re.match(name_pattern, last_name):
-                return jsonify({{"success": False, "error": "Invalid characters in last name"}}), 400
-        
+                return jsonify({"success": False, "error": "Invalid characters in last name"}), 400
+
         # Gaming handle validation
         if gaming_handle and (len(gaming_handle) < 3 or len(gaming_handle) > 30):
-            return jsonify({{"success": False, "error": "Gaming handle must be 3-30 characters"}}), 400
-        
+            return jsonify({"success": False, "error": "Gaming handle must be 3-30 characters"}), 400
+
         # Check if already exists
         existing_subscribers = get_all_subscribers()
         if any(sub['email'] == email for sub in existing_subscribers):
-            return jsonify({{"success": False, "error": "Email already subscribed"}}), 400
-        
+            # You could also use HTTP 409 here if you prefer
+            return jsonify({"success": False, "error": "Email already subscribed"}), 400
+
         # Add to database with GDPR consent recorded
         if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle, gdpr_consent):
             # Enhanced Brevo sync with names and consent tracking
-            brevo_attributes = {{
+            brevo_attributes = {
                 'source': source,
                 'date_added': datetime.now().isoformat(),
                 'gdpr_consent_given': 'yes' if gdpr_consent else 'no',
                 'consent_date': datetime.now().isoformat() if gdpr_consent else None
-            }}
-            
+            }
             if first_name:
                 brevo_attributes['first_name'] = first_name
             if last_name:
                 brevo_attributes['last_name'] = last_name
             if gaming_handle:
                 brevo_attributes['gaming_handle'] = gaming_handle
-            
+
             brevo_result = add_to_brevo_contact(email, brevo_attributes)
-            
+
             # AUTOMATED WELCOME EMAIL - Send for main registration page
-            welcome_email_result = {{"success": False, "message": "Not sent - source not eligible"}}
-            
-            # Only send welcome email for public registration page (signup_page_gdpr)
+            welcome_email_result = {"success": False, "message": "Not sent - source not eligible"}
             if source == 'signup_page_gdpr':
                 welcome_email_result = send_welcome_email(email, first_name, last_name, gaming_handle)
-                
-                if welcome_email_result["success"]:
-                    log_activity(f"✅ Welcome email sent to {{email}} ({{first_name}} {{last_name}})", "success")
+
+                if welcome_email_result.get("success"):
+                    log_activity(f"✅ Welcome email sent to {email} ({first_name} {last_name})", "success")
                 else:
-                    log_activity(f"❌ Failed to send welcome email to {{email}}: {{welcome_email_result.get('error')}}", "warning")
-            
-            # Enhanced logging with names and consent status
-            subscriber_info = f"{{first_name}} {{last_name}}" if first_name and last_name else email
+                    log_activity(
+                        f"❌ Failed to send welcome email to {email}: {welcome_email_result.get('error')}",
+                        "warning"
+                    )
+
+            subscriber_info = f"{first_name} {last_name}".strip() if (first_name or last_name) else email
             consent_status = "with GDPR consent" if gdpr_consent else "without explicit consent"
-            log_activity(f"🎮 New subscriber added: {{subscriber_info}} ({{email}}) - Source: {{source}} - {{consent_status}}", "success")
-            
-            return jsonify({{
+            log_activity(
+                f"🎮 New subscriber added: {subscriber_info} ({email}) - Source: {source} - {consent_status}",
+                "success"
+            )
+
+            return jsonify({
                 "success": True,
                 "message": "Subscriber added successfully",
-                "data": {{
+                "data": {
                     "email": email,
-                    "name": f"{{first_name}} {{last_name}}".strip() if first_name or last_name else None,
+                    "name": f"{first_name} {last_name}".strip() if (first_name or last_name) else None,
                     "gaming_handle": gaming_handle,
                     "gdpr_consent_given": gdpr_consent,
                     "source": source
-                }},
-                "integrations": {{
+                },
+                "integrations": {
                     "brevo_synced": brevo_result.get("success", False),
                     "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
-                    "welcome_email_sent": welcome_email_result["success"],
-                    "welcome_email_message": welcome_email_result.get("message", welcome_email_result.get("error", ""))
-                }}
-            }})
+                    "welcome_email_sent": welcome_email_result.get("success", False),
+                    "welcome_email_message": welcome_email_result.get("message", welcome_email_result.get("error", "")),
+                }
+            })
         else:
-            return jsonify({{"success": False, "error": "Failed to add subscriber to database"}}), 500
-            
+            return jsonify({"success": False, "error": "Failed to add subscriber to database"}), 500
+
     except Exception as e:
-        log_error(f"❌ Error adding subscriber: {{str(e)}}")
-        return jsonify({{"success": False, "error": "Invalid input provided"}}), 400
+        # Make sure we log the real exception and return a sane 400
+        log_error(f"❌ Error adding subscriber: {str(e)}")
+        return jsonify({"success": False, "error": "Invalid input provided"}), 400
 
 
 def add_gdpr_consent_column():

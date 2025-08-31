@@ -4157,7 +4157,6 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
                     <h3 style="color: #FFD700; margin-top: 0;">What to Bring:</h3>
                     <ul style="color: #ccc; margin: 10px 0; padding-left: 20px;">
                         <li>Your confirmation code</li>
-                        <li>Gaming peripherals (mouse, keyboard, headset)</li>
                         <li>Positive attitude and competitive spirit</li>
                         {f'<li>£{event_data["entry_fee"]} entry fee</li>' if event_data.get('entry_fee', 0) > 0 else ''}
                     </ul>

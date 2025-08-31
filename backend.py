@@ -4531,7 +4531,7 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
         
         subject = f"Tournament Registration Confirmed - {event_data['title']}"
         
-        # Simple, clean email template with Discord integration
+        # FIXED HTML template with explicit white text colors
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -4550,44 +4550,44 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
             <!-- Main Content -->
             <div style="background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); padding: 30px; border-radius: 15px; border: 2px solid #FFD700;">
                 
-                <p style="font-size: 18px; margin-bottom: 20px;">
+                <p style="font-size: 18px; margin-bottom: 20px; color: #ffffff !important;">
                     Hey {player_name}!
                 </p>
                 
-                <p style="margin-bottom: 25px;">
+                <p style="margin-bottom: 25px; color: #ffffff !important;">
                     You're all set for the tournament. Here are your details:
                 </p>
 
                 <!-- Event Details -->
                 <div style="background: #1a1a1a; padding: 20px; border-radius: 10px; border-left: 4px solid #FFD700; margin: 20px 0;">
                     <h2 style="color: #FFD700; margin-top: 0; margin-bottom: 15px;">{event_data['title']}</h2>
-                    <p style="margin: 8px 0;"><strong>Game:</strong> {event_data.get('game_title', 'TBD')}</p>
-                    <p style="margin: 8px 0;"><strong>Date:</strong> {event_date}</p>
-                    <p style="margin: 8px 0;"><strong>Time:</strong> {event_time}</p>
-                    <p style="margin: 8px 0;"><strong>Location:</strong> SideQuest Gaming Cafe, Canterbury</p>
-                    {f'<p style="margin: 8px 0;"><strong>Entry Fee:</strong> £{event_data["entry_fee"]}</p>' if event_data.get('entry_fee', 0) > 0 else '<p style="margin: 8px 0;"><strong>Entry:</strong> FREE</p>'}
+                    <p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Game:</strong> <span style="color: #ffffff !important;">{event_data.get('game_title', 'TBD')}</span></p>
+                    <p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Date:</strong> <span style="color: #ffffff !important;">{event_date}</span></p>
+                    <p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Time:</strong> <span style="color: #ffffff !important;">{event_time}</span></p>
+                    <p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Location:</strong> <span style="color: #ffffff !important;">SideQuest Gaming Cafe, Canterbury</span></p>
+                    {f'<p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Entry Fee:</strong> <span style="color: #ffffff !important;">£{event_data["entry_fee"]}</span></p>' if event_data.get('entry_fee', 0) > 0 else '<p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Entry:</strong> <span style="color: #ffffff !important;">FREE</span></p>'}
                 </div>
 
                 <!-- Confirmation Code -->
                 <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; margin: 25px 0;">
-                    <h3 style="margin: 0 0 10px 0;">Your Confirmation Code</h3>
-                    <div style="font-size: 28px; font-weight: 900; letter-spacing: 3px; font-family: monospace;">{confirmation_code}</div>
-                    <p style="margin: 10px 0 0 0; font-size: 14px;">Show this when you arrive</p>
+                    <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important;">Your Confirmation Code</h3>
+                    <div style="font-size: 28px; font-weight: 900; letter-spacing: 3px; font-family: monospace; color: #1a1a1a !important;">{confirmation_code}</div>
+                    <p style="margin: 10px 0 0 0; font-size: 14px; color: #1a1a1a !important;">Show this when you arrive</p>
                 </div>
 
                 <!-- Discord Community Section -->
                 <div style="background: linear-gradient(135deg, #5865F2 0%, #7289DA 100%); color: white; padding: 20px; border-radius: 10px; text-align: center; margin: 25px 0;">
-                    <h3 style="margin: 0 0 15px 0; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <h3 style="margin: 0 0 15px 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: white !important;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0190 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9460 2.4189-2.1568 2.4189Z"/>
                         </svg>
                         Join Our Discord Community
                     </h3>
-                    <p style="margin: 0 0 15px 0; font-size: 16px;">
+                    <p style="margin: 0 0 15px 0; font-size: 16px; color: white !important;">
                         Connect with other players, get tournament updates, and join the conversation!
                     </p>
                     <a href="https://discord.gg/CuwQM7Zwuk" 
-                       style="display: inline-block; background: white; color: #5865F2; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; transition: all 0.3s ease;">
+                       style="display: inline-block; background: white; color: #5865F2 !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; transition: all 0.3s ease;">
                         Join Discord Server
                     </a>
                 </div>
@@ -4595,20 +4595,20 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
                 <!-- What to Bring -->
                 <div style="background: #2a2a2a; padding: 20px; border-radius: 10px; margin: 25px 0;">
                     <h3 style="color: #FFD700; margin-top: 0;">What to Bring:</h3>
-                    <ul style="color: #ccc; margin: 10px 0; padding-left: 20px;">
-                        <li>Your confirmation code</li>
-                        <li>Positive attitude and competitive spirit</li>
-                        {f'<li>£{event_data["entry_fee"]} entry fee</li>' if event_data.get('entry_fee', 0) > 0 else ''}
+                    <ul style="color: #ffffff !important; margin: 10px 0; padding-left: 20px;">
+                        <li style="color: #ffffff !important;">Your confirmation code</li>
+                        <li style="color: #ffffff !important;">Positive attitude and competitive spirit</li>
+                        {f'<li style="color: #ffffff !important;">£{event_data["entry_fee"]} entry fee</li>' if event_data.get('entry_fee', 0) > 0 else ''}
                     </ul>
                 </div>
 
                 <!-- Important Notes -->
                 <div style="background: #1a1a1a; padding: 20px; border-radius: 10px; border-left: 4px solid #28a745; margin: 25px 0;">
                     <h3 style="color: #28a745; margin-top: 0;">Important Notes:</h3>
-                    <ul style="color: #ccc; margin: 10px 0; padding-left: 20px;">
-                        <li>Join our Discord for real-time updates and communication during the tournament</li>
-                        <li>Arrive 15 minutes early for check-in and setup</li>
-                        <li>Tournament bracket and rules will be posted in Discord</li>
+                    <ul style="color: #ffffff !important; margin: 10px 0; padding-left: 20px;">
+                        <li style="color: #ffffff !important;">Join our Discord for real-time updates and communication during the tournament</li>
+                        <li style="color: #ffffff !important;">Arrive 15 minutes early for check-in and setup</li>
+                        <li style="color: #ffffff !important;">Tournament bracket and rules will be posted in Discord</li>
                     </ul>
                 </div>
 
@@ -4616,11 +4616,11 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
 
             <!-- Footer -->
             <div style="text-align: center; margin-top: 30px; color: #aaa; font-size: 14px;">
-                <p>Questions? Reply to this email or visit us in Canterbury.</p>
+                <p style="color: #aaa !important;">Questions? Reply to this email or visit us in Canterbury.</p>
                 <div style="margin: 20px 0;">
-                    <a href="https://discord.gg/CuwQM7Zwuk" style="color: #7289DA; text-decoration: none; margin: 0 15px;">Discord</a>
+                    <a href="https://discord.gg/CuwQM7Zwuk" style="color: #7289DA !important; text-decoration: none; margin: 0 15px;">Discord</a>
                 </div>
-                <p style="margin-top: 15px;">
+                <p style="margin-top: 15px; color: #aaa !important;">
                     SideQuest Gaming Cafe<br>
                     Canterbury, UK<br>
                     marketing@sidequestcanterbury.com
@@ -4631,6 +4631,7 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
         </html>
         """
         
+        # Rest of the function remains the same...
         # Prepare email with attachment
         attachments = []
         if calendar_invite:

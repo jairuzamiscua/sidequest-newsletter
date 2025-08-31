@@ -1430,9 +1430,9 @@ def get_subscribers():
 @app.route('/subscribe', methods=['POST'])
 @csrf_required
 def add_subscriber():
-    """Enhanced subscribe route with input sanitization and GDPR compliance"""
+    """Enhanced subscribe route with input sanitization, GDPR compliance, and automated welcome email"""
     try:
-        data = request.json or {}
+        data = request.json or {{}}
         
         # Sanitize all inputs first
         email = sanitize_email(data.get('email', ''))
@@ -1444,51 +1444,51 @@ def add_subscriber():
         
         # Validate sanitized inputs
         if not email:
-            return jsonify({"success": False, "error": "Valid email is required"}), 400
+            return jsonify({{"success": False, "error": "Valid email is required"}}), 400
             
-        # GDPR COMPLIANCE CHECK - kept from your original
+        # GDPR COMPLIANCE CHECK
         if source in ['signup_page_gdpr', 'manual'] and not gdpr_consent:
-            return jsonify({
+            return jsonify({{
                 "success": False, 
                 "error": "GDPR consent is required to process your personal data"
-            }), 400
+            }}), 400
             
         # Validate name fields for GDPR sources
         if source in ['signup_page_gdpr'] and (not first_name or not last_name):
-            return jsonify({"success": False, "error": "First name and last name are required"}), 400
+            return jsonify({{"success": False, "error": "First name and last name are required"}}), 400
             
         if first_name and len(first_name) < 2:
-            return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
+            return jsonify({{"success": False, "error": "First name must be at least 2 characters"}}), 400
             
         if last_name and len(last_name) < 2:
-            return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
+            return jsonify({{"success": False, "error": "Last name must be at least 2 characters"}}), 400
         
-        # Name pattern validation (already done in sanitization, but kept for extra validation)
+        # Name pattern validation
         if first_name or last_name:
             name_pattern = r'^[a-zA-Z\s\'-]+$'
             if first_name and not re.match(name_pattern, first_name):
-                return jsonify({"success": False, "error": "Invalid characters in first name"}), 400
+                return jsonify({{"success": False, "error": "Invalid characters in first name"}}), 400
             if last_name and not re.match(name_pattern, last_name):
-                return jsonify({"success": False, "error": "Invalid characters in last name"}), 400
+                return jsonify({{"success": False, "error": "Invalid characters in last name"}}), 400
         
         # Gaming handle validation
         if gaming_handle and (len(gaming_handle) < 3 or len(gaming_handle) > 30):
-            return jsonify({"success": False, "error": "Gaming handle must be 3-30 characters"}), 400
+            return jsonify({{"success": False, "error": "Gaming handle must be 3-30 characters"}}), 400
         
         # Check if already exists
         existing_subscribers = get_all_subscribers()
         if any(sub['email'] == email for sub in existing_subscribers):
-            return jsonify({"success": False, "error": "Email already subscribed"}), 400
+            return jsonify({{"success": False, "error": "Email already subscribed"}}), 400
         
-        # Add to database with GDPR consent recorded (using sanitized inputs)
+        # Add to database with GDPR consent recorded
         if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle, gdpr_consent):
             # Enhanced Brevo sync with names and consent tracking
-            brevo_attributes = {
+            brevo_attributes = {{
                 'source': source,
                 'date_added': datetime.now().isoformat(),
                 'gdpr_consent_given': 'yes' if gdpr_consent else 'no',
                 'consent_date': datetime.now().isoformat() if gdpr_consent else None
-            }
+            }}
             
             if first_name:
                 brevo_attributes['first_name'] = first_name
@@ -1499,845 +1499,47 @@ def add_subscriber():
             
             brevo_result = add_to_brevo_contact(email, brevo_attributes)
             
-            # Enhanced logging with names and consent status
-            subscriber_info = f"{first_name} {last_name}" if first_name and last_name else email
-            consent_status = "with GDPR consent" if gdpr_consent else "without explicit consent"
-            log_activity(f"New subscriber added: {subscriber_info} ({email}) - Source: {source} - {consent_status}", "success")
+            # AUTOMATED WELCOME EMAIL - Send for main registration page
+            welcome_email_result = {{"success": False, "message": "Not sent - source not eligible"}}
             
-            return jsonify({
+            # Only send welcome email for public registration page (signup_page_gdpr)
+            if source == 'signup_page_gdpr':
+                welcome_email_result = send_welcome_email(email, first_name, last_name, gaming_handle)
+                
+                if welcome_email_result["success"]:
+                    log_activity(f"✅ Welcome email sent to {{email}} ({{first_name}} {{last_name}})", "success")
+                else:
+                    log_activity(f"❌ Failed to send welcome email to {{email}}: {{welcome_email_result.get('error')}}", "warning")
+            
+            # Enhanced logging with names and consent status
+            subscriber_info = f"{{first_name}} {{last_name}}" if first_name and last_name else email
+            consent_status = "with GDPR consent" if gdpr_consent else "without explicit consent"
+            log_activity(f"🎮 New subscriber added: {{subscriber_info}} ({{email}}) - Source: {{source}} - {{consent_status}}", "success")
+            
+            return jsonify({{
                 "success": True,
                 "message": "Subscriber added successfully",
-                "email": email,
-                "name": f"{first_name} {last_name}".strip() if first_name or last_name else None,
-                "gaming_handle": gaming_handle,
-                "gdpr_consent_given": gdpr_consent,
-                "brevo_synced": brevo_result.get("success", False),
-                "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
-            })
+                "data": {{
+                    "email": email,
+                    "name": f"{{first_name}} {{last_name}}".strip() if first_name or last_name else None,
+                    "gaming_handle": gaming_handle,
+                    "gdpr_consent_given": gdpr_consent,
+                    "source": source
+                }},
+                "integrations": {{
+                    "brevo_synced": brevo_result.get("success", False),
+                    "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
+                    "welcome_email_sent": welcome_email_result["success"],
+                    "welcome_email_message": welcome_email_result.get("message", welcome_email_result.get("error", ""))
+                }}
+            }})
         else:
-            return jsonify({"success": False, "error": "Failed to add subscriber to database"}), 500
+            return jsonify({{"success": False, "error": "Failed to add subscriber to database"}}), 500
             
     except Exception as e:
-        log_error(f"Error adding subscriber: {str(e)}")
-        return jsonify({"success": False, "error": "Invalid input provided"}), 400
+        log_error(f"❌ Error adding subscriber: {{str(e)}}")
+        return jsonify({{"success": False, "error": "Invalid input provided"}}), 400
 
-def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
-    """Send automated welcome email via Brevo SDK (consistent with tournament confirmations)"""
-    if not api_instance:
-        log_error("Brevo API not initialized")
-        return {"success": False, "error": "Brevo API not configured"}
-    
-    try:
-        # Personalize greeting
-        if first_name:
-            greeting = f"Hi {first_name}!"
-        elif gaming_handle:
-            greeting = f"Hey {gaming_handle}!"
-        else:
-            greeting = "Welcome, Gamer!"
-        
-        # Calculate expiry date (7 days from now)
-        expiry_date = (datetime.now() + timedelta(days=7)).strftime("%B %d, %Y")
-        
-        # Create HTML email content (same as your original)
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to SideQuest Canterbury!</title>
-    <style>
-        body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            color: #ffffff;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-        }}
-        
-        .container {{ 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background: #1a1a1a;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }}
-        
-        .header {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 30px 25px;
-            text-align: center;
-            border: 2px solid #FFD700;
-        }}
-        
-        .header img {{
-            max-width: 350px;
-            height: auto;
-            margin-bottom: 15px;
-        }}
-        
-        .header p {{
-            font-size: 1.2rem;
-            margin: 0;
-            font-weight: 600;
-        }}
-        
-        .content {{
-            padding: 30px 25px;
-            background: #2d2d2d;
-        }}
-        
-        .welcome-text {{
-            font-size: 1.1rem;
-            margin-bottom: 25px;
-            color: #ffffff;
-        }}
-        
-        .facilities {{
-            background: linear-gradient(135deg, #333 0%, #444 100%);
-            padding: 25px;
-            border-radius: 12px;
-            margin: 25px 0;
-            border: 1px solid #555;
-        }}
-        
-        .facilities h2 {{
-            color: #FFD700;
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-            font-weight: 700;
-        }}
-        
-        .facility-list {{
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }}
-        
-        .facility-list li {{
-            padding: 8px 0;
-            border-bottom: 1px solid #555;
-            font-size: 1rem;
-        }}
-        
-        .facility-list li:last-child {{
-            border-bottom: none;
-        }}
-        
-        .facility-list li::before {{
-            content: "🎮";
-            margin-right: 10px;
-        }}
-        
-        .offer-box {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 25px;
-            border-radius: 12px;
-            text-align: center;
-            margin: 30px 0;
-            border: 2px solid #FFD700;
-            box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3);
-        }}
-        
-        .offer-box h2 {{
-            font-size: 1.8rem;
-            margin-bottom: 15px;
-            font-weight: 800;
-        }}
-        
-        .offer-text {{
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }}
-        
-        .expiry {{
-            font-size: 1rem;
-            font-weight: 700;
-            margin-top: 15px;
-        }}
-        
-        .fine-print {{
-            background: #333;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            font-size: 0.85rem;
-            color: #ccc;
-        }}
-        
-        .footer {{
-            padding: 25px;
-            text-align: center;
-            background: #1a1a1a;
-            color: #888;
-            font-size: 0.9rem;
-        }}
-        
-        .footer a {{
-            color: #FFD700;
-            text-decoration: none;
-        }}
-        
-        .cta-button {{
-            background: #1a1a1a;
-            color: #FFD700;
-            padding: 12px 25px;
-            border-radius: 8px;
-            display: inline-block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            border: 2px solid #1a1a1a;
-            text-decoration: none;
-            margin-top: 10px;
-        }}
-        
-        .account-button {{
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            display: inline-block;
-            font-size: 1.2rem;
-            font-weight: 700;
-            box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
-            border: 2px solid #4CAF50;
-            text-decoration: none;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <img src="https://i.imgur.com/gdsgsdgew-9C72kE0.png" alt="SideQuest Canterbury Logo">
-            <p>Welcome to the Ultimate Gaming Experience!</p>
-        </div>
-        
-        <div class="content">
-            <div class="welcome-text">
-                <h2 style="color: #FFD700; margin-bottom: 15px;">{greeting}</h2>
-                <p>Thank you for joining the SideQuest Canterbury community! We're excited to have you as part of our gaming family.</p>
-            </div>
-            
-            <div class="facilities">
-                <h2>What We Offer:</h2>
-                <ul class="facility-list">
-                    <li><strong>35 High-Performance PCs</strong> - Latest games, competitive setups</li>
-                    <li><strong>Console Area with 4 PS5s</strong> - Latest PlayStation exclusives</li>
-                    <li><strong>2 Professional Driving Rigs</strong> - Racing simulation experience</li>
-                    <li><strong>VR Gaming Station</strong> - Immersive virtual reality</li>
-                    <li><strong>Nintendo Switch Setup</strong> - Party games and exclusives</li>
-                </ul>
-            </div>
-            
-            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); padding: 30px 25px; border-radius: 15px; margin: 30px 0; border: 2px solid #FFD700; position: relative; overflow: hidden;">
-                <div style="position: absolute; top: -50px; right: -50px; width: 100px; height: 100px; background: rgba(255, 215, 0, 0.1); border-radius: 50%; z-index: 1;"></div>
-                <div style="position: absolute; bottom: -30px; left: -30px; width: 60px; height: 60px; background: rgba(255, 165, 0, 0.1); border-radius: 50%; z-index: 1;"></div>
-                
-                <div style="position: relative; z-index: 2;">
-                    <h2 style="color: #FFD700; font-size: 2rem; margin-bottom: 20px; font-weight: 800; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
-                        🎮 WHAT TO EXPECT 🎮
-                    </h2>
-                    <p style="text-align: center; font-size: 1.1rem; color: #ccc; margin-bottom: 25px; font-style: italic;">
-                        More than just gaming - it's a complete experience!
-                    </p>
-                    
-                    <div style="display: grid; gap: 15px;">
-                        <div style="background: rgba(255, 215, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFD700;">
-                            <div style="font-size: 1.3rem; margin-bottom: 5px;">🏆 <strong style="color: #FFD700;">EPIC TOURNAMENTS</strong></div>
-                            <div style="color: #ddd; font-size: 1rem;">Battle it out in FPS, FIFA, and Board Game Nights!</div>
-                        </div>
-                        
-                        <div style="background: rgba(255, 165, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFA500;">
-                            <div style="font-size: 1.3rem; margin-bottom: 5px;">🧋 <strong style="color: #FFA500;">PREMIUM BUBBLE TEA</strong></div>
-                            <div style="color: #ddd; font-size: 1rem;">Fuel your gaming sessions with our amazing selection!</div>
-                        </div>
-                        
-                        <div style="background: rgba(76, 175, 80, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #4CAF50;">
-                            <div style="font-size: 1.3rem; margin-bottom: 5px;">📚 <strong style="color: #4CAF50;">CHILL STUDY ZONE</strong></div>
-                            <div style="color: #ddd; font-size: 1rem;">The perfect space to get things done or take it easy!</div>
-                        </div>
-                        
-                        <div style="background: rgba(156, 39, 176, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #9C27B0;">
-                            <div style="font-size: 1.3rem; margin-bottom: 5px;">⚡ <strong style="color: #9C27B0;">LEADERBOARD GLORY</strong></div>
-                            <div style="color: #ddd; font-size: 1rem;">Climb the ranks and claim your spot at the top!</div>
-                        </div>
-                    </div>
-                    
-                    <div style="text-align: center; margin-top: 25px; padding: 20px; background: rgba(255, 215, 0, 0.05); border-radius: 12px; border: 1px dashed #FFD700;">
-                        <div style="font-size: 1.4rem; font-weight: 800; color: #FFD700; margin-bottom: 8px;">
-                            🌟 JOIN THE COMMUNITY 🌟
-                        </div>
-                        <div style="font-size: 1.1rem; color: #fff; font-weight: 600;">
-                            Where Gaming Meets Community!
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div style="text-align: center; margin: 25px 0;">
-                <img src="https://i.imgur.com/myJxXjn.jpg" alt="SideQuest Canterbury Gaming Space" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); border: 2px solid #333;">
-            </div>
-            
-            <div class="offer-box">
-                <h2>🧋 WELCOME OFFER!</h2>
-                <div class="offer-text">
-                    Show this email in-store within 7 days to get<br>
-                    <strong style="font-size: 1.4rem;">30% OFF any bubble tea!</strong>
-                </div>
-                <div class="expiry">Valid until: {expiry_date}</div>
-                
-                <div style="margin-top: 20px;">
-                    <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="cta-button">
-                        📍 Claim Your 30% Off
-                    </a>
-                </div>
-            </div>
-            
-            <div class="fine-print">
-                <strong>Important Terms:</strong><br>
-                • Limit one per person - first-time subscribers only<br>
-                • Must show this email on your device in-store<br>
-                • Cannot be combined with other offers<br>
-                • Valid for 7 days from subscription date
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="https://sidequesthub.com/home" style="text-decoration: none;">
-                    <div class="account-button">
-                        🎮 Create Your SideQuest Account<br>
-                        <span style="font-size: 1rem; font-weight: 600;">& Get 30 Minutes FREE Gaming Time!</span>
-                    </div>
-                </a>
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px;">
-                <p style="font-size: 1.1rem; color: #FFD700;">Ready to game? See you at SideQuest!</p>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <div style="margin-bottom: 20px;">
-                <a href="https://www.instagram.com/sidequestcanterbury/" style="display: inline-block; margin: 0 10px; text-decoration: none;">
-                    <img src="https://img.icons8.com/fluency/48/instagram-new.png" alt="Instagram" style="width: 40px; height: 40px; border-radius: 8px;">
-                </a>
-                <a href="https://www.tiktok.com/@sidequestcanterbury" style="display: inline-block; margin: 0 10px; text-decoration: none;">
-                    <img src="https://img.icons8.com/color/48/tiktok--v1.png" alt="TikTok" style="width: 40px; height: 40px; border-radius: 8px;">
-                </a>
-            </div>
-            
-            <div style="margin-bottom: 15px;">
-                <strong style="color: #FFD700;">SideQuest Canterbury Gaming Lounge</strong><br>
-                C10, The Riverside, 1 Sturry Rd<br>
-                Canterbury CT1 1BU<br>
-                📞 01227 915058<br>
-                <a href="mailto:marketing@sidequestcanterbury.com" style="color: #FFD700;">marketing@sidequestcanterbury.com</a>
-            </div>
-            
-            <div style="margin-bottom: 15px; font-size: 0.9rem;">
-                <strong style="color: #FFD700;">Opening Hours:</strong><br>
-                <span style="color: #ccc;">
-                Sun: 12-9pm • Mon: 2-9pm • Tue-Thu: Closed • Fri: 2-9pm • Sat: 12-9pm
-                </span>
-            </div>
-            
-            <p style="margin-top: 15px; font-size: 0.8rem;">
-                You received this email because you subscribed to our newsletter. 
-                <a href="{{{{ unsubscribe }}}}" style="color: #FFD700;">Unsubscribe</a>
-            </p>
-        </div>
-    </div>
-</body>
-</html>
-        """
-        
-        # Plain text version
-        text_content = f"""
-{greeting}
-
-Welcome to SideQuest Canterbury!
-
-Thank you for joining our gaming community! Here's what we offer:
-
-FACILITIES:
-🎮 35 High-Performance PCs - Latest games, competitive setups
-🎮 Console Area with 4 PS5s - Latest PlayStation exclusives  
-🎮 2 Professional Driving Rigs - Racing simulation experience
-🎮 VR Gaming Station - Immersive virtual reality
-🎮 Nintendo Switch Setup - Party games and exclusives
-
-WHAT TO EXPECT:
-🏆 Epic Tournaments - Battle it out in FPS, FIFA, and Board Game Nights!
-🧋 Premium Bubble Tea - Fuel your gaming sessions with our amazing selection!
-📚 Chill Study Zone - The perfect space to get things done or take it easy!
-⚡ Leaderboard Glory - Climb the ranks and claim your spot at the top!
-
-🧋 WELCOME OFFER!
-Show this email in-store within 7 days to get 30% OFF any bubble tea!
-Valid until: {expiry_date}
-
-🎮 CREATE YOUR SIDEQUEST ACCOUNT & GET 30 MINUTES FREE GAMING TIME!
-Visit: https://sidequesthub.com/home
-
-IMPORTANT: Limit one per person - first-time subscribers only.
-
-Ready to game? See you at SideQuest!
-
----
-SideQuest Canterbury Gaming Lounge
-C10, The Riverside, 1 Sturry Rd
-Canterbury CT1 1BU
-📞 01227 915058
-marketing@sidequestcanterbury.com
-
-Opening Hours:
-Sun: 12-9pm • Mon: 2-9pm • Tue-Thu: Closed • Fri: 2-9pm • Sat: 12-9pm
-
-Follow us:
-Instagram: https://www.instagram.com/sidequestcanterbury/
-TikTok: https://www.tiktok.com/@sidequestcanterbury
-
-You received this email because you subscribed to our newsletter.
-        """
-        
-        # Use the SDK instead of requests
-        send_email = sib_api_v3_sdk.SendSmtpEmail(
-            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
-            to=[{
-                "email": email,
-                "name": f"{first_name} {last_name}".strip() if first_name or last_name else ""
-            }],
-            subject="🎮 Welcome to SideQuest Canterbury - 30% Off Bubble Tea + Free Gaming Time! 🧋",
-            html_content=html_content,
-            text_content=text_content,
-            tags=["welcome_email", "new_subscriber", "bubble_tea_offer", "free_gaming_time"]
-        )
-        
-        # Send the email
-        response = api_instance.send_transac_email(send_email)
-        
-        return {
-            "success": True, 
-            "message": "Welcome email sent successfully",
-            "message_id": response.message_id if hasattr(response, 'message_id') else None
-        }
-            
-    except Exception as e:
-        log_error(f"Error sending welcome email: {str(e)}")
-        return {"success": False, "error": f"Error sending welcome email: {str(e)}"}def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
-    """Send automated welcome email via Brevo SDK (consistent with tournament confirmations)"""
-    if not api_instance:
-        log_error("Brevo API not initialized")
-        return {"success": False, "error": "Brevo API not configured"}
-    
-    try:
-        # Personalize greeting
-        if first_name:
-            greeting = f"Hi {first_name}!"
-        elif gaming_handle:
-            greeting = f"Hey {gaming_handle}!"
-        else:
-            greeting = "Welcome, Gamer!"
-        
-        # Calculate expiry date (7 days from now)
-        expiry_date = (datetime.now() + timedelta(days=7)).strftime("%B %d, %Y")
-        
-        # Create HTML email content (same as your original)
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to SideQuest Canterbury!</title>
-    <style>
-        body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            color: #ffffff;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-        }}
-        
-        .container {{ 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background: #1a1a1a;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }}
-        
-        .header {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 30px 25px;
-            text-align: center;
-            border: 2px solid #FFD700;
-        }}
-        
-        .header img {{
-            max-width: 350px;
-            height: auto;
-            margin-bottom: 15px;
-        }}
-        
-        .header p {{
-            font-size: 1.2rem;
-            margin: 0;
-            font-weight: 600;
-        }}
-        
-        .content {{
-            padding: 30px 25px;
-            background: #2d2d2d;
-        }}
-        
-        .welcome-text {{
-            font-size: 1.1rem;
-            margin-bottom: 25px;
-            color: #ffffff;
-        }}
-        
-        .facilities {{
-            background: linear-gradient(135deg, #333 0%, #444 100%);
-            padding: 25px;
-            border-radius: 12px;
-            margin: 25px 0;
-            border: 1px solid #555;
-        }}
-        
-        .facilities h2 {{
-            color: #FFD700;
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-            font-weight: 700;
-        }}
-        
-        .facility-list {{
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }}
-        
-        .facility-list li {{
-            padding: 8px 0;
-            border-bottom: 1px solid #555;
-            font-size: 1rem;
-        }}
-        
-        .facility-list li:last-child {{
-            border-bottom: none;
-        }}
-        
-        .facility-list li::before {{
-            content: "🎮";
-            margin-right: 10px;
-        }}
-        
-        .offer-box {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 25px;
-            border-radius: 12px;
-            text-align: center;
-            margin: 30px 0;
-            border: 2px solid #FFD700;
-            box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3);
-        }}
-        
-        .offer-box h2 {{
-            font-size: 1.8rem;
-            margin-bottom: 15px;
-            font-weight: 800;
-        }}
-        
-        .offer-text {{
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }}
-        
-        .expiry {{
-            font-size: 1rem;
-            font-weight: 700;
-            margin-top: 15px;
-        }}
-        
-        .fine-print {{
-            background: #333;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            font-size: 0.85rem;
-            color: #ccc;
-        }}
-        
-        .footer {{
-            padding: 25px;
-            text-align: center;
-            background: #1a1a1a;
-            color: #888;
-            font-size: 0.9rem;
-        }}
-        
-        .footer a {{
-            color: #FFD700;
-            text-decoration: none;
-        }}
-        
-        .cta-button {{
-            background: #1a1a1a;
-            color: #FFD700;
-            padding: 12px 25px;
-            border-radius: 8px;
-            display: inline-block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            border: 2px solid #1a1a1a;
-            text-decoration: none;
-            margin-top: 10px;
-        }}
-        
-        .account-button {{
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            display: inline-block;
-            font-size: 1.2rem;
-            font-weight: 700;
-            box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
-            border: 2px solid #4CAF50;
-            text-decoration: none;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <img src="https://i.imgur.com/gdsgsdgew-9C72kE0.png" alt="SideQuest Canterbury Logo">
-            <p>Welcome to the Ultimate Gaming Experience!</p>
-        </div>
-        
-        <div class="content">
-            <div class="welcome-text">
-                <h2 style="color: #FFD700; margin-bottom: 15px;">{greeting}</h2>
-                <p>Thank you for joining the SideQuest Canterbury community! We're excited to have you as part of our gaming family.</p>
-            </div>
-            
-            <div class="facilities">
-                <h2>What We Offer:</h2>
-                <ul class="facility-list">
-                    <li><strong>35 High-Performance PCs</strong> - Latest games, competitive setups</li>
-                    <li><strong>Console Area with 4 PS5s</strong> - Latest PlayStation exclusives</li>
-                    <li><strong>2 Professional Driving Rigs</strong> - Racing simulation experience</li>
-                    <li><strong>VR Gaming Station</strong> - Immersive virtual reality</li>
-                    <li><strong>Nintendo Switch Setup</strong> - Party games and exclusives</li>
-                </ul>
-            </div>
-            
-            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); padding: 30px 25px; border-radius: 15px; margin: 30px 0; border: 2px solid #FFD700; position: relative; overflow: hidden;">
-                <div style="position: absolute; top: -50px; right: -50px; width: 100px; height: 100px; background: rgba(255, 215, 0, 0.1); border-radius: 50%; z-index: 1;"></div>
-                <div style="position: absolute; bottom: -30px; left: -30px; width: 60px; height: 60px; background: rgba(255, 165, 0, 0.1); border-radius: 50%; z-index: 1;"></div>
-                
-                <div style="position: relative; z-index: 2;">
-                    <h2 style="color: #FFD700; font-size: 2rem; margin-bottom: 20px; font-weight: 800; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
-                        🎮 WHAT TO EXPECT 🎮
-                    </h2>
-                    <p style="text-align: center; font-size: 1.1rem; color: #ccc; margin-bottom: 25px; font-style: italic;">
-                        More than just gaming - it's a complete experience!
-                    </p>
-                    
-                    <div style="display: grid; gap: 15px;">
-                        <div style="background: rgba(255, 215, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFD700;">
-                            <div style="font-size: 1.3rem; margin-bottom: 5px;">🏆 <strong style="color: #FFD700;">EPIC TOURNAMENTS</strong></div>
-                            <div style="color: #ddd; font-size: 1rem;">Battle it out in FPS, FIFA, and Board Game Nights!</div>
-                        </div>
-                        
-                        <div style="background: rgba(255, 165, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFA500;">
-                            <div style="font-size: 1.3rem; margin-bottom: 5px;">🧋 <strong style="color: #FFA500;">PREMIUM BUBBLE TEA</strong></div>
-                            <div style="color: #ddd; font-size: 1rem;">Fuel your gaming sessions with our amazing selection!</div>
-                        </div>
-                        
-                        <div style="background: rgba(76, 175, 80, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #4CAF50;">
-                            <div style="font-size: 1.3rem; margin-bottom: 5px;">📚 <strong style="color: #4CAF50;">CHILL STUDY ZONE</strong></div>
-                            <div style="color: #ddd; font-size: 1rem;">The perfect space to get things done or take it easy!</div>
-                        </div>
-                        
-                        <div style="background: rgba(156, 39, 176, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #9C27B0;">
-                            <div style="font-size: 1.3rem; margin-bottom: 5px;">⚡ <strong style="color: #9C27B0;">LEADERBOARD GLORY</strong></div>
-                            <div style="color: #ddd; font-size: 1rem;">Climb the ranks and claim your spot at the top!</div>
-                        </div>
-                    </div>
-                    
-                    <div style="text-align: center; margin-top: 25px; padding: 20px; background: rgba(255, 215, 0, 0.05); border-radius: 12px; border: 1px dashed #FFD700;">
-                        <div style="font-size: 1.4rem; font-weight: 800; color: #FFD700; margin-bottom: 8px;">
-                            🌟 JOIN THE COMMUNITY 🌟
-                        </div>
-                        <div style="font-size: 1.1rem; color: #fff; font-weight: 600;">
-                            Where Gaming Meets Community!
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div style="text-align: center; margin: 25px 0;">
-                <img src="https://i.imgur.com/myJxXjn.jpg" alt="SideQuest Canterbury Gaming Space" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); border: 2px solid #333;">
-            </div>
-            
-            <div class="offer-box">
-                <h2>🧋 WELCOME OFFER!</h2>
-                <div class="offer-text">
-                    Show this email in-store within 7 days to get<br>
-                    <strong style="font-size: 1.4rem;">30% OFF any bubble tea!</strong>
-                </div>
-                <div class="expiry">Valid until: {expiry_date}</div>
-                
-                <div style="margin-top: 20px;">
-                    <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="cta-button">
-                        📍 Claim Your 30% Off
-                    </a>
-                </div>
-            </div>
-            
-            <div class="fine-print">
-                <strong>Important Terms:</strong><br>
-                • Limit one per person - first-time subscribers only<br>
-                • Must show this email on your device in-store<br>
-                • Cannot be combined with other offers<br>
-                • Valid for 7 days from subscription date
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="https://sidequesthub.com/home" style="text-decoration: none;">
-                    <div class="account-button">
-                        🎮 Create Your SideQuest Account<br>
-                        <span style="font-size: 1rem; font-weight: 600;">& Get 30 Minutes FREE Gaming Time!</span>
-                    </div>
-                </a>
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px;">
-                <p style="font-size: 1.1rem; color: #FFD700;">Ready to game? See you at SideQuest!</p>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <div style="margin-bottom: 20px;">
-                <a href="https://www.instagram.com/sidequestcanterbury/" style="display: inline-block; margin: 0 10px; text-decoration: none;">
-                    <img src="https://img.icons8.com/fluency/48/instagram-new.png" alt="Instagram" style="width: 40px; height: 40px; border-radius: 8px;">
-                </a>
-                <a href="https://www.tiktok.com/@sidequestcanterbury" style="display: inline-block; margin: 0 10px; text-decoration: none;">
-                    <img src="https://img.icons8.com/color/48/tiktok--v1.png" alt="TikTok" style="width: 40px; height: 40px; border-radius: 8px;">
-                </a>
-            </div>
-            
-            <div style="margin-bottom: 15px;">
-                <strong style="color: #FFD700;">SideQuest Canterbury Gaming Lounge</strong><br>
-                C10, The Riverside, 1 Sturry Rd<br>
-                Canterbury CT1 1BU<br>
-                📞 01227 915058<br>
-                <a href="mailto:marketing@sidequestcanterbury.com" style="color: #FFD700;">marketing@sidequestcanterbury.com</a>
-            </div>
-            
-            <div style="margin-bottom: 15px; font-size: 0.9rem;">
-                <strong style="color: #FFD700;">Opening Hours:</strong><br>
-                <span style="color: #ccc;">
-                Sun: 12-9pm • Mon: 2-9pm • Tue-Thu: Closed • Fri: 2-9pm • Sat: 12-9pm
-                </span>
-            </div>
-            
-            <p style="margin-top: 15px; font-size: 0.8rem;">
-                You received this email because you subscribed to our newsletter. 
-                <a href="{{{{ unsubscribe }}}}" style="color: #FFD700;">Unsubscribe</a>
-            </p>
-        </div>
-    </div>
-</body>
-</html>
-        """
-        
-        # Plain text version
-        text_content = f"""
-{greeting}
-
-Welcome to SideQuest Canterbury!
-
-Thank you for joining our gaming community! Here's what we offer:
-
-FACILITIES:
-🎮 35 High-Performance PCs - Latest games, competitive setups
-🎮 Console Area with 4 PS5s - Latest PlayStation exclusives  
-🎮 2 Professional Driving Rigs - Racing simulation experience
-🎮 VR Gaming Station - Immersive virtual reality
-🎮 Nintendo Switch Setup - Party games and exclusives
-
-WHAT TO EXPECT:
-🏆 Epic Tournaments - Battle it out in FPS, FIFA, and Board Game Nights!
-🧋 Premium Bubble Tea - Fuel your gaming sessions with our amazing selection!
-📚 Chill Study Zone - The perfect space to get things done or take it easy!
-⚡ Leaderboard Glory - Climb the ranks and claim your spot at the top!
-
-🧋 WELCOME OFFER!
-Show this email in-store within 7 days to get 30% OFF any bubble tea!
-Valid until: {expiry_date}
-
-🎮 CREATE YOUR SIDEQUEST ACCOUNT & GET 30 MINUTES FREE GAMING TIME!
-Visit: https://sidequesthub.com/home
-
-IMPORTANT: Limit one per person - first-time subscribers only.
-
-Ready to game? See you at SideQuest!
-
----
-SideQuest Canterbury Gaming Lounge
-C10, The Riverside, 1 Sturry Rd
-Canterbury CT1 1BU
-📞 01227 915058
-marketing@sidequestcanterbury.com
-
-Opening Hours:
-Sun: 12-9pm • Mon: 2-9pm • Tue-Thu: Closed • Fri: 2-9pm • Sat: 12-9pm
-
-Follow us:
-Instagram: https://www.instagram.com/sidequestcanterbury/
-TikTok: https://www.tiktok.com/@sidequestcanterbury
-
-You received this email because you subscribed to our newsletter.
-        """
-        
-        # Use the SDK instead of requests
-        send_email = sib_api_v3_sdk.SendSmtpEmail(
-            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
-            to=[{
-                "email": email,
-                "name": f"{first_name} {last_name}".strip() if first_name or last_name else ""
-            }],
-            subject="🎮 Welcome to SideQuest Canterbury - 30% Off Bubble Tea + Free Gaming Time! 🧋",
-            html_content=html_content,
-            text_content=text_content,
-            tags=["welcome_email", "new_subscriber", "bubble_tea_offer", "free_gaming_time"]
-        )
-        
-        # Send the email
-        response = api_instance.send_transac_email(send_email)
-        
-        return {
-            "success": True, 
-            "message": "Welcome email sent successfully",
-            "message_id": response.message_id if hasattr(response, 'message_id') else None
-        }
-            
-    except Exception as e:
-        log_error(f"Error sending welcome email: {str(e)}")
-        return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
 
 def add_gdpr_consent_column():
     """Add GDPR consent tracking columns to subscribers table"""

@@ -3331,7 +3331,7 @@ def update_event(event_id):
 @app.route('/api/events/<int:event_id>/register', methods=['POST'])
 @csrf_required
 def register_for_event(event_id):
-    """Register a subscriber for an event"""
+    """Register a subscriber for an event with confirmation email"""
     conn = None
     cursor = None
     try:
@@ -3345,18 +3345,18 @@ def register_for_event(event_id):
         if not is_valid_email(email):
             return jsonify({"success": False, "error": "Invalid email format"}), 400
         
-        # Check if event exists
-        event_check = execute_query_one("SELECT id, title, capacity FROM events WHERE id = %s", (event_id,))
+        # Check if event exists and get details
+        event_check = execute_query_one("SELECT * FROM events WHERE id = %s", (event_id,))
         if not event_check:
             return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        event_dict = dict(event_check)
         
         # Auto-add to subscribers if not exists
         subscriber_check = execute_query_one("SELECT email FROM subscribers WHERE email = %s", (email,))
         if not subscriber_check:
             if add_subscriber_to_db(email, 'event_registration', None, None, None, True):
                 log_activity(f"Auto-added {email} to subscribers via event registration", "info")
-            else:
-                log_activity(f"Failed to auto-add {email} to subscribers, but allowing registration", "warning")
 
         # Check if already registered
         existing_registration = execute_query_one(
@@ -3367,12 +3367,12 @@ def register_for_event(event_id):
             return jsonify({"success": False, "error": "Already registered for this event"}), 400
         
         # Check capacity
-        if event_check['capacity'] > 0:
+        if event_dict['capacity'] > 0:
             current_count = execute_query_one(
                 "SELECT COUNT(*) as count FROM event_registrations WHERE event_id = %s",
                 (event_id,)
             )
-            if current_count and current_count['count'] >= event_check['capacity']:
+            if current_count and current_count['count'] >= event_dict['capacity']:
                 return jsonify({"success": False, "error": "Event is at full capacity"}), 400
         
         # Generate confirmation code
@@ -3387,7 +3387,7 @@ def register_for_event(event_id):
             
         cursor = conn.cursor()
         
-        # Register for event with manual transaction control
+        # Register for event
         register_query = """
             INSERT INTO event_registrations (event_id, subscriber_email, player_name, confirmation_code)
             VALUES (%s, %s, %s, %s)
@@ -3398,25 +3398,27 @@ def register_for_event(event_id):
         result = cursor.fetchone()
         
         if result:
-            # EXPLICITLY commit the transaction
             conn.commit()
-            log_activity(f"Registered {email} for event: {event_check['title']} (Confirmation: {confirmation_code})", "success")
             
-            # Verify the registration was saved by checking immediately
-            verify_query = "SELECT id FROM event_registrations WHERE event_id = %s AND subscriber_email = %s"
-            cursor.execute(verify_query, (event_id, email))
-            verification = cursor.fetchone()
-            
-            if verification:
-                log_activity(f"Registration verified in database for {email}", "success")
-            else:
-                log_error(f"Registration not found after insert for {email}!")
+            # Send confirmation email for tournaments
+            if event_dict.get('event_type') == 'tournament':
+                email_sent = send_simple_tournament_confirmation(
+                    email=email,
+                    event_data=event_dict,
+                    confirmation_code=confirmation_code,
+                    player_name=player_name or email.split('@')[0]
+                )
                 
+                log_activity(f"Tournament registration: {email} for {event_dict['title']} - Email sent: {email_sent}", "success")
+            else:
+                log_activity(f"Event registration: {email} for {event_dict['title']}", "success")
+            
             return jsonify({
                 "success": True,
                 "message": "Registration successful",
                 "confirmation_code": confirmation_code,
-                "event_title": event_check['title']
+                "event_title": event_dict['title'],
+                "confirmation_email_sent": event_dict.get('event_type') == 'tournament'
             })
         else:
             conn.rollback()
@@ -3426,7 +3428,6 @@ def register_for_event(event_id):
         if conn:
             conn.rollback()
         log_error(f"Error registering for event {event_id}: {e}")
-        log_error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({"success": False, "error": str(e)}), 500
         
     finally:
@@ -3434,6 +3435,7 @@ def register_for_event(event_id):
             cursor.close()
         if conn:
             conn.close()
+
 
 # 1. BACKEND FIX - Replace your get_event_attendees function:
 
@@ -3856,75 +3858,68 @@ def get_public_event(event_id):
 
 @app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
 @limiter.limit("3 per hour")
-def register_public(event_id):
+def register_public_with_confirmation(event_id):
+    """Public registration with tournament confirmation email"""
     try:
         data = request.json or {}
         
-        # Sanitize all inputs first
+        # Sanitize inputs
         email = sanitize_email(data.get('email', ''))
         player_name = sanitize_text_input(data.get('player_name', ''), 255)
         first_name = sanitize_text_input(data.get('first_name', ''), 100)
         last_name = sanitize_text_input(data.get('last_name', ''), 100)
         email_consent = bool(data.get('email_consent', False))
 
-        # Validate sanitized inputs
-        if not email:
-            return jsonify({"success": False, "error": "Please enter a valid email address"}), 400
+        # Validation
+        if not email or not player_name or not first_name or not last_name:
+            return jsonify({"success": False, "error": "All fields are required"}), 400
             
-        if not player_name or len(player_name) < 2:
-            return jsonify({"success": False, "error": "Player name must be at least 2 characters"}), 400
-            
-        if not first_name or len(first_name) < 2:
-            return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
-            
-        if not last_name or len(last_name) < 2:
-            return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
+        if len(first_name) < 2 or len(last_name) < 2 or len(player_name) < 2:
+            return jsonify({"success": False, "error": "Names must be at least 2 characters"}), 400
 
-        # Pattern validation for names
-        name_pattern = r'^[a-zA-Z\s\'-]+$'
-        if not re.match(name_pattern, first_name):
-            return jsonify({"success": False, "error": "First name contains invalid characters"}), 400
-        if not re.match(name_pattern, last_name):
-            return jsonify({"success": False, "error": "Last name contains invalid characters"}), 400
-        if not re.match(r'^[a-zA-Z0-9\s\'-]+$', player_name):  # Allow numbers in player names
-            return jsonify({"success": False, "error": "Player name contains invalid characters"}), 400
-
-        # Continue with your existing database logic using sanitized variables
+        # Get event details
         conn = get_db_connection()
         if not conn:
             return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
         cursor = conn.cursor()
-
-        # Use sanitized email in all database queries
         cursor.execute("SELECT * FROM events WHERE id = %s", (event_id,))
         event = cursor.fetchone()
+        
         if not event:
-            cursor.close(); conn.close()
+            cursor.close()
+            conn.close()
             return jsonify({"success": False, "error": "Event not found"}), 404
 
+        event_dict = dict(event)
+
+        # Check existing registration
         cursor.execute("""
             SELECT id FROM event_registrations
             WHERE event_id = %s AND subscriber_email = %s
-        """, (event_id, email))  # Using sanitized email
+        """, (event_id, email))
+        
         if cursor.fetchone():
-            cursor.close(); conn.close()
+            cursor.close()
+            conn.close()
             return jsonify({"success": False, "error": "You are already registered for this event"}), 400
 
-        # Continue with capacity check and registration
+        # Check capacity
         cursor.execute("""
             SELECT COUNT(*) AS current_count
             FROM event_registrations
             WHERE event_id = %s
         """, (event_id,))
+        
         row = cursor.fetchone() or {"current_count": 0}
         current_count = int(row["current_count"])
-        is_waiting_list = bool(event.get('capacity', 0) > 0 and current_count >= event['capacity'])
+        is_waiting_list = bool(event_dict.get('capacity', 0) > 0 and current_count >= event_dict['capacity'])
 
         # Generate confirmation code
         import random, string
         confirmation_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
-        # Insert registration using sanitized inputs
+        # Insert registration
         cursor.execute("""
             INSERT INTO event_registrations
                 (event_id, subscriber_email, player_name, confirmation_code, registered_at, attended, notes)
@@ -3932,12 +3927,12 @@ def register_public(event_id):
             RETURNING id
         """, (event_id, email, player_name, confirmation_code,
               ("WAITING LIST" if is_waiting_list else None)))
+
         reg = cursor.fetchone()
         conn.commit()
 
-        # Optional subscriber consent handling using sanitized inputs
+        # Handle newsletter subscription
         if email_consent:
-            cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO subscribers
                     (email, first_name, last_name, source, date_added, status, gdpr_consent_given, consent_date)
@@ -3945,34 +3940,276 @@ def register_public(event_id):
                     (%s, %s, %s, %s, NOW(), 'active', %s, %s)
                 ON CONFLICT (email) DO UPDATE SET
                     first_name = COALESCE(subscribers.first_name, EXCLUDED.first_name),
-                    last_name  = COALESCE(subscribers.last_name,  EXCLUDED.last_name),
-                    source = EXCLUDED.source,
-                    status = 'active',
+                    last_name = COALESCE(subscribers.last_name, EXCLUDED.last_name),
                     gdpr_consent_given = TRUE,
                     consent_date = NOW()
             """, (email, first_name, last_name, 'event_registration', True, datetime.now()))
             conn.commit()
-            log_activity(f"Subscriber consent recorded for {email}", "info")
 
-        # Return response
-        resp = {
+        cursor.close()
+        conn.close()
+
+        # Send confirmation email for tournaments
+        confirmation_email_sent = False
+        if event_dict.get('event_type') == 'tournament':
+            confirmation_email_sent = send_simple_tournament_confirmation(
+                email=email,
+                event_data=event_dict,
+                confirmation_code=confirmation_code,
+                player_name=player_name
+            )
+
+        # Prepare response
+        response_data = {
             "success": True,
             "confirmation_code": confirmation_code,
-            "is_waiting_list": is_waiting_list
+            "is_waiting_list": is_waiting_list,
+            "confirmation_email_sent": confirmation_email_sent
         }
-        if event.get('event_type') == 'tournament':
-            resp.update({"show_discord": True, "discord_invite": "https://discord.gg/your-server-link"})
 
-        cursor.close(); conn.close()
-        return jsonify(resp)
+        # Add Discord info for tournaments
+        if event_dict.get('event_type') == 'tournament':
+            response_data.update({
+                "show_discord": True,
+                "discord_invite": "https://discord.gg/your-server-link"
+            })
+
+        return jsonify(response_data)
 
     except Exception as e:
-        log_activity(f"Error in register_public: {str(e)}", "error")
-        try:
-            if 'conn' in locals() and conn:
-                conn.rollback()
-        except: pass
-        return jsonify({"success": False, "error": "Registration failed due to invalid input. Please try again."}), 400
+        log_error(f"Error in public registration: {str(e)}")
+        return jsonify({"success": False, "error": "Registration failed"}), 500
+
+def test_tournament_confirmation():
+    """Test function to verify tournament confirmation emails work"""
+    try:
+        # Test event data
+        test_event = {
+            'id': 999,
+            'title': 'Test Valorant Tournament',
+            'game_title': 'Valorant',
+            'date_time': datetime.now() + timedelta(days=7),
+            'end_time': datetime.now() + timedelta(days=7, hours=2),
+            'event_type': 'tournament',
+            'entry_fee': 10
+        }
+        
+        # Send test email
+        result = send_simple_tournament_confirmation(
+            email="test@example.com",
+            event_data=test_event,
+            confirmation_code="TEST123",
+            player_name="TestPlayer"
+        )
+        
+        if result:
+            print("✅ Tournament confirmation email test successful")
+        else:
+            print("❌ Tournament confirmation email test failed")
+            
+        return result
+        
+    except Exception as e:
+        print(f"❌ Test failed: {e}")
+        return False
+
+# Add a route to test the system
+@app.route('/api/test-tournament-email', methods=['POST'])
+@csrf_required
+def test_tournament_email_route():
+    """Test route for tournament confirmation emails"""
+    try:
+        if not ADMIN_PASSWORD:
+            return jsonify({"success": False, "error": "Admin access required"}), 403
+            
+        result = test_tournament_confirmation()
+        return jsonify({
+            "success": result,
+            "message": "Test email sent" if result else "Test email failed"
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500 Simple tournament confirmation system for backend.py
+
+def generate_calendar_invite(event_data, confirmation_code):
+    """Generate .ics calendar invite for the event"""
+    try:
+        from datetime import datetime
+        import uuid
+        
+        # Parse event datetime
+        if isinstance(event_data['date_time'], str):
+            event_start = datetime.fromisoformat(event_data['date_time'].replace('Z', '+00:00'))
+        else:
+            event_start = event_data['date_time']
+        
+        # Default 2-hour duration if no end time
+        if event_data.get('end_time'):
+            if isinstance(event_data['end_time'], str):
+                event_end = datetime.fromisoformat(event_data['end_time'].replace('Z', '+00:00'))
+            else:
+                event_end = event_data['end_time']
+        else:
+            from datetime import timedelta
+            event_end = event_start + timedelta(hours=2)
+        
+        # Format dates for .ics (UTC format)
+        start_utc = event_start.strftime('%Y%m%dT%H%M%SZ')
+        end_utc = event_end.strftime('%Y%m%dT%H%M%SZ')
+        
+        # Create unique ID for the event
+        uid = f"sidequest-{event_data['id']}-{uuid.uuid4().hex[:8]}@sidequestcanterbury.com"
+        
+        # Build .ics content
+        ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//SideQuest Canterbury//Tournament Calendar//EN
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:{uid}
+DTSTART:{start_utc}
+DTEND:{end_utc}
+SUMMARY:{event_data['title']}
+DESCRIPTION:You're registered for {event_data['title']}!\\n\\nConfirmation Code: {confirmation_code}\\n\\nGame: {event_data.get('game_title', 'TBD')}\\n\\nBring your confirmation code and gaming gear.\\n\\nSideQuest Gaming Cafe\\nCanterbury, UK
+LOCATION:SideQuest Gaming Cafe, Canterbury, UK
+STATUS:CONFIRMED
+SEQUENCE:0
+BEGIN:VALARM
+TRIGGER:-PT1H
+DESCRIPTION:Tournament starts in 1 hour!
+ACTION:DISPLAY
+END:VALARM
+BEGIN:VALARM
+TRIGGER:-P1D
+DESCRIPTION:Tournament tomorrow - {event_data['title']}
+ACTION:DISPLAY
+END:VALARM
+END:VEVENT
+END:VCALENDAR"""
+        
+        return ics_content.strip()
+        
+    except Exception as e:
+        log_error(f"Error generating calendar invite: {e}")
+        return None
+
+def send_simple_tournament_confirmation(email, event_data, confirmation_code, player_name):
+    """Send simple tournament confirmation with calendar invite"""
+    if not api_instance:
+        log_error("Brevo API not initialized")
+        return False
+        
+    try:
+        # Generate calendar invite
+        calendar_invite = generate_calendar_invite(event_data, confirmation_code)
+        
+        # Format event details
+        event_start = datetime.fromisoformat(event_data['date_time']) if isinstance(event_data['date_time'], str) else event_data['date_time']
+        event_date = event_start.strftime('%A, %B %d, %Y')
+        event_time = event_start.strftime('%I:%M %p')
+        
+        subject = f"Tournament Registration Confirmed - {event_data['title']}"
+        
+        # Simple, clean email template
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: -apple-system, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #ffffff;">
+            
+            <!-- Header -->
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 15px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: #1a1a1a; font-weight: 900; font-size: 24px;">SQ</div>
+                <h1 style="color: #FFD700; margin: 0;">Tournament Registration Confirmed</h1>
+            </div>
+
+            <!-- Main Content -->
+            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); padding: 30px; border-radius: 15px; border: 2px solid #FFD700;">
+                
+                <p style="font-size: 18px; margin-bottom: 20px;">
+                    Hey {player_name}!
+                </p>
+                
+                <p style="margin-bottom: 25px;">
+                    You're all set for the tournament. Here are your details:
+                </p>
+
+                <!-- Event Details -->
+                <div style="background: #1a1a1a; padding: 20px; border-radius: 10px; border-left: 4px solid #FFD700; margin: 20px 0;">
+                    <h2 style="color: #FFD700; margin-top: 0; margin-bottom: 15px;">{event_data['title']}</h2>
+                    <p style="margin: 8px 0;"><strong>Game:</strong> {event_data.get('game_title', 'TBD')}</p>
+                    <p style="margin: 8px 0;"><strong>Date:</strong> {event_date}</p>
+                    <p style="margin: 8px 0;"><strong>Time:</strong> {event_time}</p>
+                    <p style="margin: 8px 0;"><strong>Location:</strong> SideQuest Gaming Cafe, Canterbury</p>
+                    {f'<p style="margin: 8px 0;"><strong>Entry Fee:</strong> £{event_data["entry_fee"]}</p>' if event_data.get('entry_fee', 0) > 0 else '<p style="margin: 8px 0;"><strong>Entry:</strong> FREE</p>'}
+                </div>
+
+                <!-- Confirmation Code -->
+                <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; margin: 25px 0;">
+                    <h3 style="margin: 0 0 10px 0;">Your Confirmation Code</h3>
+                    <div style="font-size: 28px; font-weight: 900; letter-spacing: 3px; font-family: monospace;">{confirmation_code}</div>
+                    <p style="margin: 10px 0 0 0; font-size: 14px;">Show this when you arrive</p>
+                </div>
+
+                <!-- What to Bring -->
+                <div style="background: #2a2a2a; padding: 20px; border-radius: 10px; margin: 25px 0;">
+                    <h3 style="color: #FFD700; margin-top: 0;">What to Bring:</h3>
+                    <ul style="color: #ccc; margin: 10px 0; padding-left: 20px;">
+                        <li>Your confirmation code</li>
+                        <li>Gaming peripherals (mouse, keyboard, headset)</li>
+                        <li>Positive attitude and competitive spirit</li>
+                        {f'<li>£{event_data["entry_fee"]} entry fee</li>' if event_data.get('entry_fee', 0) > 0 else ''}
+                    </ul>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div style="text-align: center; margin-top: 30px; color: #aaa; font-size: 14px;">
+                <p>Questions? Reply to this email or visit us in Canterbury.</p>
+                <p style="margin-top: 15px;">
+                    SideQuest Gaming Cafe<br>
+                    Canterbury, UK<br>
+                    marketing@sidequestcanterbury.com
+                </p>
+            </div>
+            
+        </body>
+        </html>
+        """
+        
+        # Prepare email with attachment
+        attachments = []
+        if calendar_invite:
+            import base64
+            calendar_b64 = base64.b64encode(calendar_invite.encode('utf-8')).decode('utf-8')
+            attachments = [{
+                "name": f"{event_data['title'].replace(' ', '_')}_tournament.ics",
+                "content": calendar_b64
+            }]
+        
+        # Send email
+        send_email = sib_api_v3_sdk.SendSmtpEmail(
+            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
+            to=[{"email": email, "name": player_name}],
+            subject=subject,
+            html_content=html_content,
+            attachment=attachments if attachments else None
+        )
+        
+        response = api_instance.send_transac_email(send_email)
+        log_activity(f"Tournament confirmation sent to {email} for {event_data['title']}", "success")
+        return True
+        
+    except Exception as e:
+        log_error(f"Failed to send tournament confirmation to {email}: {e}")
+        return False
+
+        
 
 @app.route('/api/events/<int:event_id>/debug-registration', methods=['POST'])
 def debug_registration(event_id):

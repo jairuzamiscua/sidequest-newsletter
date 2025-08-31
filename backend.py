@@ -1478,7 +1478,6 @@ def add_subscriber():
         # Check if already exists
         existing_subscribers = get_all_subscribers()
         if any(sub['email'] == email for sub in existing_subscribers):
-            # You could also use HTTP 409 here if you prefer
             return jsonify({"success": False, "error": "Email already subscribed"}), 400
 
         # Add to database with GDPR consent recorded
@@ -1537,13 +1536,21 @@ def add_subscriber():
                 }
             })
         else:
+            log_error("Database insertion failed - add_subscriber_to_db returned False")
             return jsonify({"success": False, "error": "Failed to add subscriber to database"}), 500
 
+    except ValueError as e:
+        log_error(f"Validation error in add_subscriber: {str(e)}")
+        return jsonify({"success": False, "error": "Invalid data format"}), 400
+    
+    except psycopg2.Error as e:
+        log_error(f"Database error in add_subscriber: {str(e)}")
+        return jsonify({"success": False, "error": "Database error occurred"}), 500
+    
     except Exception as e:
-        # Make sure we log the real exception and return a sane 400
-        log_error(f"❌ Error adding subscriber: {str(e)}")
-        return jsonify({"success": False, "error": "Invalid input provided"}), 400
-
+        log_error(f"Unexpected error in add_subscriber: {str(e)}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": "An unexpected error occurred"}), 500
 
 def add_gdpr_consent_column():
     """Add GDPR consent tracking columns to subscribers table"""

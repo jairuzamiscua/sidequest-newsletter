@@ -3980,6 +3980,20 @@ def register_public_with_confirmation(event_id):
         log_error(f"Error in public registration: {str(e)}")
         return jsonify({"success": False, "error": "Registration failed"}), 500
 
+@app.route('/api/test-tournament-email', methods=['POST'])
+@csrf_required
+def test_tournament_email_route():
+    """Test route for tournament confirmation emails"""
+    try:
+        result = test_tournament_confirmation()
+        return jsonify({
+            "success": result,
+            "message": "Test email sent" if result else "Test email failed"
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # Add this function to check if Brevo is properly configured
 def test_tournament_confirmation():
     """Test function to verify tournament confirmation emails work"""

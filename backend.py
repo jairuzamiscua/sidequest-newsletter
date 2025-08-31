@@ -1454,7 +1454,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         else:
             subject = "Welcome to SideQuest Canterbury - Account Details & Member Benefits"
         
-        # Create HTML email content with reduced promotional language
+        # Create HTML email content (same structure/style as original; CSS braces escaped)
         html_content = f"""
 <!DOCTYPE html>
 <html>
@@ -1481,33 +1481,33 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }}
         
+        /* Header (brand palette + centered wordmark; same class name as original) */
         .header {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
+            background: linear-gradient(135deg, #FFD60A 0%, #003566 100%);
+            color: #0b1220;
             padding: 30px 25px;
             text-align: center;
-            border: 2px solid #FFD700;
+            border: 2px solid #FFD60A;
         }}
-        
         .logo-placeholder {{
-            width: 350px;
-            height: 100px;
-            background: #1a1a1a;
+            display: inline-block;
+            padding: 10px 16px;
+            border: 2px solid rgba(0,0,0,0.85);
             border-radius: 12px;
-            margin: 0 auto 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #FFD700;
             font-size: 2rem;
             font-weight: 900;
             letter-spacing: 2px;
+            line-height: 1;
+            background: rgba(255,255,255,0.06);
+            color: #0b1220;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.6);
+            /* remove hard-coded width/height box from original */
         }}
         
         .header p {{
             font-size: 1.2rem;
-            margin: 0;
-            font-weight: 600;
+            margin: 10px 0 0 0;
+            font-weight: 700;
         }}
         
         .content {{
@@ -1521,64 +1521,78 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             color: #ffffff;
         }}
         
+        /* Facilities updated to match Community Features visual weight on mobile */
         .facilities {{
-            background: linear-gradient(135deg, #333 0%, #444 100%);
-            padding: 25px;
-            border-radius: 12px;
-            margin: 25px 0;
-            border: 1px solid #555;
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            padding: 30px 25px;
+            border-radius: 15px;
+            margin: 30px 0;
+            border: 2px solid #FFD60A;
         }}
-        
         .facilities h2 {{
-            color: #FFD700;
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-            font-weight: 700;
+            color: #FFD60A;
+            font-size: 1.6rem;
+            margin-bottom: 16px;
+            font-weight: 800;
+            text-align: center;
         }}
-        
-        .facility-list {{
-            list-style: none;
-            padding: 0;
-            margin: 0;
+        .facility-grid {{
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
         }}
-        
-        .facility-list li {{
-            padding: 8px 0;
-            border-bottom: 1px solid #555;
+        .facility-card {{
+            background: rgba(255, 214, 10, 0.10);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border-left: 4px solid #FFD60A;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.25);
             font-size: 1rem;
+            line-height: 1.45;
         }}
-        
-        .facility-list li:last-child {{
-            border-bottom: none;
+        .facility-card strong {{
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 800;
+            color: #ffffff;
         }}
+        /* subtle alternates for variety, same scheme as community cards */
+        .accent-navy {{ background: rgba(0,53,102,0.12); border-left-color: #003566; }}
+        .accent-green {{ background: rgba(76,175,80,0.12); border-left-color: #4CAF50; }}
+        .accent-blue {{ background: rgba(30,144,255,0.12); border-left-color: #1E90FF; }}
+        .accent-purple {{ background: rgba(186,85,211,0.14); border-left-color: #BA55D3; }}
+        .accent-red {{ background: rgba(220,20,60,0.14); border-left-color: #DC143C; }}
         
         .member-benefit-box {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
+            background: linear-gradient(135deg, #FFD60A 0%, #003566 100%);
+            color: #0b1220;
             padding: 25px;
             border-radius: 12px;
             text-align: center;
             margin: 30px 0;
-            border: 2px solid #FFD700;
-            box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3);
+            border: 2px solid #FFD60A;
+            box-shadow: 0 4px 16px rgba(255, 214, 10, 0.3);
         }}
         
         .member-benefit-box h2 {{
             font-size: 1.6rem;
             margin-bottom: 15px;
             font-weight: 700;
+            color: #0b1220;
         }}
         
         .benefit-text {{
             font-size: 1.1rem;
             margin-bottom: 15px;
             font-weight: 600;
+            color: #0b1220;
         }}
         
         .expiry {{
             font-size: 1rem;
             font-weight: 700;
             margin-top: 15px;
+            color: #0b1220;
         }}
         
         .terms-info {{
@@ -1599,19 +1613,19 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         }}
         
         .footer a {{
-            color: #FFD700;
+            color: #FFD60A;
             text-decoration: none;
         }}
         
         .location-button {{
             background: #1a1a1a;
-            color: #FFD700;
+            color: #FFD60A;
             padding: 12px 25px;
             border-radius: 8px;
             display: inline-block;
             font-size: 1.1rem;
             font-weight: 700;
-            border: 2px solid #1a1a1a;
+            border: 2px solid #003566;
             text-decoration: none;
             margin-top: 10px;
         }}
@@ -1639,25 +1653,48 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         
         <div class="content">
             <div class="welcome-text">
-                <h2 style="color: #FFD700; margin-bottom: 15px;">{greeting}</h2>
-                <p>Thank you for joining the Sidquest Canterbury community! .</p>
+                <h2 style="color: #FFD60A; margin-bottom: 15px;">{greeting}</h2>
+                <p>Thank you for joining the SideQuest Canterbury community!</p>
             </div>
             
+            <!-- Gaming Hub Features (now styled like Community Features for mobile pop) -->
             <div class="facilities">
-                <h2>Your Gaming Hub Features:</h2>
-                <ul class="facility-list">
-                    <li><strong>35 High-Performance PCs</strong> - Latest games and competitive setups</li>
-                    <li><strong>Console Area with 4 PS5s</strong> - Latest PlayStation exclusives</li>
-                    <li><strong>2 Professional Driving Rigs</strong> - Racing simulation experience</li>
-                    <li><strong>VR Gaming Station</strong> - Immersive virtual reality</li>
-                    <li><strong>Nintendo Switch Setup</strong> - Party games and exclusives</li>
-                    <li><strong>Premium Bubble Tea Bar</strong> - Fuel your gaming sessions</li>
-                    <li><strong>Study & Chill Zone</strong> - Perfect for work or relaxation</li>
-                </ul>
+                <h2>Your Gaming Hub Features</h2>
+                <div class="facility-grid">
+                    <div class="facility-card">
+                        <strong>35 High-Performance PCs</strong>
+                        Latest games and competitive setups
+                    </div>
+                    <div class="facility-card accent-navy">
+                        <strong>Console Area with 4 PS5s</strong>
+                        Latest PlayStation exclusives
+                    </div>
+                    <div class="facility-card accent-green">
+                        <strong>2 Professional Driving Rigs</strong>
+                        Racing simulation experience
+                    </div>
+                    <div class="facility-card accent-blue">
+                        <strong>VR Gaming Station</strong>
+                        Immersive virtual reality
+                    </div>
+                    <div class="facility-card accent-purple">
+                        <strong>Nintendo Switch Setup</strong>
+                        Party games and exclusives
+                    </div>
+                    <div class="facility-card accent-red">
+                        <strong>Premium Bubble Tea Bar</strong>
+                        Fuel your gaming sessions
+                    </div>
+                    <div class="facility-card">
+                        <strong>Study & Chill Zone</strong>
+                        Perfect for work or relaxation
+                    </div>
+                </div>
             </div>
             
-            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); padding: 30px 25px; border-radius: 15px; margin: 30px 0; border: 2px solid #FFD700;">
-                <h2 style="color: #FFD700; font-size: 1.8rem; margin-bottom: 20px; font-weight: 700; text-align: center;">
+            <!-- Community Features (kept same structure as your original inline block) -->
+            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); padding: 30px 25px; border-radius: 15px; margin: 30px 0; border: 2px solid #FFD60A;">
+                <h2 style="color: #FFD60A; font-size: 1.8rem; margin-bottom: 20px; font-weight: 700; text-align: center;">
                     Community Features
                 </h2>
                 <p style="text-align: center; font-size: 1.1rem; color: #ccc; margin-bottom: 25px;">
@@ -1665,17 +1702,17 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 </p>
                 
                 <div style="display: grid; gap: 15px;">
-                    <div style="background: rgba(255, 215, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFD700;">
-                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFD700;">Tournament Events</strong></div>
+                    <div style="background: rgba(255, 214, 10, 0.10); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFD60A;">
+                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFD60A;">Tournament Events</strong></div>
                         <div style="color: #ddd; font-size: 1rem;">Competitive gaming across FPS, FIFA, and board games</div>
                     </div>
                     
-                    <div style="background: rgba(255, 165, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFA500;">
-                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFA500;">Community Nights</strong></div>
+                    <div style="background: rgba(0,53,102,0.10); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #003566;">
+                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFD60A;">Community Nights</strong></div>
                         <div style="color: #ddd; font-size: 1rem;">Social gaming sessions and special events</div>
                     </div>
                     
-                    <div style="background: rgba(76, 175, 80, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #4CAF50;">
+                    <div style="background: rgba(76, 175, 80, 0.10); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #4CAF50;">
                         <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #4CAF50;">Member Events</strong></div>
                         <div style="color: #ddd; font-size: 1rem;">Exclusive member-only gatherings and previews</div>
                     </div>
@@ -1715,21 +1752,21 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             </div>
             
             <div style="text-align: center; margin-top: 20px;">
-                <p style="font-size: 1.1rem; color: #FFD700;">Welcome to the community. See you at SideQuest!</p>
+                <p style="font-size: 1.1rem; color: #FFD60A;">Welcome to the community. See you at SideQuest!</p>
             </div>
         </div>
         
         <div class="footer">
             <div style="margin-bottom: 15px;">
-                <strong style="color: #FFD700;">SideQuest Canterbury Gaming Lounge</strong><br>
+                <strong style="color: #FFD60A;">SideQuest Canterbury Gaming Lounge</strong><br>
                 C10, The Riverside, 1 Sturry Rd<br>
                 Canterbury CT1 1BU<br>
                 01227 915058<br>
-                <a href="mailto:marketing@sidequestcanterbury.com" style="color: #FFD700;">marketing@sidequestcanterbury.com</a>
+                <a href="mailto:marketing@sidequestcanterbury.com" style="color: #FFD60A;">marketing@sidequestcanterbury.com</a>
             </div>
             
             <div style="margin-bottom: 15px; font-size: 0.9rem;">
-                <strong style="color: #FFD700;">Opening Hours:</strong><br>
+                <strong style="color: #FFD60A;">Opening Hours:</strong><br>
                 <span style="color: #ccc;">
                 Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed<br>
                 Friday: 2-9pm • Saturday: 12-9pm
@@ -1738,7 +1775,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             
             <p style="margin-top: 15px; font-size: 0.8rem;">
                 You received this account notification because you subscribed to community updates. 
-                <a href="{unsubscribe_url}" style="color: #FFD700;">Manage preferences</a>
+                <a href="{unsubscribe_url}" style="color: #FFD60A;">Manage preferences</a>
             </p>
         </div>
     </div>
@@ -1746,7 +1783,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
 </html>
         """
         
-        # Plain text version (also less promotional)
+        # Plain text version (same as your original structure)
         text_content = f"""
 {greeting}
 
@@ -1785,7 +1822,7 @@ Friday: 2-9pm • Saturday: 12-9pm
 Manage preferences: {unsubscribe_url}
         """
         
-        # Enhanced email configuration for better deliverability
+        # Enhanced email configuration for better deliverability (same as original pattern)
         send_email = sib_api_v3_sdk.SendSmtpEmail(
             sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
             reply_to={"name": "SideQuest Support", "email": SENDER_EMAIL},
@@ -1820,6 +1857,7 @@ Manage preferences: {unsubscribe_url}
     except Exception as e:
         log_error(f"Error sending welcome email: {str(e)}")
         return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
+
 
 @app.route('/subscribe', methods=['POST'])
 @csrf_required

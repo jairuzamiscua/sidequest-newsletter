@@ -1427,8 +1427,6 @@ def get_subscribers():
         print(f"Subscribers error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
 
-
-
 def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
     """Send automated welcome email optimized for Gmail primary inbox"""
     if not api_instance:

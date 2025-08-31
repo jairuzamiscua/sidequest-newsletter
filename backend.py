@@ -1427,8 +1427,10 @@ def get_subscribers():
         print(f"Subscribers error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
 
+
+
 def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
-    """Send automated welcome email optimized for Gmail primary inbox"""
+    """Send automated welcome email optimized for Gmail primary inbox - FORCE DARK MODE"""
     if not api_instance:
         log_error("Brevo API not initialized")
         return {"success": False, "error": "Brevo API not configured"}
@@ -1454,233 +1456,243 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         else:
             subject = "Your SideQuest account is ready"
         
-        # Gmail-optimized HTML email with SideQuest branding
+        # FORCE DARK MODE - Gmail-optimized HTML email with SideQuest branding
         html_content = f"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light">
     <title>Welcome to SideQuest Canterbury</title>
     <style>
-        /* Gmail-safe CSS with SideQuest branding */
+        /* Force dark mode regardless of user settings */
+        :root {{
+            color-scheme: light only !important;
+            supported-color-schemes: light !important;
+        }}
+        
+        * {{
+            color-scheme: light !important;
+        }}
+        
+        /* Gmail-safe CSS with SideQuest branding - FORCED DARK */
         body {{ 
-            font-family: Arial, sans-serif;
-            background-color: #1a1a1a;
-            color: #ffffff;
-            line-height: 1.5;
-            margin: 0;
-            padding: 20px;
+            font-family: Arial, sans-serif !important;
+            background-color: #1a1a1a !important;
+            background: #1a1a1a !important;
+            color: #ffffff !important;
+            line-height: 1.5 !important;
+            margin: 0 !important;
+            padding: 20px !important;
+            -webkit-text-size-adjust: 100% !important;
+            -ms-text-size-adjust: 100% !important;
         }}
         
         .container {{ 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background-color: #2c2c2c;
-            border: 2px solid #ffd700;
-            border-radius: 8px;
-            overflow: hidden;
+            max-width: 600px !important; 
+            margin: 0 auto !important; 
+            background-color: #2c2c2c !important;
+            background: #2c2c2c !important;
+            border: 2px solid #ffd700 !important;
+            border-radius: 8px !important;
+            overflow: hidden !important;
         }}
         
         .header {{
-            background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%);
-            color: #ffffff;
-            padding: 30px 25px;
-            text-align: center;
-            border-bottom: 3px solid #ffd700;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%) !important;
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
+            padding: 30px 25px !important;
+            text-align: center !important;
+            border-bottom: 3px solid #ffd700 !important;
         }}
         
         .logo {{
-            font-size: 28px;
-            font-weight: bold;
-            color: #ffd700;
-            margin-bottom: 10px;
-            letter-spacing: 2px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            font-size: 28px !important;
+            font-weight: bold !important;
+            color: #ffd700 !important;
+            margin-bottom: 10px !important;
+            letter-spacing: 2px !important;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
         }}
         
         .header-subtitle {{
-            font-size: 16px;
-            color: #cccccc;
-            margin: 0;
+            font-size: 16px !important;
+            color: #cccccc !important;
+            margin: 0 !important;
         }}
         
         .content {{
-            padding: 30px 25px;
-            background-color: #2c2c2c;
-            color: #ffffff;
+            padding: 30px 25px !important;
+            background-color: #2c2c2c !important;
+            background: #2c2c2c !important;
+            color: #ffffff !important;
         }}
         
         .greeting {{
-            font-size: 16px;
-            margin-bottom: 20px;
-            color: #ffd700;
-            font-weight: bold;
+            font-size: 16px !important;
+            margin-bottom: 20px !important;
+            color: #ffd700 !important;
+            font-weight: bold !important;
         }}
         
         .intro-text {{
-            color: #e0e0e0;
-            margin-bottom: 25px;
+            color: #e0e0e0 !important;
+            margin-bottom: 25px !important;
         }}
         
         .info-box {{
-            background-color: #1a1a1a;
-            border: 1px solid #ffd700;
-            border-radius: 6px;
-            padding: 20px;
-            margin: 25px 0;
+            background-color: #1a1a1a !important;
+            background: #1a1a1a !important;
+            border: 1px solid #ffd700 !important;
+            border-radius: 6px !important;
+            padding: 20px !important;
+            margin: 25px 0 !important;
         }}
         
         .info-box h3 {{
-            color: #ffd700;
-            font-size: 18px;
-            margin: 0 0 15px 0;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            color: #ffd700 !important;
+            font-size: 18px !important;
+            margin: 0 0 15px 0 !important;
+            text-align: center !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1px !important;
         }}
         
         .facility-list {{
-            margin: 0;
-            padding: 0;
-            list-style: none;
+            margin: 0 !important;
+            padding: 0 !important;
+            list-style: none !important;
         }}
         
         .facility-list li {{
-            padding: 8px 0;
-            border-bottom: 1px solid #444444;
-            color: #e0e0e0;
-            position: relative;
-            padding-left: 20px;
+            padding: 8px 0 !important;
+            border-bottom: 1px solid #444444 !important;
+            color: #e0e0e0 !important;
+            position: relative !important;
+            padding-left: 20px !important;
         }}
         
         .facility-list li:before {{
-            content: "▶";
-            color: #ffd700;
-            position: absolute;
-            left: 0;
-            font-size: 12px;
+            content: "▶" !important;
+            color: #ffd700 !important;
+            position: absolute !important;
+            left: 0 !important;
+            font-size: 12px !important;
         }}
         
         .facility-list li:last-child {{
-            border-bottom: none;
+            border-bottom: none !important;
         }}
         
         .benefit-box {{
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            border: 2px solid #e6c200;
-            border-radius: 8px;
-            padding: 25px;
-            text-align: center;
-            margin: 25px 0;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%) !important;
+            background-color: #ffd700 !important;
+            border: 2px solid #e6c200 !important;
+            border-radius: 8px !important;
+            padding: 25px !important;
+            text-align: center !important;
+            margin: 25px 0 !important;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
         }}
         
         .benefit-title {{
-            color: #1a1a1a;
-            font-size: 20px;
-            margin: 0 0 10px 0;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            color: #1a1a1a !important;
+            font-size: 20px !important;
+            margin: 0 0 10px 0 !important;
+            font-weight: bold !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1px !important;
         }}
         
         .benefit-text {{
-            color: #1a1a1a;
-            font-size: 16px;
-            margin: 0 0 15px 0;
-            font-weight: 600;
+            color: #1a1a1a !important;
+            font-size: 16px !important;
+            margin: 0 0 15px 0 !important;
+            font-weight: 600 !important;
         }}
         
         .expiry-text {{
-            color: #333333;
-            font-size: 14px;
-            font-style: italic;
+            color: #333333 !important;
+            font-size: 14px !important;
+            font-style: italic !important;
         }}
         
         .button {{
-            display: inline-block;
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            color: #1a1a1a;
-            padding: 15px 30px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
-            margin: 20px 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border: 2px solid #e6c200;
-            transition: all 0.3s ease;
-        }}
-        
-        .button:hover {{
-            background: linear-gradient(135deg, #ffed4e 0%, #ffd700 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(255, 215, 0, 0.3);
+            display: inline-block !important;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%) !important;
+            background-color: #ffd700 !important;
+            color: #1a1a1a !important;
+            padding: 15px 30px !important;
+            text-decoration: none !important;
+            border-radius: 6px !important;
+            font-weight: bold !important;
+            margin: 20px 0 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1px !important;
+            border: 2px solid #e6c200 !important;
         }}
         
         .location-link {{
-            display: inline-block;
-            color: #ffd700;
-            text-decoration: none;
-            padding: 10px 20px;
-            border: 2px solid #ffd700;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }}
-        
-        .location-link:hover {{
-            background-color: #ffd700;
-            color: #1a1a1a;
+            display: inline-block !important;
+            color: #ffd700 !important;
+            text-decoration: none !important;
+            padding: 10px 20px !important;
+            border: 2px solid #ffd700 !important;
+            border-radius: 4px !important;
+            margin: 10px 0 !important;
+            font-weight: bold !important;
         }}
         
         .footer {{
-            background-color: #1a1a1a;
-            padding: 25px;
-            color: #cccccc;
-            font-size: 14px;
-            border-top: 3px solid #ffd700;
+            background-color: #1a1a1a !important;
+            background: #1a1a1a !important;
+            padding: 25px !important;
+            color: #cccccc !important;
+            font-size: 14px !important;
+            border-top: 3px solid #ffd700 !important;
         }}
         
         .footer-section {{
-            margin-bottom: 20px;
+            margin-bottom: 20px !important;
         }}
         
         .footer-section strong {{
-            color: #ffd700;
+            color: #ffd700 !important;
         }}
         
         .footer a {{
-            color: #ffd700;
-            text-decoration: none;
-        }}
-        
-        .footer a:hover {{
-            color: #ffed4e;
-            text-decoration: underline;
+            color: #ffd700 !important;
+            text-decoration: none !important;
         }}
         
         .terms-text {{
-            background-color: #1a1a1a;
-            border: 1px solid #444444;
-            border-radius: 4px;
-            padding: 15px;
-            font-size: 13px;
-            color: #cccccc;
-            margin-top: 25px;
+            background-color: #1a1a1a !important;
+            background: #1a1a1a !important;
+            border: 1px solid #444444 !important;
+            border-radius: 4px !important;
+            padding: 15px !important;
+            font-size: 13px !important;
+            color: #cccccc !important;
+            margin-top: 25px !important;
         }}
         
         .unsubscribe {{
-            font-size: 12px;
-            color: #999999;
-            margin-top: 15px;
-            text-align: center;
+            font-size: 12px !important;
+            color: #999999 !important;
+            margin-top: 15px !important;
+            text-align: center !important;
         }}
         
         .unsubscribe a {{
-            color: #ffd700;
+            color: #ffd700 !important;
+        }}
+        
+        /* Force all text elements */
+        p, div, span, h1, h2, h3, h4, h5, h6, li, a {{
+            color: inherit !important;
         }}
         
         /* Gmail mobile fixes */
@@ -1726,7 +1738,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             
             <div class="info-box">
                 <h3>Member Benefits</h3>
-                <p style="margin: 0; color: #e0e0e0; text-align: center;">Priority booking • Tournament notifications • Community events • Exclusive member rates</p>
+                <p style="margin: 0; color: #e0e0e0 !important; text-align: center;">Priority booking • Tournament notifications • Community events • Exclusive member rates</p>
             </div>
             
             <div class="benefit-box">
@@ -1740,33 +1752,33 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             </p>
             
             <p style="text-align: center;">
-                <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="location-link">📍 View Location & Hours</a>
+                <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2f11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="location-link">📍 View Location & Hours</a>
             </p>
             
             <div class="terms-text">
-                <strong style="color: #ffd700;">Terms:</strong> First-time members only. Present this email in-store. One use per account. Valid for 7 days from account creation.
+                <strong style="color: #ffd700 !important;">Terms:</strong> First-time members only. Present this email in-store. One use per account. Valid for 7 days from account creation.
             </div>
         </div>
         
         <div class="footer">
             <div class="footer-section">
                 <strong>SideQuest Canterbury</strong><br>
-                C10, The Riverside, 1 Sturry Rd<br>
+                <span style="color: #cccccc !important;">C10, The Riverside, 1 Sturry Rd<br>
                 Canterbury CT1 1BU<br>
-                📞 01227 915058<br>
+                📞 01227 915058<br></span>
                 <a href="mailto:marketing@sidequestcanterbury.com">marketing@sidequestcanterbury.com</a>
             </div>
             
             <div class="footer-section">
                 <strong>Opening Hours:</strong><br>
-                🕐 Sunday: 12-9pm • Monday: 2-9pm<br>
+                <span style="color: #cccccc !important;">🕐 Sunday: 12-9pm • Monday: 2-9pm<br>
                 🚫 Tuesday-Thursday: Closed<br>
-                🕐 Friday: 2-9pm • Saturday: 12-9pm
+                🕐 Friday: 2-9pm • Saturday: 12-9pm</span>
             </div>
             
             <div class="unsubscribe">
-                You received this because you created an account with us.<br>
-                <a href="{unsubscribe_url}">Unsubscribe</a> from future communications
+                <span style="color: #999999 !important;">You received this because you created an account with us.<br></span>
+                <a href="{unsubscribe_url}">Unsubscribe</a> <span style="color: #999999 !important;">from future communications</span>
             </div>
         </div>
     </div>
@@ -1853,8 +1865,7 @@ Unsubscribe: {unsubscribe_url}
     except Exception as e:
         log_error(f"Error sending welcome email: {str(e)}")
         return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
-
-
+        
 @app.route('/subscribe', methods=['POST'])
 @csrf_required
 def add_subscriber():

@@ -3912,12 +3912,29 @@
         submitButton.parentNode.insertBefore(cancelButton, submitButton.nextSibling);
       }
     }
-      // Replace the deleteEvent function in your dashboard.html
+      
+    // Replace your deleteEvent function with this debug version
     async function deleteEvent(eventId) {
+        // Debug logging
+        console.log('deleteEvent called with eventId:', eventId);
+        console.log('eventId type:', typeof eventId);
+        console.log('eventId toString():', eventId.toString());
+        
+        // Clean the eventId to ensure it's just a number
+        const cleanEventId = parseInt(eventId.toString().split(':')[0]);
+        console.log('Cleaned eventId:', cleanEventId);
+        
+        if (isNaN(cleanEventId)) {
+            console.error('Invalid event ID:', eventId);
+            alert('Invalid event ID. Please try again.');
+            return;
+        }
+        
         if (!confirm('Are you sure you want to delete this event?')) return;
         
         try {
-            console.log(`Attempting to delete event ${eventId}`);
+            const deleteUrl = `${API_BASE}/api/events/${cleanEventId}`;
+            console.log('Delete URL:', deleteUrl);
             
             // Show loading state
             const deleteButtons = document.querySelectorAll(`[onclick*="deleteEvent(${eventId})"]`);
@@ -3927,10 +3944,12 @@
             });
             
             // First attempt - normal delete
-            const response = await secureDelete(`${API_BASE}/api/events/${eventId}`);
+            const response = await secureDelete(deleteUrl);
             
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const responseText = await response.text();
+                console.error('Delete response not OK:', response.status, responseText);
+                throw new Error(`HTTP ${response.status}: ${responseText}`);
             }
             
             const data = await response.json();
@@ -3949,10 +3968,15 @@
                         console.log('User confirmed force delete');
                         
                         // Force delete with registrations
-                        const forceResponse = await secureDelete(`${API_BASE}/api/events/${eventId}?force=true`);
+                        const forceUrl = `${API_BASE}/api/events/${cleanEventId}?force=true`;
+                        console.log('Force delete URL:', forceUrl);
+                        
+                        const forceResponse = await secureDelete(forceUrl);
                         
                         if (!forceResponse.ok) {
-                            throw new Error(`Force delete failed: HTTP ${forceResponse.status}`);
+                            const forceResponseText = await forceResponse.text();
+                            console.error('Force delete response not OK:', forceResponse.status, forceResponseText);
+                            throw new Error(`Force delete failed: HTTP ${forceResponse.status}: ${forceResponseText}`);
                         }
                         
                         const forceData = await forceResponse.json();
@@ -3967,7 +3991,6 @@
                         }
                     } else {
                         console.log('User cancelled force delete');
-                        // User cancelled, just restore buttons and return
                         restoreDeleteButtons(eventId);
                         return;
                     }
@@ -3979,13 +4002,12 @@
         } catch (error) {
             console.error('Error deleting event:', error);
             
-            // Handle specific error types
             if (error.message.includes('403')) {
                 alert('Session expired. Please refresh the page and try again.');
             } else if (error.message.includes('404')) {
                 alert('Event not found. It may have already been deleted.');
                 closeEventModal();
-                loadEvents(); // Refresh to remove from UI
+                loadEvents();
             } else {
                 alert('Failed to delete event: ' + error.message);
             }
@@ -3994,7 +4016,6 @@
         }
     }
 
-    // Helper function to restore button states
     function restoreDeleteButtons(eventId) {
         const deleteButtons = document.querySelectorAll(`[onclick*="deleteEvent(${eventId})"]`);
         deleteButtons.forEach(btn => {

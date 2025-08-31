@@ -1428,7 +1428,7 @@ def get_subscribers():
         return jsonify({"success": False, "error": error_msg}), 500
 
 def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
-    """Send automated welcome email optimized for Gmail primary inbox"""
+    """Send automated welcome email via Brevo SDK (consistent with tournament confirmations)"""
     if not api_instance:
         log_error("Brevo API not initialized")
         return {"success": False, "error": "Brevo API not configured"}
@@ -1436,409 +1436,457 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
     try:
         # Personalize greeting
         if first_name:
-            greeting = f"Hi {first_name},"
+            greeting = f"Hi {first_name}!"
         elif gaming_handle:
-            greeting = f"Hello {gaming_handle},"
+            greeting = f"Hey {gaming_handle}!"
         else:
-            greeting = "Hello,"
+            greeting = "Welcome, Gamer!"
         
         # Calculate expiry date (7 days from now)
         expiry_date = (datetime.now() + timedelta(days=7)).strftime("%B %d, %Y")
         
-        # Create unsubscribe URL
-        unsubscribe_url = f"https://sidequest-newsletter-production.up.railway.app/unsubscribe?email={email}"
-        
-        # Simple, transactional subject line
-        if first_name:
-            subject = f"Account created - Welcome {first_name}"
-        else:
-            subject = "Your SideQuest account is ready"
-        
-        # Gmail-optimized HTML email with SideQuest branding
+        # Create HTML email content (Dark Mode Resistant)
         html_content = f"""
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to SideQuest Canterbury</title>
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Welcome to SideQuest Canterbury!</title>
     <style>
-        /* Gmail-safe CSS with SideQuest branding */
+        /* Prevent iOS from auto-detecting dark mode */
+        :root {{
+            color-scheme: light dark;
+            supported-color-schemes: light dark;
+        }}
+        
+        /* Force light mode for the entire email */
+        body, 
+        .container,
+        .header,
+        .content,
+        .footer {{
+            color-scheme: light !important;
+        }}
+        
         body {{ 
-            font-family: Arial, sans-serif;
-            background-color: #1a1a1a;
-            color: #ffffff;
-            line-height: 1.5;
-            margin: 0;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%) !important;
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
+            line-height: 1.6 !important;
+            margin: 0 !important;
+            padding: 20px !important;
+            -webkit-text-size-adjust: 100% !important;
+            -ms-text-size-adjust: 100% !important;
         }}
         
         .container {{ 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background-color: #2c2c2c;
-            border: 2px solid #ffd700;
-            border-radius: 8px;
-            overflow: hidden;
+            max-width: 600px !important; 
+            margin: 0 auto !important; 
+            background: #1a1a1a !important;
+            background-color: #1a1a1a !important;
+            border-radius: 15px !important;
+            overflow: hidden !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
         }}
         
         .header {{
-            background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%);
-            color: #ffffff;
-            padding: 30px 25px;
-            text-align: center;
-            border-bottom: 3px solid #ffd700;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+            background-color: #FFD700 !important;
+            color: #1a1a1a !important;
+            padding: 30px 25px !important;
+            text-align: center !important;
+            border: 2px solid #FFD700 !important;
         }}
         
-        .logo {{
-            font-size: 28px;
-            font-weight: bold;
-            color: #ffd700;
-            margin-bottom: 10px;
-            letter-spacing: 2px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        .header img {{
+            max-width: 350px !important;
+            height: auto !important;
+            margin-bottom: 15px !important;
         }}
         
-        .header-subtitle {{
-            font-size: 16px;
-            color: #cccccc;
-            margin: 0;
+        .header p {{
+            font-size: 1.2rem !important;
+            margin: 0 !important;
+            font-weight: 600 !important;
+            color: #1a1a1a !important;
         }}
         
         .content {{
-            padding: 30px 25px;
-            background-color: #2c2c2c;
-            color: #ffffff;
+            padding: 30px 25px !important;
+            background: #2d2d2d !important;
+            background-color: #2d2d2d !important;
         }}
         
-        .greeting {{
-            font-size: 16px;
-            margin-bottom: 20px;
-            color: #ffd700;
-            font-weight: bold;
+        .welcome-text {{
+            font-size: 1.1rem !important;
+            margin-bottom: 25px !important;
+            color: #ffffff !important;
         }}
         
-        .intro-text {{
-            color: #e0e0e0;
-            margin-bottom: 25px;
+        .welcome-text h2 {{
+            color: #FFD700 !important;
+            margin-bottom: 15px !important;
         }}
         
-        .info-box {{
-            background-color: #1a1a1a;
-            border: 1px solid #ffd700;
-            border-radius: 6px;
-            padding: 20px;
-            margin: 25px 0;
+        .welcome-text p {{
+            color: #ffffff !important;
         }}
         
-        .info-box h3 {{
-            color: #ffd700;
-            font-size: 18px;
-            margin: 0 0 15px 0;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .facilities {{
+            background: linear-gradient(135deg, #333 0%, #444 100%) !important;
+            background-color: #333333 !important;
+            padding: 25px !important;
+            border-radius: 12px !important;
+            margin: 25px 0 !important;
+            border: 1px solid #555 !important;
+        }}
+        
+        .facilities h2 {{
+            color: #FFD700 !important;
+            font-size: 1.4rem !important;
+            margin-bottom: 15px !important;
+            font-weight: 700 !important;
         }}
         
         .facility-list {{
-            margin: 0;
-            padding: 0;
-            list-style: none;
+            list-style: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }}
         
         .facility-list li {{
-            padding: 8px 0;
-            border-bottom: 1px solid #444444;
-            color: #e0e0e0;
-            position: relative;
-            padding-left: 20px;
-        }}
-        
-        .facility-list li:before {{
-            content: "▶";
-            color: #ffd700;
-            position: absolute;
-            left: 0;
-            font-size: 12px;
+            padding: 8px 0 !important;
+            border-bottom: 1px solid #555 !important;
+            font-size: 1rem !important;
+            color: #ffffff !important;
         }}
         
         .facility-list li:last-child {{
-            border-bottom: none;
+            border-bottom: none !important;
         }}
         
-        .benefit-box {{
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            border: 2px solid #e6c200;
-            border-radius: 8px;
-            padding: 25px;
-            text-align: center;
-            margin: 25px 0;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        .facility-list li::before {{
+            content: "🎮" !important;
+            margin-right: 10px !important;
         }}
         
-        .benefit-title {{
-            color: #1a1a1a;
-            font-size: 20px;
-            margin: 0 0 10px 0;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .offer-box {{
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+            background-color: #FFD700 !important;
+            color: #1a1a1a !important;
+            padding: 25px !important;
+            border-radius: 12px !important;
+            text-align: center !important;
+            margin: 30px 0 !important;
+            border: 2px solid #FFD700 !important;
+            box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3) !important;
         }}
         
-        .benefit-text {{
-            color: #1a1a1a;
-            font-size: 16px;
-            margin: 0 0 15px 0;
-            font-weight: 600;
+        .offer-box h2 {{
+            font-size: 1.8rem !important;
+            margin-bottom: 15px !important;
+            font-weight: 800 !important;
+            color: #1a1a1a !important;
         }}
         
-        .expiry-text {{
-            color: #333333;
-            font-size: 14px;
-            font-style: italic;
+        .offer-text {{
+            font-size: 1.2rem !important;
+            margin-bottom: 15px !important;
+            font-weight: 600 !important;
+            color: #1a1a1a !important;
         }}
         
-        .button {{
-            display: inline-block;
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            color: #1a1a1a;
-            padding: 15px 30px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
-            margin: 20px 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border: 2px solid #e6c200;
-            transition: all 0.3s ease;
+        .expiry {{
+            font-size: 1rem !important;
+            font-weight: 700 !important;
+            margin-top: 15px !important;
+            color: #1a1a1a !important;
         }}
         
-        .button:hover {{
-            background: linear-gradient(135deg, #ffed4e 0%, #ffd700 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(255, 215, 0, 0.3);
-        }}
-        
-        .location-link {{
-            display: inline-block;
-            color: #ffd700;
-            text-decoration: none;
-            padding: 10px 20px;
-            border: 2px solid #ffd700;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }}
-        
-        .location-link:hover {{
-            background-color: #ffd700;
-            color: #1a1a1a;
+        .fine-print {{
+            background: #333 !important;
+            background-color: #333333 !important;
+            padding: 15px !important;
+            border-radius: 8px !important;
+            margin: 15px 0 !important;
+            font-size: 0.85rem !important;
+            color: #ccc !important;
         }}
         
         .footer {{
-            background-color: #1a1a1a;
-            padding: 25px;
-            color: #cccccc;
-            font-size: 14px;
-            border-top: 3px solid #ffd700;
-        }}
-        
-        .footer-section {{
-            margin-bottom: 20px;
-        }}
-        
-        .footer-section strong {{
-            color: #ffd700;
+            padding: 25px !important;
+            text-align: center !important;
+            background: #1a1a1a !important;
+            background-color: #1a1a1a !important;
+            color: #888 !important;
+            font-size: 0.9rem !important;
         }}
         
         .footer a {{
-            color: #ffd700;
-            text-decoration: none;
+            color: #FFD700 !important;
+            text-decoration: none !important;
         }}
         
-        .footer a:hover {{
-            color: #ffed4e;
-            text-decoration: underline;
+        .cta-button {{
+            background: #1a1a1a !important;
+            background-color: #1a1a1a !important;
+            color: #FFD700 !important;
+            padding: 12px 25px !important;
+            border-radius: 8px !important;
+            display: inline-block !important;
+            font-size: 1.1rem !important;
+            font-weight: 700 !important;
+            border: 2px solid #1a1a1a !important;
+            text-decoration: none !important;
+            margin-top: 10px !important;
         }}
         
-        .terms-text {{
-            background-color: #1a1a1a;
-            border: 1px solid #444444;
-            border-radius: 4px;
-            padding: 15px;
-            font-size: 13px;
-            color: #cccccc;
-            margin-top: 25px;
+        .account-button {{
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%) !important;
+            background-color: #4CAF50 !important;
+            color: white !important;
+            padding: 20px 30px !important;
+            border-radius: 12px !important;
+            display: inline-block !important;
+            font-size: 1.2rem !important;
+            font-weight: 700 !important;
+            box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3) !important;
+            border: 2px solid #4CAF50 !important;
+            text-decoration: none !important;
         }}
         
-        .unsubscribe {{
-            font-size: 12px;
-            color: #999999;
-            margin-top: 15px;
-            text-align: center;
+        /* Additional dark mode prevention */
+        * {{
+            color-scheme: light !important;
         }}
         
-        .unsubscribe a {{
-            color: #ffd700;
+        /* Force specific elements to maintain colors */
+        p, span, div, h1, h2, h3, h4, h5, h6 {{
+            color: inherit !important;
         }}
         
-        /* Gmail mobile fixes */
-        @media screen and (max-width: 480px) {{
-            .container {{ 
-                margin: 0 !important; 
-                border-radius: 0 !important;
-                border-left: none !important;
-                border-right: none !important;
+        /* Mobile responsiveness */
+        @media screen and (max-width: 600px) {{
+            .container {{
+                margin: 10px !important;
+                border-radius: 10px !important;
             }}
-            .content, .header, .footer {{ padding: 20px 15px !important; }}
-            .logo {{ font-size: 24px !important; }}
-            .benefit-title {{ font-size: 18px !important; }}
+            
+            .header, .content, .footer {{
+                padding: 20px !important;
+            }}
         }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">SIDEQUEST</div>
-            <p class="header-subtitle">Canterbury Gaming Community</p>
+            <img src="https://i.imgur.com/gdsgsdgew-9C72kE0.png" alt="SideQuest Canterbury Logo">
+            <p>Welcome to the Ultimate Gaming Experience!</p>
         </div>
         
         <div class="content">
-            <div class="greeting">
-                {greeting}
+            <div class="welcome-text">
+                <h2>{greeting}</h2>
+                <p>Thank you for joining the SideQuest Canterbury community! We're excited to have you as part of our gaming family.</p>
             </div>
             
-            <p class="intro-text">Your account has been created successfully. You're now part of the SideQuest Canterbury community - where gaming meets excellence.</p>
-            
-            <div class="info-box">
-                <h3>Gaming Arsenal</h3>
+            <div class="facilities">
+                <h2>What We Offer:</h2>
                 <ul class="facility-list">
-                    <li>35 Gaming PCs with latest titles</li>
-                    <li>4 PlayStation 5 consoles</li>
-                    <li>2 Racing simulator rigs</li>
-                    <li>VR gaming setup</li>
-                    <li>Nintendo Switch station</li>
-                    <li>Bubble tea bar</li>
-                    <li>Study and social area</li>
+                    <li><strong>35 High-Performance PCs</strong> - Latest games, competitive setups</li>
+                    <li><strong>Console Area with 4 PS5s</strong> - Latest PlayStation exclusives</li>
+                    <li><strong>2 Professional Driving Rigs</strong> - Racing simulation experience</li>
+                    <li><strong>VR Gaming Station</strong> - Immersive virtual reality</li>
+                    <li><strong>Nintendo Switch Setup</strong> - Party games and exclusives</li>
                 </ul>
             </div>
             
-            <div class="info-box">
-                <h3>Member Benefits</h3>
-                <p style="margin: 0; color: #e0e0e0; text-align: center;">Priority booking • Tournament notifications • Community events • Exclusive member rates</p>
+            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%) !important; background-color: #2a2a2a !important; padding: 30px 25px !important; border-radius: 15px !important; margin: 30px 0 !important; border: 2px solid #FFD700 !important; position: relative !important; overflow: hidden !important;">
+                <div style="position: absolute; top: -50px; right: -50px; width: 100px; height: 100px; background: rgba(255, 215, 0, 0.1) !important; border-radius: 50% !important; z-index: 1;"></div>
+                <div style="position: absolute; bottom: -30px; left: -30px; width: 60px; height: 60px; background: rgba(255, 165, 0, 0.1) !important; border-radius: 50% !important; z-index: 1;"></div>
+                
+                <div style="position: relative; z-index: 2;">
+                    <h2 style="color: #FFD700 !important; font-size: 2rem !important; margin-bottom: 20px !important; font-weight: 800 !important; text-align: center !important; text-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;">
+                        🎮 WHAT TO EXPECT 🎮
+                    </h2>
+                    <p style="text-align: center !important; font-size: 1.1rem !important; color: #ccc !important; margin-bottom: 25px !important; font-style: italic !important;">
+                        More than just gaming - it's a complete experience!
+                    </p>
+                    
+                    <div style="display: grid; gap: 15px;">
+                        <div style="background: rgba(255, 215, 0, 0.1) !important; padding: 15px 20px !important; border-radius: 10px !important; border-left: 4px solid #FFD700 !important;">
+                            <div style="font-size: 1.3rem !important; margin-bottom: 5px !important; color: #FFD700 !important;">🏆 <strong>EPIC TOURNAMENTS</strong></div>
+                            <div style="color: #ddd !important; font-size: 1rem !important;">Battle it out in FPS, FIFA, and Board Game Nights!</div>
+                        </div>
+                        
+                        <div style="background: rgba(255, 165, 0, 0.1) !important; padding: 15px 20px !important; border-radius: 10px !important; border-left: 4px solid #FFA500 !important;">
+                            <div style="font-size: 1.3rem !important; margin-bottom: 5px !important; color: #FFA500 !important;">🧋 <strong>PREMIUM BUBBLE TEA</strong></div>
+                            <div style="color: #ddd !important; font-size: 1rem !important;">Fuel your gaming sessions with our amazing selection!</div>
+                        </div>
+                        
+                        <div style="background: rgba(76, 175, 80, 0.1) !important; padding: 15px 20px !important; border-radius: 10px !important; border-left: 4px solid #4CAF50 !important;">
+                            <div style="font-size: 1.3rem !important; margin-bottom: 5px !important; color: #4CAF50 !important;">📚 <strong>CHILL STUDY ZONE</strong></div>
+                            <div style="color: #ddd !important; font-size: 1rem !important;">The perfect space to get things done or take it easy!</div>
+                        </div>
+                        
+                        <div style="background: rgba(156, 39, 176, 0.1) !important; padding: 15px 20px !important; border-radius: 10px !important; border-left: 4px solid #9C27B0 !important;">
+                            <div style="font-size: 1.3rem !important; margin-bottom: 5px !important; color: #9C27B0 !important;">⚡ <strong>LEADERBOARD GLORY</strong></div>
+                            <div style="color: #ddd !important; font-size: 1rem !important;">Climb the ranks and claim your spot at the top!</div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center !important; margin-top: 25px !important; padding: 20px !important; background: rgba(255, 215, 0, 0.05) !important; border-radius: 12px !important; border: 1px dashed #FFD700 !important;">
+                        <div style="font-size: 1.4rem !important; font-weight: 800 !important; color: #FFD700 !important; margin-bottom: 8px !important;">
+                            🌟 JOIN THE COMMUNITY 🌟
+                        </div>
+                        <div style="font-size: 1.1rem !important; color: #fff !important; font-weight: 600 !important;">
+                            Where Gaming Meets Community!
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <div class="benefit-box">
-                <div class="benefit-title">🎮 Welcome Reward</div>
-                <div class="benefit-text">Show this email on your first visit for 30% off any bubble tea</div>
-                <div class="expiry-text">Valid until {expiry_date}</div>
+            <div style="text-align: center; margin: 25px 0;">
+                <img src="https://i.imgur.com/myJxXjn.jpg" alt="SideQuest Canterbury Gaming Space" style="max-width: 100% !important; height: auto !important; border-radius: 12px !important; box-shadow: 0 4px 16px rgba(0,0,0,0.3) !important; border: 2px solid #333 !important;">
             </div>
             
-            <p style="text-align: center;">
-                <a href="https://sidequesthub.com/home" class="button">Complete Setup</a>
-            </p>
+            <div class="offer-box">
+                <h2>🧋 WELCOME OFFER!</h2>
+                <div class="offer-text">
+                    Show this email in-store within 7 days to get<br>
+                    <strong style="font-size: 1.4rem; color: #1a1a1a !important;">30% OFF any bubble tea!</strong>
+                </div>
+                <div class="expiry">Valid until: {expiry_date}</div>
+                
+                <div style="margin-top: 20px;">
+                    <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="cta-button">
+                        📍 Claim Your 30% Off
+                    </a>
+                </div>
+            </div>
             
-            <p style="text-align: center;">
-                <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="location-link">📍 View Location & Hours</a>
-            </p>
+            <div class="fine-print">
+                <strong>Important Terms:</strong><br>
+                • Limit one per person - first-time subscribers only<br>
+                • Must show this email on your device in-store<br>
+                • Cannot be combined with other offers<br>
+                • Valid for 7 days from subscription date
+            </div>
             
-            <div class="terms-text">
-                <strong style="color: #ffd700;">Terms:</strong> First-time members only. Present this email in-store. One use per account. Valid for 7 days from account creation.
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="https://sidequesthub.com/home" style="text-decoration: none;">
+                    <div class="account-button">
+                        🎮 Create Your SideQuest Account<br>
+                        <span style="font-size: 1rem !important; font-weight: 600 !important; color: white !important;">& Get 30 Minutes FREE Gaming Time!</span>
+                    </div>
+                </a>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <p style="font-size: 1.1rem !important; color: #FFD700 !important;">Ready to game? See you at SideQuest!</p>
             </div>
         </div>
         
         <div class="footer">
-            <div class="footer-section">
-                <strong>SideQuest Canterbury</strong><br>
-                C10, The Riverside, 1 Sturry Rd<br>
+            <div style="margin-bottom: 20px;">
+                <a href="https://www.instagram.com/sidequestcanterbury/" style="display: inline-block; margin: 0 10px; text-decoration: none;">
+                    <img src="https://img.icons8.com/fluency/48/instagram-new.png" alt="Instagram" style="width: 40px; height: 40px; border-radius: 8px;">
+                </a>
+                <a href="https://www.tiktok.com/@sidequestcanterbury" style="display: inline-block; margin: 0 10px; text-decoration: none;">
+                    <img src="https://img.icons8.com/color/48/tiktok--v1.png" alt="TikTok" style="width: 40px; height: 40px; border-radius: 8px;">
+                </a>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <strong style="color: #FFD700 !important;">SideQuest Canterbury Gaming Lounge</strong><br>
+                <span style="color: #888 !important;">C10, The Riverside, 1 Sturry Rd<br>
                 Canterbury CT1 1BU<br>
-                📞 01227 915058<br>
-                <a href="mailto:marketing@sidequestcanterbury.com">marketing@sidequestcanterbury.com</a>
+                📞 01227 915058<br></span>
+                <a href="mailto:marketing@sidequestcanterbury.com" style="color: #FFD700 !important;">marketing@sidequestcanterbury.com</a>
             </div>
             
-            <div class="footer-section">
-                <strong>Opening Hours:</strong><br>
-                🕐 Sunday: 12-9pm • Monday: 2-9pm<br>
-                🚫 Tuesday-Thursday: Closed<br>
-                🕐 Friday: 2-9pm • Saturday: 12-9pm
+            <div style="margin-bottom: 15px; font-size: 0.9rem;">
+                <strong style="color: #FFD700 !important;">Opening Hours:</strong><br>
+                <span style="color: #ccc !important;">
+                Sun: 12-9pm • Mon: 2-9pm • Tue-Thu: Closed • Fri: 2-9pm • Sat: 12-9pm
+                </span>
             </div>
             
-            <div class="unsubscribe">
-                You received this because you created an account with us.<br>
-                <a href="{unsubscribe_url}">Unsubscribe</a> from future communications
-            </div>
+            <p style="margin-top: 15px; font-size: 0.8rem; color: #888 !important;">
+                You received this email because you subscribed to our newsletter. 
+                <a href="{{{{ unsubscribe }}}}" style="color: #FFD700 !important;">Unsubscribe</a>
+            </p>
         </div>
     </div>
 </body>
 </html>
         """
         
-        # Enhanced plain text version with better formatting
+        # Plain text version
         text_content = f"""
-═══════════════════════════════════════
-    SIDEQUEST CANTERBURY
-    Canterbury Gaming Community
-═══════════════════════════════════════
-
 {greeting}
 
-Your account has been created successfully. You're now part of the SideQuest Canterbury community - where gaming meets excellence.
+Welcome to SideQuest Canterbury!
 
-🎮 GAMING ARSENAL:
-▶ 35 Gaming PCs with latest titles
-▶ 4 PlayStation 5 consoles  
-▶ 2 Racing simulator rigs
-▶ VR gaming setup
-▶ Nintendo Switch station
-▶ Bubble tea bar
-▶ Study and social area
+Thank you for joining our gaming community! Here's what we offer:
 
-🏆 MEMBER BENEFITS:
-Priority booking • Tournament notifications • Community events • Exclusive member rates
+FACILITIES:
+🎮 35 High-Performance PCs - Latest games, competitive setups
+🎮 Console Area with 4 PS5s - Latest PlayStation exclusives  
+🎮 2 Professional Driving Rigs - Racing simulation experience
+🎮 VR Gaming Station - Immersive virtual reality
+🎮 Nintendo Switch Setup - Party games and exclusives
 
-🎁 WELCOME REWARD:
-Show this email on your first visit for 30% off any bubble tea.
+WHAT TO EXPECT:
+🏆 Epic Tournaments - Battle it out in FPS, FIFA, and Board Game Nights!
+🧋 Premium Bubble Tea - Fuel your gaming sessions with our amazing selection!
+📚 Chill Study Zone - The perfect space to get things done or take it easy!
+⚡ Leaderboard Glory - Climb the ranks and claim your spot at the top!
+
+🧋 WELCOME OFFER!
+Show this email in-store within 7 days to get 30% OFF any bubble tea!
 Valid until: {expiry_date}
 
-👤 Complete your account setup: 
-https://sidequesthub.com/home
+🎮 CREATE YOUR SIDEQUEST ACCOUNT & GET 30 MINUTES FREE GAMING TIME!
+Visit: https://sidequesthub.com/home
 
-📍 Find us:
-https://www.google.com/maps/place/Sidequest+Esport+Hub/
+IMPORTANT: Limit one per person - first-time subscribers only.
 
-TERMS: First-time members only. Present this email in-store. One use per account. Valid for 7 days from account creation.
+Ready to game? See you at SideQuest!
 
-═══════════════════════════════════════
-SideQuest Canterbury
-C10, The Riverside, 1 Sturry Rd, Canterbury CT1 1BU
+---
+SideQuest Canterbury Gaming Lounge
+C10, The Riverside, 1 Sturry Rd
+Canterbury CT1 1BU
 📞 01227 915058
-📧 marketing@sidequestcanterbury.com
+marketing@sidequestcanterbury.com
 
-🕐 OPENING HOURS:
-Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed
-Friday: 2-9pm • Saturday: 12-9pm
+Opening Hours:
+Sun: 12-9pm • Mon: 2-9pm • Tue-Thu: Closed • Fri: 2-9pm • Sat: 12-9pm
 
-Unsubscribe: {unsubscribe_url}
-═══════════════════════════════════════
+Follow us:
+Instagram: https://www.instagram.com/sidequestcanterbury/
+TikTok: https://www.tiktok.com/@sidequestcanterbury
+
+You received this email because you subscribed to our newsletter.
         """
         
-        # Transactional email configuration
+        # Use the SDK instead of requests
         send_email = sib_api_v3_sdk.SendSmtpEmail(
-            sender={"name": "SideQuest Canterbury", "email": SENDER_EMAIL},
-            reply_to={"name": "SideQuest Support", "email": SENDER_EMAIL},
+            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
             to=[{
                 "email": email,
                 "name": f"{first_name} {last_name}".strip() if first_name or last_name else ""
             }],
-            subject=subject,
+            subject="🎮 Welcome to SideQuest Canterbury - 30% Off Bubble Tea + Free Gaming Time! 🧋",
             html_content=html_content,
             text_content=text_content,
-            tags=["account_created", "transactional"],
-            headers={
-                "List-Unsubscribe": f"<{unsubscribe_url}>",
-                "X-Entity-Ref-ID": f"account-{int(datetime.now().timestamp())}"
-            }
+            tags=["welcome_email", "new_subscriber", "bubble_tea_offer", "free_gaming_time"]
         )
         
         # Send the email

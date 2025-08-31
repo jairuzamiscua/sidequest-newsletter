@@ -1855,456 +1855,129 @@ Unsubscribe: {unsubscribe_url}
         return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
 
 
-def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
-    """Send automated welcome email optimized for Gmail primary inbox"""
-    if not api_instance:
-        log_error("Brevo API not initialized")
-        return {"success": False, "error": "Brevo API not configured"}
-    
+@app.route('/subscribe', methods=['POST'])
+@csrf_required
+def add_subscriber():
+    """Enhanced subscribe route with input sanitization, GDPR compliance, and automated welcome email"""
     try:
-        # Personalize greeting
-        if first_name:
-            greeting = f"Hi {first_name},"
-        elif gaming_handle:
-            greeting = f"Hello {gaming_handle},"
-        else:
-            greeting = "Hello,"
-        
-        # Calculate expiry date (7 days from now)
-        expiry_date = (datetime.now() + timedelta(days=7)).strftime("%B %d, %Y")
-        
-        # Create unsubscribe URL
-        unsubscribe_url = f"https://sidequest-newsletter-production.up.railway.app/unsubscribe?email={email}"
-        
-        # Simple, transactional subject line
-        if first_name:
-            subject = f"Account created - Welcome {first_name}"
-        else:
-            subject = "Your SideQuest account is ready"
-        
-        # Gmail-optimized HTML email with SideQuest branding
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="only light">
-    <meta name="supported-color-schemes" content="light">
-    <title>Welcome to SideQuest Canterbury</title>
-    <style>
-        /* Gmail-safe CSS with SideQuest branding - Anti-inversion */
-        body {{ 
-            font-family: Arial, sans-serif;
-            background-color: #1a1a1a !important;
-            color: #ffffff !important;
-            line-height: 1.5;
-            margin: 0;
-            padding: 20px;
-            /* Prevent email client auto-inversion */
-            -webkit-text-size-adjust: 100% !important;
-            -ms-text-size-adjust: 100% !important;
-        }}
-        
-        /* Force specific colors to prevent inversion */
-        * {{
-            color-scheme: only light;
-        }}
-        
-        /* Prevent dark mode inversion */
-        [data-ogsc] * {{
-            color: inherit !important;
-            background-color: inherit !important;
-        }}
-        
-        @media (prefers-color-scheme: dark) {{
-            body {{ background-color: #1a1a1a !important; }}
-            .container {{ background-color: #2c2c2c !important; }}
-            .content {{ background-color: #2c2c2c !important; }}
-        }}
-        
-        .container {{ 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background-color: #2c2c2c !important;
-            border: 2px solid #ffd700 !important;
-            border-radius: 8px;
-            overflow: hidden;
-            /* Add meta tag equivalents */
-            color-scheme: only light;
-        }}
-        
-        .header {{
-            background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%) !important;
-            color: #ffffff !important;
-            padding: 30px 25px;
-            text-align: center;
-            border-bottom: 3px solid #ffd700 !important;
-        }}
-        
-        .logo {{
-            font-size: 28px;
-            font-weight: bold;
-            color: #ffd700 !important;
-            margin-bottom: 10px;
-            letter-spacing: 2px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }}
-        
-        .header-subtitle {{
-            font-size: 16px;
-            color: #cccccc;
-            margin: 0;
-        }}
-        
-        .content {{
-            padding: 30px 25px;
-            background-color: #2c2c2c !important;
-            color: #ffffff !important;
-        }}
-        
-        .greeting {{
-            font-size: 16px;
-            margin-bottom: 20px;
-            color: #ffd700;
-            font-weight: bold;
-        }}
-        
-        .intro-text {{
-            color: #e0e0e0;
-            margin-bottom: 25px;
-        }}
-        
-        .info-box {{
-            background-color: #1a1a1a;
-            border: 1px solid #ffd700;
-            border-radius: 6px;
-            padding: 20px;
-            margin: 25px 0;
-        }}
-        
-        .info-box h3 {{
-            color: #ffd700;
-            font-size: 18px;
-            margin: 0 0 15px 0;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }}
-        
-        .facility-list {{
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }}
-        
-        .facility-list li {{
-            padding: 8px 0;
-            border-bottom: 1px solid #444444;
-            color: #e0e0e0;
-            position: relative;
-            padding-left: 20px;
-        }}
-        
-        .facility-list li:before {{
-            content: "▶";
-            color: #ffd700;
-            position: absolute;
-            left: 0;
-            font-size: 12px;
-        }}
-        
-        .facility-list li:last-child {{
-            border-bottom: none;
-        }}
-        
-        .benefit-box {{
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            border: 2px solid #e6c200;
-            border-radius: 8px;
-            padding: 25px;
-            text-align: center;
-            margin: 25px 0;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }}
-        
-        .benefit-title {{
-            color: #1a1a1a;
-            font-size: 20px;
-            margin: 0 0 10px 0;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }}
-        
-        .benefit-text {{
-            color: #1a1a1a;
-            font-size: 16px;
-            margin: 0 0 15px 0;
-            font-weight: 600;
-        }}
-        
-        .expiry-text {{
-            color: #333333;
-            font-size: 14px;
-            font-style: italic;
-        }}
-        
-        .button {{
-            display: inline-block;
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-            color: #1a1a1a;
-            padding: 15px 30px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
-            margin: 20px 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border: 2px solid #e6c200;
-            transition: all 0.3s ease;
-        }}
-        
-        .button:hover {{
-            background: linear-gradient(135deg, #ffed4e 0%, #ffd700 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(255, 215, 0, 0.3);
-        }}
-        
-        .location-link {{
-            display: inline-block;
-            color: #ffd700;
-            text-decoration: none;
-            padding: 10px 20px;
-            border: 2px solid #ffd700;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }}
-        
-        .location-link:hover {{
-            background-color: #ffd700;
-            color: #1a1a1a;
-        }}
-        
-        .footer {{
-            background-color: #1a1a1a;
-            padding: 25px;
-            color: #cccccc;
-            font-size: 14px;
-            border-top: 3px solid #ffd700;
-        }}
-        
-        .footer-section {{
-            margin-bottom: 20px;
-        }}
-        
-        .footer-section strong {{
-            color: #ffd700;
-        }}
-        
-        .footer a {{
-            color: #ffd700;
-            text-decoration: none;
-        }}
-        
-        .footer a:hover {{
-            color: #ffed4e;
-            text-decoration: underline;
-        }}
-        
-        .terms-text {{
-            background-color: #1a1a1a;
-            border: 1px solid #444444;
-            border-radius: 4px;
-            padding: 15px;
-            font-size: 13px;
-            color: #cccccc;
-            margin-top: 25px;
-        }}
-        
-        .unsubscribe {{
-            font-size: 12px;
-            color: #999999;
-            margin-top: 15px;
-            text-align: center;
-        }}
-        
-        .unsubscribe a {{
-            color: #ffd700;
-        }}
-        
-        /* Gmail mobile fixes */
-        @media screen and (max-width: 480px) {{
-            .container {{ 
-                margin: 0 !important; 
-                border-radius: 0 !important;
-                border-left: none !important;
-                border-right: none !important;
-            }}
-            .content, .header, .footer {{ padding: 20px 15px !important; }}
-            .logo {{ font-size: 24px !important; }}
-            .benefit-title {{ font-size: 18px !important; }}
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">SIDEQUEST</div>
-            <p class="header-subtitle">Canterbury Gaming Community</p>
-        </div>
-        
-        <div class="content">
-            <div class="greeting">
-                {greeting}
-            </div>
-            
-            <p class="intro-text">Your account has been created successfully. You're now part of the SideQuest Canterbury community - where gaming meets excellence.</p>
-            
-            <div class="info-box">
-                <h3>Gaming Arsenal</h3>
-                <ul class="facility-list">
-                    <li>35 Gaming PCs with latest titles</li>
-                    <li>4 PlayStation 5 consoles</li>
-                    <li>2 Racing simulator rigs</li>
-                    <li>VR gaming setup</li>
-                    <li>Nintendo Switch station</li>
-                    <li>Bubble tea bar</li>
-                    <li>Study and social area</li>
-                </ul>
-            </div>
-            
-            <div class="info-box">
-                <h3>Member Benefits</h3>
-                <p style="margin: 0; color: #e0e0e0; text-align: center;">Priority booking • Tournament notifications • Community events • Exclusive member rates</p>
-            </div>
-            
-            <div class="benefit-box">
-                <div class="benefit-title">🎮 Welcome Reward</div>
-                <div class="benefit-text">Show this email on your first visit for 30% off any bubble tea</div>
-                <div class="expiry-text">Valid until {expiry_date}</div>
-            </div>
-            
-            <p style="text-align: center;">
-                <a href="https://sidequesthub.com/home" class="button">Complete Setup</a>
-            </p>
-            
-            <p style="text-align: center;">
-                <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="location-link">📍 View Location & Hours</a>
-            </p>
-            
-            <div class="terms-text">
-                <strong style="color: #ffd700;">Terms:</strong> First-time members only. Present this email in-store. One use per account. Valid for 7 days from account creation.
-            </div>
-        </div>
-        
-        <div class="footer">
-            <div class="footer-section">
-                <strong>SideQuest Canterbury</strong><br>
-                C10, The Riverside, 1 Sturry Rd<br>
-                Canterbury CT1 1BU<br>
-                📞 01227 915058<br>
-                <a href="mailto:marketing@sidequestcanterbury.com">marketing@sidequestcanterbury.com</a>
-            </div>
-            
-            <div class="footer-section">
-                <strong>Opening Hours:</strong><br>
-                🕐 Sunday: 12-9pm • Monday: 2-9pm<br>
-                🚫 Tuesday-Thursday: Closed<br>
-                🕐 Friday: 2-9pm • Saturday: 12-9pm
-            </div>
-            
-            <div class="unsubscribe">
-                You received this because you created an account with us.<br>
-                <a href="{unsubscribe_url}">Unsubscribe</a> from future communications
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-        """
-        
-        # Enhanced plain text version with better formatting
-        text_content = f"""
-═══════════════════════════════════════
-    SIDEQUEST CANTERBURY
-    Canterbury Gaming Community
-═══════════════════════════════════════
+        data = request.get_json(silent=True) or {}
 
-{greeting}
+        # Sanitize all inputs first
+        email = sanitize_email(data.get('email', ''))
+        source = sanitize_text_input(data.get('source', 'manual'), 50)
+        first_name = sanitize_text_input(data.get('firstName', ''), 100)
+        last_name = sanitize_text_input(data.get('lastName', ''), 100)
+        gaming_handle = sanitize_text_input(data.get('gamingHandle', ''), 50) if data.get('gamingHandle') else None
+        gdpr_consent = bool(data.get('gdprConsent', False))
 
-Your account has been created successfully. You're now part of the SideQuest Canterbury community - where gaming meets excellence.
+        # Validate sanitized inputs
+        if not email:
+            return jsonify({"success": False, "error": "Valid email is required"}), 400
 
-🎮 GAMING ARSENAL:
-▶ 35 Gaming PCs with latest titles
-▶ 4 PlayStation 5 consoles  
-▶ 2 Racing simulator rigs
-▶ VR gaming setup
-▶ Nintendo Switch station
-▶ Bubble tea bar
-▶ Study and social area
+        # GDPR COMPLIANCE CHECK
+        if source in ['signup_page_gdpr', 'manual'] and not gdpr_consent:
+            return jsonify({
+                "success": False,
+                "error": "GDPR consent is required to process your personal data"
+            }), 400
 
-🏆 MEMBER BENEFITS:
-Priority booking • Tournament notifications • Community events • Exclusive member rates
+        # Validate name fields for GDPR sources
+        if source in ['signup_page_gdpr'] and (not first_name or not last_name):
+            return jsonify({"success": False, "error": "First name and last name are required"}), 400
 
-🎁 WELCOME REWARD:
-Show this email on your first visit for 30% off any bubble tea.
-Valid until: {expiry_date}
+        if first_name and len(first_name) < 2:
+            return jsonify({"success": False, "error": "First name must be at least 2 characters"}), 400
 
-👤 Complete your account setup: 
-https://sidequesthub.com/home
+        if last_name and len(last_name) < 2:
+            return jsonify({"success": False, "error": "Last name must be at least 2 characters"}), 400
 
-📍 Find us:
-https://www.google.com/maps/place/Sidequest+Esport+Hub/
+        # Name pattern validation
+        if first_name or last_name:
+            name_pattern = r'^[a-zA-Z\s\'-]+$'
+            if first_name and not re.match(name_pattern, first_name):
+                return jsonify({"success": False, "error": "Invalid characters in first name"}), 400
+            if last_name and not re.match(name_pattern, last_name):
+                return jsonify({"success": False, "error": "Invalid characters in last name"}), 400
 
-TERMS: First-time members only. Present this email in-store. One use per account. Valid for 7 days from account creation.
+        # Gaming handle validation
+        if gaming_handle and (len(gaming_handle) < 3 or len(gaming_handle) > 30):
+            return jsonify({"success": False, "error": "Gaming handle must be 3-30 characters"}), 400
 
-═══════════════════════════════════════
-SideQuest Canterbury
-C10, The Riverside, 1 Sturry Rd, Canterbury CT1 1BU
-📞 01227 915058
-📧 marketing@sidequestcanterbury.com
+        # Check if already exists
+        existing_subscribers = get_all_subscribers()
+        if any(sub['email'] == email for sub in existing_subscribers):
+            return jsonify({"success": False, "error": "Email already subscribed"}), 400
 
-🕐 OPENING HOURS:
-Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed
-Friday: 2-9pm • Saturday: 12-9pm
-
-Unsubscribe: {unsubscribe_url}
-═══════════════════════════════════════
-        """
-        
-        # Transactional email configuration
-        send_email = sib_api_v3_sdk.SendSmtpEmail(
-            sender={"name": "SideQuest Canterbury", "email": SENDER_EMAIL},
-            reply_to={"name": "SideQuest Support", "email": SENDER_EMAIL},
-            to=[{
-                "email": email,
-                "name": f"{first_name} {last_name}".strip() if first_name or last_name else ""
-            }],
-            subject=subject,
-            html_content=html_content,
-            text_content=text_content,
-            tags=["account_created", "transactional"],
-            headers={
-                "List-Unsubscribe": f"<{unsubscribe_url}>",
-                "X-Entity-Ref-ID": f"account-{int(datetime.now().timestamp())}"
+        # Add to database with GDPR consent recorded
+        if add_subscriber_to_db(email, source, first_name, last_name, gaming_handle, gdpr_consent):
+            # Enhanced Brevo sync with names and consent tracking
+            brevo_attributes = {
+                'source': source,
+                'date_added': datetime.now().isoformat(),
+                'gdpr_consent_given': 'yes' if gdpr_consent else 'no',
+                'consent_date': datetime.now().isoformat() if gdpr_consent else None
             }
-        )
-        
-        # Send the email
-        response = api_instance.send_transac_email(send_email)
-        
-        return {
-            "success": True, 
-            "message": "Welcome email sent successfully",
-            "message_id": response.message_id if hasattr(response, 'message_id') else None
-        }
-            
+            if first_name:
+                brevo_attributes['first_name'] = first_name
+            if last_name:
+                brevo_attributes['last_name'] = last_name
+            if gaming_handle:
+                brevo_attributes['gaming_handle'] = gaming_handle
+
+            brevo_result = add_to_brevo_contact(email, brevo_attributes)
+
+            # AUTOMATED WELCOME EMAIL - Use your existing function
+            welcome_email_result = {"success": False, "message": "Not sent - source not eligible"}
+            if source == 'signup_page_gdpr':
+                welcome_email_result = send_welcome_email(email, first_name, last_name, gaming_handle)
+
+                if welcome_email_result.get("success"):
+                    log_activity(f"✅ Welcome email sent to {email} ({first_name} {last_name})", "success")
+                else:
+                    log_activity(
+                        f"❌ Failed to send welcome email to {email}: {welcome_email_result.get('error')}",
+                        "warning"
+                    )
+
+            subscriber_info = f"{first_name} {last_name}".strip() if (first_name or last_name) else email
+            consent_status = "with GDPR consent" if gdpr_consent else "without explicit consent"
+            log_activity(
+                f"🎮 New subscriber added: {subscriber_info} ({email}) - Source: {source} - {consent_status}",
+                "success"
+            )
+
+            return jsonify({
+                "success": True,
+                "message": "Subscriber added successfully",
+                "data": {
+                    "email": email,
+                    "name": f"{first_name} {last_name}".strip() if (first_name or last_name) else None,
+                    "gaming_handle": gaming_handle,
+                    "gdpr_consent_given": gdpr_consent,
+                    "source": source
+                },
+                "integrations": {
+                    "brevo_synced": brevo_result.get("success", False),
+                    "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
+                    "welcome_email_sent": welcome_email_result.get("success", False),
+                    "welcome_email_message": welcome_email_result.get("message", welcome_email_result.get("error", "")),
+                }
+            })
+        else:
+            return jsonify({"success": False, "error": "Failed to add subscriber to database"}), 500
+
+    except ValueError as e:
+        log_error(f"Validation error in add_subscriber: {str(e)}")
+        return jsonify({"success": False, "error": "Invalid data format"}), 400
+    
+    except psycopg2.Error as e:
+        log_error(f"Database error in add_subscriber: {str(e)}")
+        return jsonify({"success": False, "error": "Database error occurred"}), 500
+    
     except Exception as e:
-        log_error(f"Error sending welcome email: {str(e)}")
-        return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
+        log_error(f"Unexpected error in add_subscriber: {str(e)}")
+        log_error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({"success": False, "error": "An unexpected error occurred"}), 500
 
 def add_gdpr_consent_column():
     """Add GDPR consent tracking columns to subscribers table"""

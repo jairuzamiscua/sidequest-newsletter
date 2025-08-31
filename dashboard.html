@@ -3915,10 +3915,7 @@
       
     // Replace your deleteEvent function with this debug version
     async function deleteEvent(eventId) {
-        // Debug logging
         console.log('deleteEvent called with eventId:', eventId);
-        console.log('eventId type:', typeof eventId);
-        console.log('eventId toString():', eventId.toString());
         
         // Clean the eventId to ensure it's just a number
         const cleanEventId = parseInt(eventId.toString().split(':')[0]);
@@ -3945,58 +3942,51 @@
             
             // First attempt - normal delete
             const response = await secureDelete(deleteUrl);
-            
-            if (!response.ok) {
-                const responseText = await response.text();
-                console.error('Delete response not OK:', response.status, responseText);
-                throw new Error(`HTTP ${response.status}: ${responseText}`);
-            }
-            
             const data = await response.json();
-            console.log('Delete response:', data);
             
-            if (data.success) {
+            console.log('Delete response status:', response.status);
+            console.log('Delete response data:', data);
+            
+            // Check if deletion was successful
+            if (response.ok && data.success) {
                 showSuccess('Event deleted successfully');
                 closeEventModal();
                 loadEvents();
-            } else {
-                // Check if the error is about registrations
-                if (data.has_registrations || (data.error && data.error.toLowerCase().includes('registration'))) {
-                    console.log('Event has registrations, asking for confirmation');
+                return;
+            }
+            
+            // Handle the case where event has registrations (HTTP 400 with has_registrations: true)
+            if (response.status === 400 && data.has_registrations) {
+                console.log('Event has registrations, asking for confirmation');
+                
+                if (confirm('This event has registrations. Delete anyway? This will also delete all registrations.')) {
+                    console.log('User confirmed force delete');
                     
-                    if (confirm('This event has registrations. Delete anyway? This will also delete all registrations.')) {
-                        console.log('User confirmed force delete');
-                        
-                        // Force delete with registrations
-                        const forceUrl = `${API_BASE}/api/events/${cleanEventId}?force=true`;
-                        console.log('Force delete URL:', forceUrl);
-                        
-                        const forceResponse = await secureDelete(forceUrl);
-                        
-                        if (!forceResponse.ok) {
-                            const forceResponseText = await forceResponse.text();
-                            console.error('Force delete response not OK:', forceResponse.status, forceResponseText);
-                            throw new Error(`Force delete failed: HTTP ${forceResponse.status}: ${forceResponseText}`);
-                        }
-                        
-                        const forceData = await forceResponse.json();
-                        console.log('Force delete response:', forceData);
-                        
-                        if (forceData.success) {
-                            showSuccess('Event and all registrations deleted successfully');
-                            closeEventModal();
-                            loadEvents();
-                        } else {
-                            throw new Error(forceData.error || 'Force delete failed');
-                        }
+                    // Force delete with registrations
+                    const forceUrl = `${API_BASE}/api/events/${cleanEventId}?force=true`;
+                    console.log('Force delete URL:', forceUrl);
+                    
+                    const forceResponse = await secureDelete(forceUrl);
+                    const forceData = await forceResponse.json();
+                    
+                    console.log('Force delete response status:', forceResponse.status);
+                    console.log('Force delete response data:', forceData);
+                    
+                    if (forceResponse.ok && forceData.success) {
+                        showSuccess('Event and all registrations deleted successfully');
+                        closeEventModal();
+                        loadEvents();
                     } else {
-                        console.log('User cancelled force delete');
-                        restoreDeleteButtons(eventId);
-                        return;
+                        throw new Error(forceData.error || `Force delete failed: HTTP ${forceResponse.status}`);
                     }
                 } else {
-                    throw new Error(data.error || 'Delete failed');
+                    console.log('User cancelled force delete');
+                    restoreDeleteButtons(eventId);
+                    return;
                 }
+            } else {
+                // Some other error occurred
+                throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
             }
             
         } catch (error) {

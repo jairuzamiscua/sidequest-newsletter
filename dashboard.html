@@ -3912,12 +3912,13 @@
         submitButton.parentNode.insertBefore(cancelButton, submitButton.nextSibling);
       }
     }
-
-    // Delete event
+      // Replace the deleteEvent function in your dashboard.html
     async function deleteEvent(eventId) {
         if (!confirm('Are you sure you want to delete this event?')) return;
         
         try {
+            console.log(`Attempting to delete event ${eventId}`);
+            
             // Show loading state
             const deleteButtons = document.querySelectorAll(`[onclick*="deleteEvent(${eventId})"]`);
             deleteButtons.forEach(btn => {
@@ -3925,34 +3926,38 @@
                 btn.innerHTML = '🗑️ Deleting...';
             });
             
-            // Use the secure DELETE function that includes CSRF
+            // First attempt - normal delete
             const response = await secureDelete(`${API_BASE}/api/events/${eventId}`);
             
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Delete response not OK:', response.status, errorText);
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const data = await response.json();
-            console.log('Delete response data:', data);
+            console.log('Delete response:', data);
             
             if (data.success) {
                 showSuccess('Event deleted successfully');
                 closeEventModal();
-                loadEvents(); // Refresh the events list
+                loadEvents();
             } else {
-                // Handle events with registrations
-                if (data.error && data.error.includes('registrations')) {
+                // Check if the error is about registrations
+                if (data.has_registrations || (data.error && data.error.toLowerCase().includes('registration'))) {
+                    console.log('Event has registrations, asking for confirmation');
+                    
                     if (confirm('This event has registrations. Delete anyway? This will also delete all registrations.')) {
+                        console.log('User confirmed force delete');
+                        
                         // Force delete with registrations
                         const forceResponse = await secureDelete(`${API_BASE}/api/events/${eventId}?force=true`);
                         
                         if (!forceResponse.ok) {
-                            throw new Error(`HTTP ${forceResponse.status}`);
+                            throw new Error(`Force delete failed: HTTP ${forceResponse.status}`);
                         }
                         
                         const forceData = await forceResponse.json();
+                        console.log('Force delete response:', forceData);
+                        
                         if (forceData.success) {
                             showSuccess('Event and all registrations deleted successfully');
                             closeEventModal();
@@ -3960,11 +3965,17 @@
                         } else {
                             throw new Error(forceData.error || 'Force delete failed');
                         }
+                    } else {
+                        console.log('User cancelled force delete');
+                        // User cancelled, just restore buttons and return
+                        restoreDeleteButtons(eventId);
+                        return;
                     }
                 } else {
                     throw new Error(data.error || 'Delete failed');
                 }
             }
+            
         } catch (error) {
             console.error('Error deleting event:', error);
             
@@ -3979,13 +3990,17 @@
                 alert('Failed to delete event: ' + error.message);
             }
         } finally {
-            // Restore button state
-            const deleteButtons = document.querySelectorAll(`[onclick*="deleteEvent(${eventId})"]`);
-            deleteButtons.forEach(btn => {
-                btn.disabled = false;
-                btn.innerHTML = 'Delete Event';
-            });
+            restoreDeleteButtons(eventId);
         }
+    }
+
+    // Helper function to restore button states
+    function restoreDeleteButtons(eventId) {
+        const deleteButtons = document.querySelectorAll(`[onclick*="deleteEvent(${eventId})"]`);
+        deleteButtons.forEach(btn => {
+            btn.disabled = false;
+            btn.innerHTML = 'Delete Event';
+        });
     }
 
     // Send event announcement email

@@ -84,7 +84,7 @@ except Exception:  # pragma: no cover
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
 BREVO_LIST_ID = int(os.environ.get("BREVO_LIST_ID", 2))
 AUTO_SYNC_TO_BREVO = os.environ.get("AUTO_SYNC_TO_BREVO", "true").lower() in {"1", "true", "yes", "y"}
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "jaiamiscua@gmail.com")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "marketing@sidequestcanterbury.com")
 SENDER_NAME = os.environ.get("SENDER_NAME", "SideQuest")
 
 # ---- Database configuration ----
@@ -4011,7 +4011,7 @@ def test_tournament_confirmation():
         
         # Send test email
         result = send_simple_tournament_confirmation(
-            email="test@example.com",
+            email="jaiamiscua@gmail.com",
             event_data=test_event,
             confirmation_code="TEST123",
             player_name="TestPlayer"

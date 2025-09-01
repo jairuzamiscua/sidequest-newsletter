@@ -1573,6 +1573,12 @@
       opacity: 1;
     }
 
+    .status-cancelled {
+        background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        color: #ffffff;
+        text-decoration: line-through;
+    }
+
     .event-type-card.tournament { --accent-color: #FF6B35; }
     .event-type-card.game_night { --accent-color: #4ECDC4; }
     .event-type-card.special { --accent-color: #8B5CF6; }
@@ -1610,6 +1616,7 @@
         grid-template-columns: 1fr;
       }
     }
+
  </style>
 </head>
 <body>
@@ -3602,36 +3609,41 @@
         
         content += '<div class="attendee-list" id="attendeeListContainer">';
         
+        // In your showAttendeesModal function, update the attendee rendering:
         attendees.forEach((attendee, index) => {
-          const statusClass = attendee.attended ? 'status-attended' : 'status-registered';
-          const statusText = attendee.attended ? 'Attended' : 'Registered';
-          const registeredDate = attendee.registered_at ? 
-            new Date(attendee.registered_at).toLocaleDateString() : 'Unknown';
-          
-          content += `
-            <div class="attendee-item" data-email="${attendee.subscriber_email.toLowerCase()}" 
-                 data-name="${(attendee.player_name || '').toLowerCase()}" 
-                 data-code="${attendee.confirmation_code.toLowerCase()}"
-                 data-status="${attendee.attended ? 'attended' : 'registered'}"
-                 data-index="${index}">
-              <div>
-                <div class="attendee-email">${attendee.subscriber_email}</div>
-                <div style="color: #aaa; font-size: 0.8rem; margin-top: 5px;">
-                  Player: ${attendee.player_name || 'Not specified'} | 
-                  <strong style="color: #FFD700;">Code: ${attendee.confirmation_code}</strong> | 
-                  Registered: ${registeredDate}
+            const statusClass = attendee.status === 'cancelled' ? 'status-cancelled' : 
+                              attendee.status === 'attended' ? 'status-attended' : 'status-registered';
+            const statusText = attendee.status === 'cancelled' ? 'Cancelled' : 
+                              attendee.status === 'attended' ? 'Attended' : 'Registered';
+            const registeredDate = attendee.registered_at ? 
+                new Date(attendee.registered_at).toLocaleDateString() : 'Unknown';
+            
+            content += `
+                <div class="attendee-item" data-status="${attendee.status}">
+                    <div>
+                        <div class="attendee-email">${attendee.subscriber_email}</div>
+                        <div style="color: #aaa; font-size: 0.8rem; margin-top: 5px;">
+                            Player: ${attendee.player_name || 'Not specified'} | 
+                            <strong style="color: #FFD700;">Code: ${attendee.confirmation_code}</strong> | 
+                            ${attendee.status === 'cancelled' ? 
+                                `Cancelled: ${new Date(attendee.cancelled_at).toLocaleDateString()}` :
+                                `Registered: ${registeredDate}`
+                            }
+                            ${attendee.cancellation_reason ? 
+                                `<br><em>Reason: ${attendee.cancellation_reason}</em>` : ''
+                            }
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <span class="attendee-status ${statusClass}">${statusText}</span>
+                        ${attendee.status === 'registered' ? `
+                            <button class="btn btn-success btn-sm" onclick="checkinAttendee(${event.id}, '${attendee.subscriber_email}')">
+                                ✓ Check In
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
-              </div>
-              <div style="display: flex; gap: 10px; align-items: center;">
-                <span class="attendee-status ${statusClass}">${statusText}</span>
-                ${!attendee.attended ? `
-                  <button class="btn btn-success btn-sm" onclick="checkinAttendee(${event.id}, '${attendee.subscriber_email}')">
-                    ✓ Check In
-                  </button>
-                ` : ''}
-              </div>
-            </div>
-          `;
+            `;
         });
         
         content += '</div>';

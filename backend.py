@@ -62,6 +62,7 @@ app.config.update(
 
 
 IS_PROD = os.getenv("IS_PROD", "false").lower() in ("1", "true", "yes")
+
 if IS_PROD:
     print("🔒 Production mode: Dangerous operations restricted")
 else:
@@ -117,6 +118,15 @@ BREVO_LIST_ID = int(os.environ.get("BREVO_LIST_ID", 2))
 AUTO_SYNC_TO_BREVO = os.environ.get("AUTO_SYNC_TO_BREVO", "true").lower() in {"1", "true", "yes", "y"}
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "marketing@sidequestcanterbury.com")
 SENDER_NAME = os.environ.get("SENDER_NAME", "SideQuest")
+
+# ---- Brevo API helper ----
+def get_brevo_api():
+    if not sib_api_v3_sdk or not BREVO_API_KEY:
+        raise RuntimeError("❌ Brevo SDK not available or API key missing")
+    cfg = sib_api_v3_sdk.Configuration()
+    cfg.api_key['api-key'] = BREVO_API_KEY
+    return sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(cfg))
+
 
 # ---- Database configuration ----
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -2319,35 +2329,135 @@ def remove_from_brevo_list(email: str) -> dict:
 
 
 # Continue with remaining routes...
+# Continue with remaining routes...
 @app.route('/send-campaign', methods=['POST'])
 @csrf_required
 def send_campaign():
     try:
-        if not api_instance:
-            return jsonify({"success": False, "error": "Email API not initialized"}), 500
-        data = request.json or {}
-        subject = data.get('subject', '(no subject)')
-        body = data.get('body', '')
-        from_name = data.get('fromName', SENDER_NAME)
-        
-        subscribers = get_all_subscribers()
-        recipients = [sub['email'] for sub in subscribers]
-        
+        # ---- Parse & validate input ----
+        data = request.get_json(silent=True) or {}
+        subject = (data.get('subject') or '(no subject)').strip()
+        # support both "body" and "html" keys
+        html = (data.get('html') or data.get('body') or '').strip()
+        from_name = (data.get('fromName') or data.get('from_name') or SENDER_NAME).strip()
+        from_email = (data.get('from_email') or SENDER_EMAIL).strip()
+        dry_run = bool(data.get('dry_run', False))
+
+        if not html:
+            return jsonify({"success": False, "error": "Email HTML/body is required"}), 400
+
+        # ---- Load Brevo API client (prefer your global api_instance) ----
+        api = None
+        if 'api_instance' in globals() and api_instance:
+            api = api_instance
+        else:
+            # fallback in case your global isn't initialized
+            api = get_brevo_api()
+
+        # ---- Fetch recipients using your function ----
+        try:
+            raw_list = get_all_subscribers()  # YOUR existing function name
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Failed to load subscribers: {e}"}), 500
+
+        # ---- Normalize + dedupe emails; keep first_name if available ----
+        recipients = []
+        seen = set()
+
+        def _extract_email(item):
+            if isinstance(item, dict):
+                return (item.get("email") or item.get("Email") or item.get("address") or "").strip().lower()
+            for attr in ("email", "Email", "address"):
+                if hasattr(item, attr):
+                    v = getattr(item, attr) or ""
+                    return str(v).strip().lower()
+            if isinstance(item, (list, tuple)) and item:
+                return str(item[0]).strip().lower()
+            return ""
+
+        def _extract_first_name(item):
+            if isinstance(item, dict):
+                return (item.get("first_name") or item.get("firstName") or item.get("name") or "").strip()
+            for attr in ("first_name", "firstName", "name"):
+                if hasattr(item, attr):
+                    v = getattr(item, attr) or ""
+                    return str(v).strip()
+            if isinstance(item, (list, tuple)) and len(item) > 1:
+                return str(item[1]).strip()
+            return ""
+
+        for it in (raw_list or []):
+            email = _extract_email(it)
+            if not email or "@" not in email:
+                continue
+            if email in seen:
+                continue
+            seen.add(email)
+            recipients.append({"email": email, "first_name": _extract_first_name(it)})
+
+        if dry_run:
+            return jsonify({"success": True, "preview_count": len(recipients)})
+
         if not recipients:
             return jsonify({"success": False, "error": "No subscribers to send to"}), 400
-        if not body:
-            return jsonify({"success": False, "error": "Email body is required"}), 400
-        
-        to_list = [{"email": email} for email in recipients]
-        email = sib_api_v3_sdk.SendSmtpEmail(  # type: ignore
-            sender={"name": from_name, "email": SENDER_EMAIL},
-            to=to_list,
-            subject=subject,
-            html_content=body,
-        )
-        api_response = api_instance.send_transac_email(email)  # type: ignore
-        log_activity(f"Campaign sent to {len(recipients)} subscribers", "success")
-        return jsonify({"success": True, "sent": len(recipients), "response": str(api_response)})
+
+        # ---- Build common parts ----
+        sender = {"name": from_name, "email": from_email}
+        headers = {"X-Mailin-tag": "event_announcement"}
+        reply_to = {"email": from_email}
+
+        # ---- Preferred: Brevo messageVersions (1:1 at scale) ----
+        def _send_with_versions(batch):
+            versions = []
+            for r in batch:
+                versions.append({
+                    "to": [{"email": r["email"], "name": r.get("first_name") or ""}],
+                    "params": {"FIRST_NAME": r.get("first_name") or ""}
+                })
+            msg = sib_api_v3_sdk.SendSmtpEmail(  # type: ignore
+                subject=subject,
+                html_content=html,
+                sender=sender,
+                message_versions=versions,   # IMPORTANT: do NOT set top-level "to"
+                headers=headers,
+                reply_to=reply_to
+            )
+            api.send_transac_email(msg)     # type: ignore
+
+        # ---- Fallback: per-recipient loop (still 1:1) ----
+        def _send_one_by_one(batch):
+            for r in batch:
+                msg = sib_api_v3_sdk.SendSmtpEmail(  # type: ignore
+                    subject=subject,
+                    html_content=html,
+                    sender=sender,
+                    to=[{"email": r["email"], "name": r.get("first_name") or ""}],  # exactly one
+                    headers=headers,
+                    reply_to=reply_to
+                )
+                api.send_transac_email(msg)  # type: ignore
+
+        # ---- Chunk + send ----
+        CHUNK = 300
+        total = len(recipients)
+        sent = 0
+        failed = []
+
+        for i in range(0, total, CHUNK):
+            chunk = recipients[i:i+CHUNK]
+            try:
+                try:
+                    _send_with_versions(chunk)
+                except ApiException:
+                    _send_one_by_one(chunk)
+                sent += len(chunk)
+            except Exception as e:
+                for r in chunk:
+                    failed.append({"email": r["email"], "error": str(e)})
+
+        log_activity(f"Campaign sent to {sent} subscribers", "success")
+        return jsonify({"success": True, "sent": sent, "failed": failed})
+
     except ApiException as e:  # type: ignore
         error_msg = f"Brevo API Error: {str(e)}"
         log_activity(f"Campaign send failed: {error_msg}", "danger")
@@ -2357,6 +2467,8 @@ def send_campaign():
         log_activity(f"Campaign send failed: {error_msg}", "danger")
         print(f"Campaign error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
+
+
 
 @app.route('/sync-status', methods=['GET'])
 def sync_status():

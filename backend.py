@@ -4522,107 +4522,299 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
         
         subject = f"Tournament Registration Confirmed - {event_data['title']}"
         
-        # FIXED HTML template with explicit white text colors
+        # Mobile-optimized HTML template with table-based layout
         html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: -apple-system, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #ffffff;">
-            
-            <!-- Header -->
-            <div style="text-align: center; margin-bottom: 30px;">
-                <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 15px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: #1a1a1a; font-weight: 900; font-size: 24px;">SQ</div>
-                <h1 style="color: #FFD700; margin: 0;">Tournament Registration Confirmed</h1>
-            </div>
-
-            <!-- Main Content -->
-            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); padding: 30px; border-radius: 15px; border: 2px solid #FFD700;">
-                
-                <p style="font-size: 18px; margin-bottom: 20px; color: #ffffff !important;">
-                    Hey {player_name}!
-                </p>
-                
-                <p style="margin-bottom: 25px; color: #ffffff !important;">
-                    You're all set for the tournament. Here are your details:
-                </p>
-
-                <!-- Event Details -->
-                <div style="background: #1a1a1a; padding: 20px; border-radius: 10px; border-left: 4px solid #FFD700; margin: 20px 0;">
-                    <h2 style="color: #FFD700; margin-top: 0; margin-bottom: 15px;">{event_data['title']}</h2>
-                    <p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Game:</strong> <span style="color: #ffffff !important;">{event_data.get('game_title', 'TBD')}</span></p>
-                    <p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Date:</strong> <span style="color: #ffffff !important;">{event_date}</span></p>
-                    <p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Time:</strong> <span style="color: #ffffff !important;">{event_time}</span></p>
-                    <p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Location:</strong> <span style="color: #ffffff !important;">SideQuest Gaming Cafe, Canterbury</span></p>
-                    {f'<p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Entry Fee:</strong> <span style="color: #ffffff !important;">£{event_data["entry_fee"]}</span></p>' if event_data.get('entry_fee', 0) > 0 else '<p style="margin: 8px 0; color: #ffffff !important;"><strong style="color: #ffffff !important;">Entry:</strong> <span style="color: #ffffff !important;">FREE</span></p>'}
-                </div>
-
-                <!-- Confirmation Code -->
-                <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #1a1a1a; padding: 20px; border-radius: 10px; text-align: center; margin: 25px 0;">
-                    <h3 style="margin: 0 0 10px 0; color: #1a1a1a !important;">Your Confirmation Code</h3>
-                    <div style="font-size: 28px; font-weight: 900; letter-spacing: 3px; font-family: monospace; color: #1a1a1a !important;">{confirmation_code}</div>
-                    <p style="margin: 10px 0 0 0; font-size: 14px; color: #1a1a1a !important;">Show this when you arrive</p>
-                </div>
-
-                <!-- Discord Community Section -->
-                <div style="background: linear-gradient(135deg, #5865F2 0%, #7289DA 100%); color: white; padding: 20px; border-radius: 10px; text-align: center; margin: 25px 0;">
-                    <h3 style="margin: 0 0 15px 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: white !important;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419-.0190 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9460 2.4189-2.1568 2.4189Z"/>
-                        </svg>
-                        Join Our Discord Community
-                    </h3>
-                    <p style="margin: 0 0 15px 0; font-size: 16px; color: white !important;">
-                        Connect with other players, get tournament updates, and join the conversation!
-                    </p>
-                    <a href="https://discord.gg/CuwQM7Zwuk" 
-                       style="display: inline-block; background: white; color: #5865F2 !important; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; transition: all 0.3s ease;">
-                        Join Discord Server
-                    </a>
-                </div>
-
-                <!-- What to Bring -->
-                <div style="background: #2a2a2a; padding: 20px; border-radius: 10px; margin: 25px 0;">
-                    <h3 style="color: #FFD700; margin-top: 0;">What to Bring:</h3>
-                    <ul style="color: #ffffff !important; margin: 10px 0; padding-left: 20px;">
-                        <li style="color: #ffffff !important;">Your confirmation code</li>
-                        <li style="color: #ffffff !important;">Positive attitude and competitive spirit</li>
-                        {f'<li style="color: #ffffff !important;">£{event_data["entry_fee"]} entry fee</li>' if event_data.get('entry_fee', 0) > 0 else ''}
-                    </ul>
-                </div>
-
-                <!-- Important Notes -->
-                <div style="background: #1a1a1a; padding: 20px; border-radius: 10px; border-left: 4px solid #28a745; margin: 25px 0;">
-                    <h3 style="color: #28a745; margin-top: 0;">Important Notes:</h3>
-                    <ul style="color: #ffffff !important; margin: 10px 0; padding-left: 20px;">
-                        <li style="color: #ffffff !important;">Join our Discord for real-time updates and communication during the tournament</li>
-                        <li style="color: #ffffff !important;">Arrive 15 minutes early for check-in and setup</li>
-                        <li style="color: #ffffff !important;">Tournament bracket and rules will be posted in Discord</li>
-                    </ul>
-                </div>
-
-            </div>
-
-            <!-- Footer -->
-            <div style="text-align: center; margin-top: 30px; color: #aaa; font-size: 14px;">
-                <p style="color: #aaa !important;">Questions? Reply to this email or visit us in Canterbury.</p>
-                <div style="margin: 20px 0;">
-                    <a href="https://discord.gg/CuwQM7Zwuk" style="color: #7289DA !important; text-decoration: none; margin: 0 15px;">Discord</a>
-                </div>
-                <p style="margin-top: 15px; color: #aaa !important;">
-                    SideQuest Gaming Cafe<br>
-                    Canterbury, UK<br>
-                    marketing@sidequestcanterbury.com
-                </p>
-            </div>
-            
-        </body>
-        </html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Tournament Registration Confirmed</title>
+</head>
+<body style="margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f4f4f4;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 20px 10px;">
+                <!-- Main Container -->
+                <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 40px 30px 30px 30px; background-color: #1a1a1a; border-radius: 8px 8px 0 0;">
+                            <div style="width: 80px; height: 80px; background-color: #FFD700; border-radius: 15px; margin: 0 auto 20px auto; display: table-cell; vertical-align: middle; text-align: center;">
+                                <span style="color: #1a1a1a; font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 24px; line-height: 80px;">SQ</span>
+                            </div>
+                            <h1 style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 28px; font-weight: bold; color: #FFD700; text-align: center;">
+                                Tournament Registration Confirmed
+                            </h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Greeting -->
+                    <tr>
+                        <td style="padding: 30px 30px 20px 30px;">
+                            <h2 style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 24px; color: #333333; font-weight: normal;">
+                                Hey {player_name}!
+                            </h2>
+                            <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 24px; color: #666666;">
+                                You're all set for the tournament. Here are your details:
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Event Details -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px; border-left: 4px solid #FFD700;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 20px; color: #FFD700; font-weight: bold;">
+                                            {event_data['title']}
+                                        </h3>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 4px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong>Game:</strong> {event_data.get('game_title', 'TBD')}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 4px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong>Date:</strong> {event_date}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 4px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong>Time:</strong> {event_time}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 4px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong>Location:</strong> SideQuest Gaming Cafe, Canterbury
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 4px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong>Entry:</strong> {'£' + str(event_data["entry_fee"]) if event_data.get('entry_fee', 0) > 0 else 'FREE'}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Confirmation Code -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #FFD700; border-radius: 8px;">
+                                <tr>
+                                    <td align="center">
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #1a1a1a; font-weight: bold;">
+                                            Your Confirmation Code
+                                        </h3>
+                                        <div style="font-family: monospace; font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #1a1a1a; margin: 10px 0;">
+                                            {confirmation_code}
+                                        </div>
+                                        <p style="margin: 10px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a;">
+                                            Show this when you arrive
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Discord Community Section -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #5865F2; border-radius: 8px;">
+                                <tr>
+                                    <td align="center">
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #ffffff; font-weight: bold;">
+                                            Join Our Discord Community
+                                        </h3>
+                                        <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #ffffff; line-height: 22px;">
+                                            Connect with other players, get tournament updates, and join the conversation!
+                                        </p>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center" style="background-color: #ffffff; border-radius: 8px;">
+                                                    <a href="https://discord.gg/CuwQM7Zwuk" style="display: inline-block; padding: 15px 25px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #5865F2; text-decoration: none; font-weight: bold;">
+                                                        Join Discord Server
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- What to Bring -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #FFD700; font-weight: bold;">
+                                            What to Bring:
+                                        </h3>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 5px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        • Your confirmation code
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 5px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        • Positive attitude and competitive spirit
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            {'<tr><td style="padding: 5px 0;"><p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">• £' + str(event_data["entry_fee"]) + ' entry fee</p></td></tr>' if event_data.get('entry_fee', 0) > 0 else ''}
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Important Notes -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #e8f5e8; border-radius: 8px; border-left: 4px solid #28a745;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #28a745; font-weight: bold;">
+                                            Important Notes:
+                                        </h3>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 5px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333; line-height: 22px;">
+                                                        • Join our Discord for real-time updates and communication during the tournament
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 5px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333; line-height: 22px;">
+                                                        • Arrive 15 minutes early for check-in and setup
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 5px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333; line-height: 22px;">
+                                                        • Tournament bracket and rules will be posted in Discord
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 30px 40px 30px; background-color: #f8f8f8; border-radius: 0 0 8px 8px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #666666; text-align: center;">
+                                            Questions? Reply to this email or visit us in Canterbury.
+                                        </p>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center" style="background-color: #7289DA; border-radius: 6px; padding: 2px;">
+                                                    <a href="https://discord.gg/CuwQM7Zwuk" style="display: inline-block; padding: 10px 20px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #ffffff; text-decoration: none; font-weight: bold;">
+                                                        Discord Community
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <p style="margin: 20px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #999999; line-height: 18px; text-align: center;">
+                                            SideQuest Gaming Cafe<br/>
+                                            Canterbury, UK<br/>
+                                            <a href="mailto:marketing@sidequestcanterbury.com" style="color: #4CAF50; text-decoration: none;">marketing@sidequestcanterbury.com</a>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
         """
         
-        # Rest of the function remains the same...
+        # Plain text version
+        text_content = f"""
+TOURNAMENT REGISTRATION CONFIRMED
+
+Hey {player_name}!
+
+You're all set for the tournament. Here are your details:
+
+EVENT DETAILS:
+{event_data['title']}
+Game: {event_data.get('game_title', 'TBD')}
+Date: {event_date}
+Time: {event_time}
+Location: SideQuest Gaming Cafe, Canterbury
+Entry: {'£' + str(event_data["entry_fee"]) if event_data.get('entry_fee', 0) > 0 else 'FREE'}
+
+YOUR CONFIRMATION CODE: {confirmation_code}
+Show this when you arrive
+
+JOIN OUR DISCORD COMMUNITY:
+Connect with other players, get tournament updates, and join the conversation!
+https://discord.gg/CuwQM7Zwuk
+
+WHAT TO BRING:
+• Your confirmation code
+• Positive attitude and competitive spirit
+{'• £' + str(event_data["entry_fee"]) + ' entry fee' if event_data.get('entry_fee', 0) > 0 else ''}
+
+IMPORTANT NOTES:
+• Join our Discord for real-time updates and communication during the tournament
+• Arrive 15 minutes early for check-in and setup  
+• Tournament bracket and rules will be posted in Discord
+
+Questions? Reply to this email or visit us in Canterbury.
+
+---
+SideQuest Gaming Cafe
+Canterbury, UK
+marketing@sidequestcanterbury.com
+        """
+        
         # Prepare email with attachment
         attachments = []
         if calendar_invite:
@@ -4639,6 +4831,7 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
             to=[{"email": email, "name": player_name}],
             subject=subject,
             html_content=html_content,
+            text_content=text_content,
             attachment=attachments if attachments else None
         )
         

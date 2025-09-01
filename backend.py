@@ -3855,6 +3855,94 @@ def cancel_registration_api():
         if 'conn' in locals() and conn:
             conn.close()
 
+def send_cancellation_confirmation_email(email, player_name, event_title, event_date):
+    """Send cancellation confirmation email using your existing Brevo setup"""
+    if not api_instance:
+        log_error("Brevo API not initialized")
+        return False
+        
+    try:
+        event_date_str = event_date.strftime('%A, %B %d, %Y at %I:%M %p')
+        
+        subject = f"Cancellation Confirmed - {event_title}"
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cancellation Confirmed</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        
+        <!-- Header -->
+        <div style="background-color: #1a1a1a; padding: 30px; text-align: center;">
+            <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 12px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: #1a1a1a; font-weight: 900; font-size: 18px;">
+                SQ
+            </div>
+            <h1 style="color: #ff6b35; margin: 0; font-size: 24px;">Registration Cancelled</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style="padding: 30px;">
+            <h2 style="color: #333; margin-bottom: 20px;">Hi {player_name or 'there'},</h2>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+                Your registration has been successfully cancelled for:
+            </p>
+            
+            <div style="background-color: #f8f8f8; padding: 20px; border-radius: 8px; border-left: 4px solid #ff6b35; margin: 20px 0;">
+                <h3 style="color: #ff6b35; margin: 0 0 10px 0;">{event_title}</h3>
+                <p style="color: #666; margin: 0;">📅 {event_date_str}</p>
+            </div>
+            
+            <div style="background-color: #f0f8ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #2196F3; margin: 0 0 15px 0;">What happens next?</h3>
+                <ul style="color: #666; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    <li>Your spot has been freed up for other players</li>
+                    <li>If you paid an entry fee, your refund will be processed within 2-3 business days</li>
+                    <li>For cash payments, please visit our store during business hours</li>
+                    <li>You'll continue to receive updates about other gaming events</li>
+                </ul>
+            </div>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+                We're sorry you can't make it to this event, but we hope to see you at future gaming sessions!
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background-color: #f8f8f8; padding: 30px; text-align: center;">
+            <p style="color: #666; margin: 0 0 15px 0;">
+                <strong>SideQuest Canterbury Gaming Cafe</strong><br>
+                C10, The Riverside, 1 Sturry Rd, Canterbury CT1 1BU<br>
+                📞 01227 915058 | 📧 marketing@sidequestcanterbury.com
+            </p>
+            <p style="color: #999; font-size: 12px; margin: 0;">
+                Questions about your cancellation? Just reply to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+        """
+        
+        send_email = sib_api_v3_sdk.SendSmtpEmail(
+            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
+            to=[{"email": email, "name": player_name}],
+            subject=subject,
+            html_content=html_content
+        )
+        
+        api_instance.send_transac_email(send_email)
+        log_activity(f"Cancellation confirmation sent to {email} for {event_title}", "info")
+        return True
+        
+    except Exception as e:
+        log_error(f"Failed to send cancellation confirmation to {email}: {e}")
+        return False
 
 @app.route('/api/events', methods=['POST'])
 @csrf_required

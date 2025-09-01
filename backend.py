@@ -4334,6 +4334,56 @@ def create_event():
         log_error(f"Error creating event: {e}")
         return jsonify({"success": False, "error": "Invalid input data"}), 400
 
+
+@app.route('/api/admin/migrate-birthday-columns', methods=['POST'])
+@csrf_required
+def migrate_birthday_columns():
+    """Manually run birthday columns migration"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor()
+        
+        # Add birthday-specific columns
+        birthday_columns = [
+            'ALTER TABLE events ADD COLUMN birthday_person_name VARCHAR(200);',
+            'ALTER TABLE events ADD COLUMN contact_phone VARCHAR(20);',
+            'ALTER TABLE events ADD COLUMN contact_email VARCHAR(255);',
+            'ALTER TABLE events ADD COLUMN package_type VARCHAR(50);',
+            'ALTER TABLE events ADD COLUMN duration_hours INTEGER;',
+            'ALTER TABLE events ADD COLUMN deposit_required BOOLEAN DEFAULT FALSE;',
+            'ALTER TABLE events ADD COLUMN deposit_amount DECIMAL(10,2);',
+            'ALTER TABLE events ADD COLUMN special_notes TEXT;'
+        ]
+        
+        results = []
+        for sql in birthday_columns:
+            try:
+                cursor.execute(sql)
+                results.append(f"✅ Added: {sql.split()[4]}")
+            except Exception as e:
+                if "already exists" in str(e):
+                    results.append(f"ℹ️ Exists: {sql.split()[4]}")
+                else:
+                    results.append(f"❌ Error: {sql.split()[4]} - {str(e)}")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "message": "Birthday columns migration completed",
+            "results": results
+        })
+        
+    except Exception as e:
+        log_error(f"Migration error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/events/<int:event_id>', methods=['DELETE'])
 @csrf_required
 def delete_event(event_id):

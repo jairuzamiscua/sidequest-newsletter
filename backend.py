@@ -1356,27 +1356,44 @@ def healthz():
 @app.route("/admin/health", methods=["GET"])
 def admin_health():
     """
-    Detailed health — admin-only. Redacts sensitive fields even in dev.
+    Detailed health — admin-only. Redacts sensitive fields even in prod.
     Gate by session + (optional) IP allowlist.
     """
     if not is_admin_session() or not ip_allowlisted():
         # do NOT reveal that the endpoint exists or why it failed
         return ("", 404)
 
-    # —— Build your internal health here (whatever you had before) ——
-    # Example sketch; replace the booleans with your real checks:
-    details = {
-        "status": "healthy",
-        "database_connected": check_db_connection_somehow(),   # your function
-        "brevo_status": "connected" if brevo_is_ok() else "error",  # your function
-        "api_instances_initialized": True,
-        "brevo_sync_enabled": True,
-        "subscribers_count": safe_count_subscribers(),         # optional
-        "activities": safe_count_activities(),                 # optional
-    }
+    # --- Database connection check ---
+    try:
+        db_connected = get_db_connection() is not None
+    except Exception:
+        db_connected = False
 
-    # —— REDACT: never include emails, list IDs, keys, function names, etc. ——
-    # e.g. DO NOT return: brevo_email, brevo_list_id, sync function names
+    # --- Brevo connection check (redacted) ---
+    brevo_connected, brevo_status, _ = test_brevo_connection()
+    brevo_ok = brevo_connected and brevo_status == "connected"
+
+    # --- Counts (safe values only, no details) ---
+    try:
+        subscribers_count = len(get_all_subscribers())
+    except Exception:
+        subscribers_count = 0
+
+    try:
+        activities_count = len(get_activity_log(100))
+    except Exception:
+        activities_count = 0
+
+    # --- Final response (redacted, safe) ---
+    details = {
+        "status": "healthy" if (db_connected and brevo_ok) else "degraded",
+        "database_connected": db_connected,
+        "brevo_status": "connected" if brevo_ok else "error",
+        "api_instances_initialized": (api_instance is not None and contacts_api is not None),
+        "brevo_sync_enabled": AUTO_SYNC_TO_BREVO,
+        "subscribers_count": subscribers_count,
+        "activities": activities_count,
+    }
 
     resp = make_response(jsonify(details), 200)
     return no_store(resp)

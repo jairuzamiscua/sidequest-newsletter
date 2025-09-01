@@ -55,7 +55,7 @@ login_attempts = defaultdict(list)
 csrf = CSRFProtect(app)
 app.config.update(
     WTF_CSRF_TIME_LIMIT=3600,  # 1 hour token expiry
-    WTF_CSRF_SSL_STRICT=False,  # Set to True in production with HTTPS only
+    WTF_CSRF_SSL_STRICT=True,  # Set to True in production with HTTPS only
     WTF_CSRF_CHECK_DEFAULT=False,  # Manual validation for API endpoints
     WTF_CSRF_SECRET_KEY=app.secret_key  # Use same key as Flask session
 )
@@ -684,7 +684,7 @@ PRIVACY_POLICY_TEMPLATE = '''
     <p>We keep your data until you unsubscribe or request deletion.</p>
     
     <h2>Contact Us</h2>
-    <p>For privacy concerns: <a href="mailto:marketing@sidequestcanterbury.com">marketing@sidequescanterbury.com</a></p>
+    <p>For privacy concerns: <a href="mailto:marketing@sidequestcanterbury.com">marketing@sidequestcanterbury.com</a></p>
     
     <div style="margin-top: 30px;">
         <a href="/signup" style="background: #FFD700; color: #1a1a1a; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Back to Signup</a>

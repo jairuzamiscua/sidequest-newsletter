@@ -1426,7 +1426,7 @@ def get_subscribers():
         error_msg = f"Error getting subscribers: {str(e)}"
         print(f"Subscribers error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
-
+        
 def send_welcome_email(email, player_name):
     """Send welcome email for new SideQuest community members"""
     if not api_instance:
@@ -1436,7 +1436,7 @@ def send_welcome_email(email, player_name):
     try:
         subject = "Welcome to SideQuest - Your Gaming Community Account is Ready"
         
-        # Welcome email HTML template with explicit white text for dark mode compatibility
+        # Welcome email HTML template with explicit white text for iOS Gmail dark mode compatibility
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -1448,14 +1448,14 @@ def send_welcome_email(email, player_name):
             
             <!-- Header Section -->
             <div style="background-color: #FFD700; padding: 30px 20px; text-align: center;">
-                <div style="background-color: #333; color: #FFD700 !important; padding: 20px 40px; border-radius: 15px; display: inline-block; margin-bottom: 20px;">
+                <div style="background-color: #333333; color: #FFD700 !important; padding: 20px 40px; border-radius: 15px; display: inline-block; margin-bottom: 20px;">
                     <h1 style="margin: 0; font-size: 28px; font-weight: 900; color: #FFD700 !important;">WELCOME TO SIDEQUEST</h1>
                 </div>
-                <h2 style="color: #333 !important; margin: 0; font-size: 22px; font-weight: 600;">Your Gaming Community Account is Ready</h2>
+                <h2 style="color: #333333 !important; margin: 0; font-size: 22px; font-weight: 600;">Your Gaming Community Account is Ready</h2>
             </div>
 
             <!-- Main Content -->
-            <div style="background-color: #333; color: #ffffff !important; padding: 40px 30px;">
+            <div style="background-color: #333333; color: #ffffff !important; padding: 40px 30px;">
                 
                 <h2 style="color: #FFD700 !important; margin-top: 0; margin-bottom: 20px; font-size: 24px; font-weight: 700;">
                     Hi {player_name}!
@@ -1466,35 +1466,35 @@ def send_welcome_email(email, player_name):
                 </p>
 
                 <!-- Gaming Hub Features -->
-                <div style="border: 3px solid #FFD700; border-radius: 15px; padding: 30px; margin: 25px 0; background-color: #444;">
+                <div style="border: 3px solid #FFD700; border-radius: 15px; padding: 30px; margin: 25px 0; background-color: #444444;">
                     <h3 style="color: #FFD700 !important; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 700;">Your Gaming Hub Features:</h3>
                     
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666666;">
                         <strong style="color: #FFD700 !important;">35 High-Performance PCs</strong>
                         <span style="color: #ffffff !important;"> - Latest games and competitive setups</span>
                     </div>
                     
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666666;">
                         <strong style="color: #FFD700 !important;">Console Area with 4 PS5s</strong>
                         <span style="color: #ffffff !important;"> - Latest PlayStation exclusives</span>
                     </div>
                     
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666666;">
                         <strong style="color: #FFD700 !important;">2 Professional Driving Rigs</strong>
                         <span style="color: #ffffff !important;"> - Racing simulation experience</span>
                     </div>
                     
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666666;">
                         <strong style="color: #FFD700 !important;">VR Gaming Station</strong>
                         <span style="color: #ffffff !important;"> - Immersive virtual reality</span>
                     </div>
                     
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666666;">
                         <strong style="color: #FFD700 !important;">Nintendo Switch Setup</strong>
                         <span style="color: #ffffff !important;"> - Party games and exclusives</span>
                     </div>
                     
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666666;">
                         <strong style="color: #FFD700 !important;">Premium Bubble Tea Bar</strong>
                         <span style="color: #ffffff !important;"> - Fuel your gaming sessions</span>
                     </div>
@@ -1522,7 +1522,7 @@ def send_welcome_email(email, player_name):
             </div>
 
             <!-- Footer -->
-            <div style="background-color: #333; color: #ffffff !important; text-align: center; padding: 30px;">
+            <div style="background-color: #333333; color: #ffffff !important; text-align: center; padding: 30px;">
                 <p style="color: #FFD700 !important; font-size: 16px; margin-bottom: 15px; font-weight: 600;">Questions? Reply to this email or visit us in Canterbury.</p>
                 <div style="margin: 20px 0;">
                     <a href="https://discord.gg/CuwQM7Zwuk" style="color: #5865F2 !important; text-decoration: none; font-weight: 600; font-size: 16px;">🎮 Join Our Discord</a>

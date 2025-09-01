@@ -4325,8 +4325,9 @@ def register_for_event(event_id):
 # Replace your get_event_attendees function with this FIXED version:
 
 @app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
+@app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
 def get_event_attendees(event_id):
-    """Get list of attendees for an event - FIXED VERSION"""
+    """Get list of attendees for an event - now includes cancellation status"""
     try:
         conn = get_db_connection()
         if not conn:
@@ -4334,7 +4335,7 @@ def get_event_attendees(event_id):
             
         cursor = conn.cursor()
         
-        # Simple event check - FIXED: use dictionary key instead of index
+        # Get event details
         cursor.execute("SELECT title FROM events WHERE id = %s", (event_id,))
         event_row = cursor.fetchone()
         
@@ -4343,63 +4344,60 @@ def get_event_attendees(event_id):
             conn.close()
             return jsonify({"success": False, "error": "Event not found"}), 404
         
-        event_title = event_row['title']  # FIXED: Use dict key instead of event_row[0]
+        event_title = event_row['title']
         
-        # Get attendees
+        # Get attendees including cancelled registrations
         cursor.execute("""
             SELECT 
                 subscriber_email,
                 player_name,
                 confirmation_code,
                 registered_at,
-                attended
+                attended,
+                cancelled_at,
+                cancellation_reason,
+                CASE 
+                    WHEN cancelled_at IS NOT NULL THEN 'cancelled'
+                    WHEN attended = true THEN 'attended'
+                    ELSE 'registered'
+                END as status
             FROM event_registrations 
             WHERE event_id = %s 
-            ORDER BY registered_at ASC
+            ORDER BY cancelled_at ASC, registered_at ASC
         """, (event_id,))
         
         rows = cursor.fetchall()
         
-        # Convert to list of dictionaries - FIXED: use dict keys
+        # Convert to list of dictionaries
         attendees = []
         for row in rows:
             attendee = {
-                'subscriber_email': row['subscriber_email'],      # FIXED: dict key
-                'player_name': row['player_name'],                # FIXED: dict key  
-                'confirmation_code': row['confirmation_code'],    # FIXED: dict key
-                'registered_at': row['registered_at'].isoformat() if row['registered_at'] else None,  # FIXED: dict key
-                'attended': row['attended'] if row['attended'] is not None else False  # FIXED: dict key
+                'subscriber_email': row['subscriber_email'],
+                'player_name': row['player_name'],
+                'confirmation_code': row['confirmation_code'],
+                'registered_at': row['registered_at'].isoformat() if row['registered_at'] else None,
+                'attended': row['attended'] if row['attended'] is not None else False,
+                'cancelled_at': row['cancelled_at'].isoformat() if row['cancelled_at'] else None,
+                'cancellation_reason': row['cancellation_reason'],
+                'status': row['status']
             }
             attendees.append(attendee)
         
         cursor.close()
         conn.close()
         
-        print(f"✅ Successfully retrieved {len(attendees)} attendees for event {event_id}")
-        
         return jsonify({
             "success": True,
             "attendees": attendees,
             "event_title": event_title,
-            "total_count": len(attendees)
+            "total_count": len(attendees),
+            "active_count": len([a for a in attendees if a['status'] != 'cancelled']),
+            "cancelled_count": len([a for a in attendees if a['status'] == 'cancelled'])
         })
         
     except Exception as e:
-        print(f"❌ Error in get_event_attendees: {str(e)}")
-        print(f"❌ Traceback: {traceback.format_exc()}")
-        
-        try:
-            if 'cursor' in locals():
-                cursor.close()
-            if 'conn' in locals():
-                conn.close()
-        except:
-            pass
-        
-        return jsonify({
-            "success": False, 
-            "error": f"Internal server error: {str(e)}"
-        }), 500
+        log_error(f"Error getting event attendees: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
 
 # 2. ALSO ADD THIS DEBUG ENDPOINT to test if registrations exist:
 
@@ -5080,20 +5078,30 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
                         </td>
                     </tr>
                     
-                    <!-- Confirmation Code -->
+                   <!-- Cancellation Information -->
                     <tr>
                         <td style="padding: 20px 30px;">
-                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #FFD700; border-radius: 8px;">
+                            <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px;">
                                 <tr>
-                                    <td align="center">
-                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #1a1a1a; font-weight: bold;">
-                                            Your Confirmation Code
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #666; font-weight: normal;">
+                                            Need to Cancel?
                                         </h3>
-                                        <div style="font-family: monospace; font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #1a1a1a; margin: 10px 0;">
-                                            {confirmation_code}
-                                        </div>
-                                        <p style="margin: 10px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a;">
-                                            Show this when you arrive
+                                        <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #666; line-height: 20px;">
+                                            If your plans change, you can cancel your registration using the link below:
+                                        </p>
+                                        <table border="0" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center" style="background-color: #6b7280; border-radius: 6px;">
+                                                    <a href="{window.location.origin}/cancel?code={confirmation_code}" 
+                                                    style="display: inline-block; padding: 12px 20px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #ffffff; text-decoration: none; font-weight: bold;">
+                                                        Cancel Registration
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <p style="margin: 15px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #999;">
+                                            Keep this email safe - you'll need your confirmation code to cancel.
                                         </p>
                                     </td>
                                 </tr>

@@ -2061,36 +2061,6 @@
                                 <input type="text" class="form-input" id="eventRequirements" placeholder="e.g., Bring your own controller">
                             </div>
 
-                             <div id="birthdayFields" style="display: none;">
-                                <div class="form-group">
-                                    <label class="form-label">Birthday Package Type</label>
-                                    <select class="form-select" id="birthdayPackageType">
-                                        <option value="standard_rate">Standard Rates (with deposit)</option>
-                                        <option value="full_package">Full Console Area Package</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">Deposit Status</label>
-                                    <select class="form-select" id="depositStatus">
-                                        <option value="pending">Awaiting Payment</option>
-                                        <option value="paid">Deposit Paid</option>
-                                        <option value="waived">Waived</option>
-                                    </select>
-                                </div>
-                                
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                    <div class="form-group">
-                                        <label class="form-label">Contact Phone</label>
-                                        <input type="tel" class="form-input" id="contactPhone">
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Contact Email</label>
-                                        <input type="email" class="form-input" id="contactEmail">
-                                    </div>
-                                </div>
-                            </div>
-
                             <div style="display: flex; gap: 12px;">
                                 <button type="submit" class="btn btn-primary">🎮 Create Event</button>
                                 <button type="button" class="btn btn-secondary" onclick="resetEventForm()">Clear Form</button>
@@ -2747,42 +2717,6 @@
           </button>
         </div>
       `;
-
-      if (event.event_type === 'birthday') {
-          const packageType = event.birthday_package_type || 'standard_rate';
-          const depositStatus = event.deposit_status || 'pending';
-          
-          const packageInfo = packageType === 'full_package' 
-              ? '<div style="background: #FFD700; color: #1a1a1a; padding: 8px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 8px;"><strong>CONSOLE PACKAGE</strong></div>'
-              : '<div style="background: #6b7280; color: white; padding: 8px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 8px;"><strong>STANDARD RATES</strong></div>';
-          
-          const depositBadge = {
-              'paid': '<span style="background: #00ff88; color: #1a1a1a; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">DEPOSIT PAID</span>',
-              'pending': '<span style="background: #ff6b35; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">DEPOSIT PENDING</span>',
-              'waived': '<span style="background: #8B5CF6; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">DEPOSIT WAIVED</span>'
-          }[depositStatus];
-          
-          const birthdayInfo = `
-              <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                  ${packageInfo}
-                  ${depositBadge}
-                  <div style="margin-top: 10px; font-size: 0.85rem; color: #ccc;">
-                      Contact: ${event.contact_phone || 'N/A'} | ${event.contact_email || 'N/A'}
-                  </div>
-                  <div style="margin-top: 10px;">
-                      <button class="btn ${depositStatus === 'paid' ? 'btn-warning' : 'btn-success'} btn-sm" 
-                              onclick="toggleDepositStatus(${event.id}, '${depositStatus}'); event.stopPropagation();">
-                          ${depositStatus === 'paid' ? 'Mark Pending' : 'Mark Paid'}
-                      </button>
-                  </div>
-              </div>
-          `;
-          
-          const actionsDiv = card.querySelector('.event-actions');
-          if (actionsDiv) {
-              actionsDiv.insertAdjacentHTML('beforebegin', birthdayInfo);
-          }
-      }
       
       return card;
     }
@@ -3166,25 +3100,6 @@
     console.log('DEBUG: currentEditingEventId =', currentEditingEventId);
     const isEditing = currentEditingEventId !== null;
     console.log('DEBUG: isEditing =', isEditing);
-
-      if (document.getElementById('eventType').value === 'birthday') {
-          const requiredFields = [
-              { id: 'birthdayPackageType', name: 'Package Type' },
-              { id: 'depositStatus', name: 'Deposit Status' },
-              { id: 'contactPhone', name: 'Contact Phone' },
-              { id: 'contactEmail', name: 'Contact Email' }
-          ];
-          
-          for (const field of requiredFields) {
-              const element = document.getElementById(field.id);
-              if (!element || !element.value.trim()) {
-                  alert(`Please fill in the ${field.name} field for birthday events`);
-                  if (element) element.focus();
-                  e.target.dataset.submitting = 'false';
-                  return;
-              }
-          }
-      }
       
       try {
         const eventData = {
@@ -3200,13 +3115,6 @@
           prize_pool: document.getElementById('eventPrizes').value,
           requirements: document.getElementById('eventRequirements').value
         };
-
-         if (document.getElementById('eventType').value === 'birthday') {
-            eventData.birthday_package_type = document.getElementById('birthdayPackageType').value;
-            eventData.deposit_status = document.getElementById('depositStatus').value;
-            eventData.contact_phone = document.getElementById('contactPhone').value;
-            eventData.contact_email = document.getElementById('contactEmail').value;
-        }
 
         let response;
 
@@ -3247,79 +3155,6 @@
       } finally {
         e.target.dataset.submitting = 'false';
       }
-    }
-
-    if (event.event_type === 'birthday') {
-        const packageType = event.birthday_package_type || 'standard_rate';
-        const depositStatus = event.deposit_status || 'pending';
-        
-        const packageInfo = packageType === 'full_package' 
-            ? '<div style="background: #FFD700; color: #1a1a1a; padding: 8px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 8px;"><strong>CONSOLE PACKAGE</strong></div>'
-            : '<div style="background: #6b7280; color: white; padding: 8px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 8px;"><strong>STANDARD RATES</strong></div>';
-        
-        const depositBadge = {
-            'paid': '<span style="background: #00ff88; color: #1a1a1a; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">DEPOSIT PAID</span>',
-            'pending': '<span style="background: #ff6b35; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">DEPOSIT PENDING</span>',
-            'waived': '<span style="background: #8B5CF6; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">DEPOSIT WAIVED</span>'
-        }[depositStatus];
-        
-        const birthdayInfo = `
-            <div style="background: #1a1a1a; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                ${packageInfo}
-                ${depositBadge}
-                <div style="margin-top: 10px; font-size: 0.85rem; color: #ccc;">
-                    Contact: ${event.contact_phone || 'N/A'} | ${event.contact_email || 'N/A'}
-                </div>
-                <div style="margin-top: 10px;">
-                    <button class="btn ${depositStatus === 'paid' ? 'btn-warning' : 'btn-success'} btn-sm" 
-                            onclick="toggleDepositStatus(${event.id}, '${depositStatus}'); event.stopPropagation();">
-                        ${depositStatus === 'paid' ? 'Mark Pending' : 'Mark Paid'}
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        const actionsDiv = card.querySelector('.event-actions');
-        if (actionsDiv) {
-            actionsDiv.insertAdjacentHTML('beforebegin', birthdayInfo);
-        }
-    }
-
-    // Add this function to your JavaScript
-    async function toggleDepositStatus(eventId, currentStatus) {
-        try {
-            const statusCycle = {
-                'pending': 'paid',
-                'paid': 'waived', 
-                'waived': 'pending'
-            };
-            
-            const newStatus = statusCycle[currentStatus] || 'pending';
-            
-            const response = await securePut(`${API_BASE}/api/events/${eventId}`, {
-                deposit_status: newStatus
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                const statusMessages = {
-                    'paid': '✅ Deposit marked as PAID',
-                    'pending': '⏳ Deposit marked as PENDING',
-                    'waived': '🎁 Deposit WAIVED'
-                };
-                
-                showSuccess(statusMessages[newStatus]);
-                await updateEventCard(eventId, data.event);
-                loadEvents();
-            } else {
-                alert('❌ Error updating deposit status: ' + (data.error || 'Unknown error'));
-            }
-            
-        } catch (error) {
-            console.error('Error updating deposit status:', error);
-            alert('❌ Network error: ' + error.message);
-        }
     }
 
     // Quick register subscriber to event
@@ -4296,26 +4131,12 @@
         'eventRequirements': event.requirements || ''
       };
       
-      // Add birthday-specific fields
-      if (event.event_type === 'birthday') {
-        fields.birthdayPackageType = event.birthday_package_type || 'standard_rate';
-        fields.depositStatus = event.deposit_status || 'pending';
-        fields.contactPhone = event.contact_phone || '';
-        fields.contactEmail = event.contact_email || '';
-      }
-      
       Object.entries(fields).forEach(([fieldId, value]) => {
         const element = document.getElementById(fieldId);
         if (element) {
           element.value = value;
         }
       });
-      
-      // Show/hide birthday fields based on event type
-      const birthdayFields = document.getElementById('birthdayFields');
-      if (birthdayFields) {
-        birthdayFields.style.display = event.event_type === 'birthday' ? 'block' : 'none';
-      }
     }
 
     function updateCreateFormForEdit(eventTitle) {
@@ -4423,20 +4244,6 @@
             loadInitialData();
             setupSearch();
             startAutoRefresh();
-
-            const eventTypeSelect = document.getElementById('eventType');
-            if (eventTypeSelect) {
-                eventTypeSelect.addEventListener('change', function() {
-                    const birthdayFields = document.getElementById('birthdayFields');
-                    if (birthdayFields) {
-                        if (this.value === 'birthday') {
-                            birthdayFields.style.display = 'block';
-                        } else {
-                            birthdayFields.style.display = 'none';
-                        }
-                    }
-                });
-            }
             
         } catch (error) {
             console.error('❌ Failed to initialize CSRF protection:', error);

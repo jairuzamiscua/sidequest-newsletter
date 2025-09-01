@@ -864,7 +864,7 @@ def require_admin_auth(f):
     return decorated_function
 
 @app.route('/admin/login', methods=['GET', 'POST'])
-@limiter.limit("10 per minute")  # Basic rate limiting
+@limiter.limit("10 per minute")  # Keep this
 def admin_login():
     if request.method == 'POST':
         client_ip = get_remote_address()
@@ -883,14 +883,14 @@ def admin_login():
         # Check if too many attempts
         if len(login_attempts[client_ip]) >= 3:
             log_activity(f"Rate limited login attempt from {client_ip}", "warning")
-            time.sleep(2)  # Slow down the response
+            time.sleep(2)
             error_html = '<div class="error">Too many failed attempts. Try again in 15 minutes.</div>'
             return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', error_html), 429
         
         if password == ADMIN_PASSWORD:
             session['admin_authenticated'] = True
-            session['last_activity'] = datetime.now().isoformat()
-            session['login_ip'] = client_ip  # Track login IP
+            session['login_time'] = datetime.now().isoformat()  # CHANGED: Use login_time
+            session['login_ip'] = client_ip
             session.permanent = False
             
             # Clear failed attempts on successful login
@@ -903,7 +903,7 @@ def admin_login():
             login_attempts[client_ip].append(now)
             log_activity(f"Failed login attempt from {client_ip}", "warning")
             
-            time.sleep(1)  # Slow down failed attempts
+            time.sleep(1)
             error_html = '<div class="error">Invalid password</div>'
             return LOGIN_TEMPLATE.replace('ERROR_PLACEHOLDER', error_html)
     
@@ -1313,25 +1313,25 @@ def get_signup_stats() -> dict:
 
 @app.before_request
 def before_request_handler():
-    # Session timeout check for admin routes
     if request.path.startswith('/admin') and request.path != '/admin/login':
         if not session.get('admin_authenticated'):
             return redirect('/admin/login')
         
-        # Check 30-minute timeout
-        last_activity = session.get('last_activity')
-        if last_activity:
-            last_time = datetime.fromisoformat(last_activity)
-            if datetime.now() - last_time > timedelta(minutes=30):
-                session.clear()
-                return redirect('/admin/login?timeout=1')
+        # Check absolute session expiry (no auto-renewal)
+        login_time = session.get('login_time')
+        if not login_time:
+            session.clear()
+            return redirect('/admin/login')
+            
+        login_timestamp = datetime.fromisoformat(login_time)
         
-        session['last_activity'] = datetime.now().isoformat()
-    
-    # Log non-routine requests
-    routine_paths = ['/subscribers', '/stats', '/activity', '/health']
-    if request.path not in routine_paths:
-        log_activity(f"Request to {request.path} [{request.method}]", "info")
+        # Hard 2-hour limit from login time (no extensions)
+        if datetime.now() - login_timestamp > timedelta(hours=2):
+            session.clear()
+            log_activity(f"Session expired for IP {client_ip()}", "warning")
+            return redirect('/admin/login?timeout=1')
+        
+        # Don't update last_activity - let it expire naturally
 
 @app.after_request
 def log_response_info(response):

@@ -3381,6 +3381,63 @@
       }
     }
 
+    function generateBirthdayDescription(packageType, duration, notes) {
+      let description = `🎂 Birthday Party - ${duration} hour${duration > 1 ? 's' : ''}`;
+      
+      if (packageType === 'console') {
+        description += `
+      
+    📦 Console Birthday Package Includes:
+    - 4 PS5 consoles
+    - 2 Racing Simulators  
+    - 1 Nintendo Switch
+    - 1 VR headset
+    - Long gaming table
+    - Up to 12 people can game simultaneously
+    - 10% off all food & drinks
+    - 50% off additional Knit Gift Bags
+    - FREE Birthday Knit Bag (KitKat + Lollipop)
+    - Birthday decorations included
+
+    💰 Pricing: £148 for first 2 hours${duration > 2 ? `, then £56 for each additional hour` : ''}
+    💳 £20 deposit required (deducted from final bill)`;
+      } else {
+        description += `
+
+    🎯 Standard Birthday Package:
+    - Pay-as-you-play pricing
+    - Flexible gaming equipment usage
+    - FREE Birthday Knit Bag (KitKat + Lollipop) 
+    - Birthday decorations included
+    - £20 deposit required`;
+      }
+      
+      if (notes) {
+        description += `\n\n📝 Special Notes: ${notes}`;
+      }
+      
+      description += `\n\n📋 Setup Checklist:
+    ✓ Birthday decorations in party area
+    ✓ Prepare FREE Knit Bag with KitKat + Lollipop  
+    ✓ Write "Happy Birthday! This Gift Bag is for you~" on loyalty card
+    ✓ Send deposit payment link (check spam folder!)
+    ✓ Log all fees on temporary accounts + iPad system`;
+      
+      return description;
+    }
+
+    function calculateBirthdayPrice(packageType, duration) {
+      if (packageType === 'standard') {
+        return 0; // Pay as you play
+      }
+      
+      // Console package pricing
+      const basePrice = 148; // First 2 hours
+      const additionalHours = Math.max(0, duration - 2);
+      const additionalCost = additionalHours * 56;
+      return basePrice + additionalCost;
+    }
+
     // Quick register subscriber to event
     // Also enhance the quickRegister function to refresh attendees after registration:
     async function quickRegister(eventId) {

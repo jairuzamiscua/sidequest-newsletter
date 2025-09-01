@@ -2281,6 +2281,7 @@ def sync_status():
         print(f"Sync status error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
 
+
 @app.route('/admin')
 @require_admin_auth  # Add this decorator
 def admin_dashboard():
@@ -3479,6 +3480,7 @@ def get_event(event_id):
         log_error(f"Error getting event {event_id}: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+
 @app.route('/api/events/<int:event_id>/cancel', methods=['POST'])
 @limiter.limit("3 per hour")  # Prevent abuse
 def cancel_event_registration(event_id):
@@ -4315,7 +4317,6 @@ def register_for_event(event_id):
         if conn:
             conn.close()
 
-
 # 1. BACKEND FIX - Replace your get_event_attendees function:
 
 # Replace your get_event_attendees function with this SIMPLE version:
@@ -4397,7 +4398,7 @@ def get_event_attendees(event_id):
     except Exception as e:
         log_error(f"Error getting event attendees: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
-        
+
 # 2. ALSO ADD THIS DEBUG ENDPOINT to test if registrations exist:
 
 @app.route('/api/events/<int:event_id>/debug', methods=['GET'])
@@ -4984,6 +4985,9 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
         
         subject = f"Tournament Registration Confirmed - {event_data['title']}"
         
+        # Define your base URL here
+        BASE_URL = "https://sidequest-newsletter-production.up.railway.app"
+        
         # Mobile-optimized HTML template with table-based layout
         html_content = f"""
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -5113,7 +5117,7 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
                                         <table border="0" cellpadding="0" cellspacing="0">
                                             <tr>
                                                 <td align="center" style="background-color: #6b7280; border-radius: 6px;">
-                                                    <a href="{window.location.origin}/cancel?code={confirmation_code}" 
+                                                    <a href="{BASE_URL}/cancel?code={confirmation_code}" 
                                                     style="display: inline-block; padding: 12px 20px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #ffffff; text-decoration: none; font-weight: bold;">
                                                         Cancel Registration
                                                     </a>
@@ -5267,7 +5271,7 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
 </html>
         """
         
-        # Plain text version
+        # Plain text version - also update the cancellation link here
         text_content = f"""
 TOURNAMENT REGISTRATION CONFIRMED
 
@@ -5285,6 +5289,10 @@ Entry: {'£' + str(event_data["entry_fee"]) if event_data.get('entry_fee', 0) > 
 
 YOUR CONFIRMATION CODE: {confirmation_code}
 Show this when you arrive
+
+NEED TO CANCEL?
+If your plans change, you can cancel your registration here:
+{BASE_URL}/cancel?code={confirmation_code}
 
 JOIN OUR DISCORD COMMUNITY:
 Connect with other players, get tournament updates, and join the conversation!
@@ -5307,7 +5315,7 @@ SideQuest Gaming Cafe
 Canterbury, UK
 marketing@sidequestcanterbury.com
         """
-        
+
         # Prepare email with attachment
         attachments = []
         if calendar_invite:

@@ -1402,7 +1402,7 @@ def admin_health():
     details = {
         "status": "healthy" if (db_connected and brevo_ok) else "degraded",
         "database_connected": db_connected,
-        "brevo_status": "connected" if brevo_ok else "error",
+        "brevo_status": brevo_status,
         "api_instances_initialized": (api_instance is not None and contacts_api is not None),
         "brevo_sync_enabled": AUTO_SYNC_TO_BREVO,
         "subscribers_count": subscribers_count,

@@ -1426,399 +1426,133 @@ def get_subscribers():
         error_msg = f"Error getting subscribers: {str(e)}"
         print(f"Subscribers error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
-def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
-    """Send automated welcome email with high deliverability (avoids promotions tab)"""
+
+def send_welcome_email(email, player_name):
+    """Send welcome email for new SideQuest community members"""
     if not api_instance:
         log_error("Brevo API not initialized")
-        return {"success": False, "error": "Brevo API not configured"}
-    
+        return False
+        
     try:
-        # Personalize greeting
-        if first_name:
-            greeting = f"Hi {first_name}!"
-        elif gaming_handle:
-            greeting = f"Hey {gaming_handle}!"
-        else:
-            greeting = "Welcome!"
+        subject = "Welcome to SideQuest - Your Gaming Community Account is Ready"
         
-        # Calculate expiry date (7 days from now)
-        expiry_date = (datetime.now() + timedelta(days=7)).strftime("%B %d, %Y")
-        
-        # Create unsubscribe URL
-        unsubscribe_url = f"https://sidequest-newsletter-production.up.railway.app/unsubscribe?email={email}"
-        
-        # TRANSACTIONAL subject line (avoids promotions tab)
-        if first_name:
-            subject = f"Welcome to SideQuest Canterbury, {first_name} - Account Details & Member Benefits"
-        else:
-            subject = "Welcome to SideQuest Canterbury - Account Details & Member Benefits"
-        
-        # Create HTML email content with reduced promotional language
+        # Welcome email HTML template with explicit white text for dark mode compatibility
         html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to SideQuest Canterbury</title>
-    <style>
-        body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            color: #ffffff;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-        }}
-        
-        .container {{ 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background: #1a1a1a;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }}
-        
-        .header {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 30px 25px;
-            text-align: center;
-            border: 2px solid #FFD700;
-        }}
-        
-        .logo-placeholder {{
-            width: 350px;
-            height: 100px;
-            background: #1a1a1a;
-            border-radius: 12px;
-            margin: 0 auto 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #FFD700;
-            font-size: 2rem;
-            font-weight: 900;
-            letter-spacing: 2px;
-        }}
-        
-        .header p {{
-            font-size: 1.2rem;
-            margin: 0;
-            font-weight: 600;
-        }}
-        
-        .content {{
-            padding: 30px 25px;
-            background: #2d2d2d;
-        }}
-        
-        .welcome-text {{
-            font-size: 1.1rem;
-            margin-bottom: 25px;
-            color: #ffffff;
-        }}
-        
-        .facilities {{
-            background: linear-gradient(135deg, #333 0%, #444 100%);
-            padding: 25px;
-            border-radius: 12px;
-            margin: 25px 0;
-            border: 1px solid #555;
-        }}
-        
-        .facilities h2 {{
-            color: #FFD700;
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-            font-weight: 700;
-        }}
-        
-        .facility-list {{
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }}
-        
-        .facility-list li {{
-            padding: 8px 0;
-            border-bottom: 1px solid #555;
-            font-size: 1rem;
-        }}
-        
-        .facility-list li:last-child {{
-            border-bottom: none;
-        }}
-        
-        .member-benefit-box {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 25px;
-            border-radius: 12px;
-            text-align: center;
-            margin: 30px 0;
-            border: 2px solid #FFD700;
-            box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3);
-        }}
-        
-        .member-benefit-box h2 {{
-            font-size: 1.6rem;
-            margin-bottom: 15px;
-            font-weight: 700;
-        }}
-        
-        .benefit-text {{
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }}
-        
-        .expiry {{
-            font-size: 1rem;
-            font-weight: 700;
-            margin-top: 15px;
-        }}
-        
-        .terms-info {{
-            background: #333;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            font-size: 0.85rem;
-            color: #ccc;
-        }}
-        
-        .footer {{
-            padding: 25px;
-            text-align: center;
-            background: #1a1a1a;
-            color: #888;
-            font-size: 0.9rem;
-        }}
-        
-        .footer a {{
-            color: #FFD700;
-            text-decoration: none;
-        }}
-        
-        .location-button {{
-            background: #1a1a1a;
-            color: #FFD700;
-            padding: 12px 25px;
-            border-radius: 8px;
-            display: inline-block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            border: 2px solid #1a1a1a;
-            text-decoration: none;
-            margin-top: 10px;
-        }}
-        
-        .account-button {{
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            display: inline-block;
-            font-size: 1.2rem;
-            font-weight: 700;
-            box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
-            border: 2px solid #4CAF50;
-            text-decoration: none;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo-placeholder">SIDEQUEST</div>
-            <p>Your Gaming Community Account is Ready</p>
-        </div>
-        
-        <div class="content">
-            <div class="welcome-text">
-                <h2 style="color: #FFD700; margin-bottom: 15px;">{greeting}</h2>
-                <p>Thank you for joining the SideQuest Canterbury community. Your account has been created successfully and you now have access to member benefits and event notifications.</p>
-            </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0; background-color: #FFD700;">
             
-            <div class="facilities">
-                <h2>Your Gaming Hub Features:</h2>
-                <ul class="facility-list">
-                    <li><strong>35 High-Performance PCs</strong> - Latest games and competitive setups</li>
-                    <li><strong>Console Area with 4 PS5s</strong> - Latest PlayStation exclusives</li>
-                    <li><strong>2 Professional Driving Rigs</strong> - Racing simulation experience</li>
-                    <li><strong>VR Gaming Station</strong> - Immersive virtual reality</li>
-                    <li><strong>Nintendo Switch Setup</strong> - Party games and exclusives</li>
-                    <li><strong>Premium Bubble Tea Bar</strong> - Fuel your gaming sessions</li>
-                    <li><strong>Study & Chill Zone</strong> - Perfect for work or relaxation</li>
-                </ul>
+            <!-- Header Section -->
+            <div style="background-color: #FFD700; padding: 30px 20px; text-align: center;">
+                <div style="background-color: #333; color: #FFD700 !important; padding: 20px 40px; border-radius: 15px; display: inline-block; margin-bottom: 20px;">
+                    <h1 style="margin: 0; font-size: 28px; font-weight: 900; color: #FFD700 !important;">WELCOME TO SIDEQUEST</h1>
+                </div>
+                <h2 style="color: #333 !important; margin: 0; font-size: 22px; font-weight: 600;">Your Gaming Community Account is Ready</h2>
             </div>
-            
-            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); padding: 30px 25px; border-radius: 15px; margin: 30px 0; border: 2px solid #FFD700;">
-                <h2 style="color: #FFD700; font-size: 1.8rem; margin-bottom: 20px; font-weight: 700; text-align: center;">
-                    Community Features
+
+            <!-- Main Content -->
+            <div style="background-color: #333; color: #ffffff !important; padding: 40px 30px;">
+                
+                <h2 style="color: #FFD700 !important; margin-top: 0; margin-bottom: 20px; font-size: 24px; font-weight: 700;">
+                    Hi {player_name}!
                 </h2>
-                <p style="text-align: center; font-size: 1.1rem; color: #ccc; margin-bottom: 25px;">
-                    As a community member, you'll receive notifications about:
+                
+                <p style="margin-bottom: 25px; font-size: 16px; color: #ffffff !important;">
+                    Thank you for joining! You've successfully signed up and we're excited to have you in store.
                 </p>
-                
-                <div style="display: grid; gap: 15px;">
-                    <div style="background: rgba(255, 215, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFD700;">
-                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFD700;">Tournament Events</strong></div>
-                        <div style="color: #ddd; font-size: 1rem;">Competitive gaming across FPS, FIFA, and board games</div>
+
+                <!-- Gaming Hub Features -->
+                <div style="border: 3px solid #FFD700; border-radius: 15px; padding: 30px; margin: 25px 0; background-color: #444;">
+                    <h3 style="color: #FFD700 !important; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 700;">Your Gaming Hub Features:</h3>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">35 High-Performance PCs</strong>
+                        <span style="color: #ffffff !important;"> - Latest games and competitive setups</span>
                     </div>
                     
-                    <div style="background: rgba(255, 165, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFA500;">
-                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFA500;">Community Nights</strong></div>
-                        <div style="color: #ddd; font-size: 1rem;">Social gaming sessions and special events</div>
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">Console Area with 4 PS5s</strong>
+                        <span style="color: #ffffff !important;"> - Latest PlayStation exclusives</span>
                     </div>
                     
-                    <div style="background: rgba(76, 175, 80, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #4CAF50;">
-                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #4CAF50;">Member Events</strong></div>
-                        <div style="color: #ddd; font-size: 1rem;">Exclusive member-only gatherings and previews</div>
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">2 Professional Driving Rigs</strong>
+                        <span style="color: #ffffff !important;"> - Racing simulation experience</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">VR Gaming Station</strong>
+                        <span style="color: #ffffff !important;"> - Immersive virtual reality</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">Nintendo Switch Setup</strong>
+                        <span style="color: #ffffff !important;"> - Party games and exclusives</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">Premium Bubble Tea Bar</strong>
+                        <span style="color: #ffffff !important;"> - Fuel your gaming sessions</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 0;">
+                        <strong style="color: #FFD700 !important;">Study & Chill Zone</strong>
+                        <span style="color: #ffffff !important;"> - Perfect for work or relaxation</span>
                     </div>
                 </div>
+
             </div>
-            
-            <div class="member-benefit-box">
-                <h2>Welcome Member Benefit</h2>
-                <div class="benefit-text">
-                    Present this email on your first visit to receive:<br>
-                    <strong style="font-size: 1.3rem;">30% member discount on any bubble tea</strong>
-                </div>
-                <div class="expiry">Valid until: {expiry_date}</div>
-                
-                <div style="margin-top: 20px;">
-                    <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="location-button">
-                        View Location & Hours
-                    </a>
-                </div>
-            </div>
-            
-            <div class="terms-info">
-                <strong>Member Benefit Terms:</strong><br>
-                • Valid for first-time members only<br>
-                • Present this email on your mobile device in-store<br>
-                • One use per member account<br>
-                • Valid for 7 days from account creation
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="https://sidequesthub.com/home" style="text-decoration: none;">
-                    <div class="account-button">
-                        Complete Your Account Setup<br>
-                        <span style="font-size: 1rem; font-weight: 600;">Unlock 30 Minutes Free Gaming Time</span>
-                    </div>
+
+            <!-- Discord Community Section -->
+            <div style="background-color: #5865F2; color: #ffffff !important; padding: 30px; text-align: center;">
+                <h3 style="margin: 0 0 15px 0; color: #ffffff !important; font-size: 22px; font-weight: 700;">
+                    🎮 Join Our Discord Community
+                </h3>
+                <p style="margin: 0 0 25px 0; font-size: 16px; color: #ffffff !important;">
+                    Connect with other players, get event updates, and join the conversation!
+                </p>
+                <a href="https://discord.gg/CuwQM7Zwuk" 
+                   style="display: inline-block; background-color: #ffffff; color: #5865F2 !important; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px; border: 2px solid #ffffff;">
+                    Join Discord Server
                 </a>
             </div>
-            
-            <div style="text-align: center; margin-top: 20px;">
-                <p style="font-size: 1.1rem; color: #FFD700;">Welcome to the community. See you at SideQuest!</p>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <div style="margin-bottom: 15px;">
-                <strong style="color: #FFD700;">SideQuest Canterbury Gaming Lounge</strong><br>
-                C10, The Riverside, 1 Sturry Rd<br>
-                Canterbury CT1 1BU<br>
-                01227 915058<br>
-                <a href="mailto:marketing@sidequestcanterbury.com" style="color: #FFD700;">marketing@sidequestcanterbury.com</a>
-            </div>
-            
-            <div style="margin-bottom: 15px; font-size: 0.9rem;">
-                <strong style="color: #FFD700;">Opening Hours:</strong><br>
-                <span style="color: #ccc;">
-                Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed<br>
-                Friday: 2-9pm • Saturday: 12-9pm
-                </span>
+
+            <!-- Footer -->
+            <div style="background-color: #333; color: #ffffff !important; text-align: center; padding: 30px;">
+                <p style="color: #FFD700 !important; font-size: 16px; margin-bottom: 15px; font-weight: 600;">Questions? Reply to this email or visit us in Canterbury.</p>
+                <div style="margin: 20px 0;">
+                    <a href="https://discord.gg/CuwQM7Zwuk" style="color: #5865F2 !important; text-decoration: none; font-weight: 600; font-size: 16px;">🎮 Join Our Discord</a>
+                </div>
+                <div style="color: #ffffff !important; font-size: 14px; line-height: 1.6;">
+                    <strong style="color: #FFD700 !important;">SideQuest Gaming Cafe</strong><br>
+                    Canterbury, UK<br>
+                    marketing@sidequestcanterbury.com
+                </div>
             </div>
             
-            <p style="margin-top: 15px; font-size: 0.8rem;">
-                You received this account notification because you subscribed to community updates. 
-                <a href="{unsubscribe_url}" style="color: #FFD700;">Manage preferences</a>
-            </p>
-        </div>
-    </div>
-</body>
-</html>
+        </body>
+        </html>
         """
         
-        # Plain text version (also less promotional)
-        text_content = f"""
-{greeting}
-
-Welcome to SideQuest Canterbury Gaming Community!
-
-Your account has been successfully created. As a member, you'll receive notifications about tournaments, community nights, and special events.
-
-GAMING FACILITIES:
-- 35 High-Performance PCs with latest games
-- Console Area with 4 PS5s  
-- 2 Professional Driving Rigs
-- VR Gaming Station
-- Nintendo Switch Setup
-- Premium Bubble Tea Bar
-- Study & Chill Zone
-
-MEMBER BENEFIT:
-Present this email on your first visit to receive a 30% member discount on any bubble tea.
-Valid until: {expiry_date}
-
-COMPLETE YOUR ACCOUNT:
-Visit https://sidequesthub.com/home to unlock 30 minutes of free gaming time.
-
-TERMS: Valid for first-time members only. One use per account.
-
----
-SideQuest Canterbury Gaming Lounge
-C10, The Riverside, 1 Sturry Rd, Canterbury CT1 1BU
-Phone: 01227 915058
-Email: marketing@sidequestcanterbury.com
-
-Opening Hours:
-Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed
-Friday: 2-9pm • Saturday: 12-9pm
-
-Manage preferences: {unsubscribe_url}
-        """
-        
-        # Enhanced email configuration for better deliverability
+        # Send email
         send_email = sib_api_v3_sdk.SendSmtpEmail(
             sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
-            reply_to={"name": "SideQuest Support", "email": SENDER_EMAIL},
-            to=[{
-                "email": email,
-                "name": f"{first_name} {last_name}".strip() if first_name or last_name else ""
-            }],
+            to=[{"email": email, "name": player_name}],
             subject=subject,
-            html_content=html_content,
-            text_content=text_content,
-            tags=["welcome_email", "account_notification", "member_benefits"],
-            headers={
-                "X-Mailer": "SideQuest Canterbury Member System",
-                "List-Unsubscribe": f"<{unsubscribe_url}>",
-                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-                "X-Entity-Ref-ID": f"welcome-{int(datetime.now().timestamp())}",
-                "Importance": "normal",
-                "X-Auto-Response-Suppress": "OOF",
-                "Precedence": "bulk"
-            }
+            html_content=html_content
         )
         
-        # Send the email
         response = api_instance.send_transac_email(send_email)
+        log_activity(f"Welcome email sent to {email}", "success")
+        return True
         
-        return {
-            "success": True, 
-            "message": "Welcome email sent successfully",
-            "message_id": response.message_id if hasattr(response, 'message_id') else None
-        }
-            
     except Exception as e:
-        log_error(f"Error sending welcome email: {str(e)}")
-        return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
+        log_error(f"Failed to send welcome email to {email}: {e}")
+        return False
         
 @app.route('/subscribe', methods=['POST'])
 @csrf_required
@@ -4514,16 +4248,24 @@ END:VCALENDAR"""
         log_error(f"Error generating calendar invite: {e}")
         return None
 
-def send_welcome_email(email, player_name):
-    """Send welcome email for new SideQuest community members"""
+def send_simple_tournament_confirmation(email, event_data, confirmation_code, player_name):
+    """Send simple tournament confirmation with calendar invite and Discord link"""
     if not api_instance:
         log_error("Brevo API not initialized")
         return False
         
     try:
-        subject = "Welcome to SideQuest - Your Gaming Community Account is Ready"
+        # Generate calendar invite
+        calendar_invite = generate_calendar_invite(event_data, confirmation_code)
         
-        # Welcome email HTML template with explicit white text for dark mode compatibility
+        # Format event details
+        event_start = datetime.fromisoformat(event_data['date_time']) if isinstance(event_data['date_time'], str) else event_data['date_time']
+        event_date = event_start.strftime('%A, %B %d, %Y')
+        event_time = event_start.strftime('%I:%M %p')
+        
+        subject = f"Tournament Registration Confirmed - {event_data['title']}"
+        
+        # SIMPLIFIED HTML template that works in both light and dark modes
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -4531,91 +4273,86 @@ def send_welcome_email(email, player_name):
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0; background-color: #FFD700;">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
             
-            <!-- Header Section -->
-            <div style="background-color: #FFD700; padding: 30px 20px; text-align: center;">
-                <div style="background-color: #333; color: #FFD700 !important; padding: 20px 40px; border-radius: 15px; display: inline-block; margin-bottom: 20px;">
-                    <h1 style="margin: 0; font-size: 28px; font-weight: 900; color: #FFD700 !important;">WELCOME TO SIDEQUEST</h1>
-                </div>
-                <h2 style="color: #333 !important; margin: 0; font-size: 22px; font-weight: 600;">Your Gaming Community Account is Ready</h2>
+            <!-- Header -->
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="width: 80px; height: 80px; background: #FFD700; border-radius: 15px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 900; font-size: 24px;">SQ</div>
+                <h1 style="color: #FFD700; margin: 0; font-size: 28px;">Tournament Registration Confirmed</h1>
             </div>
 
             <!-- Main Content -->
-            <div style="background-color: #333; color: #ffffff !important; padding: 40px 30px;">
+            <div style="border: 3px solid #FFD700; border-radius: 15px; padding: 30px; margin-bottom: 20px;">
                 
-                <h2 style="color: #FFD700 !important; margin-top: 0; margin-bottom: 20px; font-size: 24px; font-weight: 700;">
-                    Hi {player_name}!
-                </h2>
+                <p style="font-size: 18px; margin-bottom: 20px; font-weight: 600;">
+                    Hey {player_name}!
+                </p>
                 
-                <p style="margin-bottom: 25px; font-size: 16px; color: #ffffff !important;">
-                    Thank you for joining! You've successfully signed up and we're excited to have you in store.
+                <p style="margin-bottom: 25px; font-size: 16px;">
+                    You're all set for the tournament. Here are your details:
                 </p>
 
-                <!-- Gaming Hub Features -->
-                <div style="border: 3px solid #FFD700; border-radius: 15px; padding: 30px; margin: 25px 0; background-color: #444;">
-                    <h3 style="color: #FFD700 !important; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 700;">Your Gaming Hub Features:</h3>
-                    
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
-                        <strong style="color: #FFD700 !important;">35 High-Performance PCs</strong>
-                        <span style="color: #ffffff !important;"> - Latest games and competitive setups</span>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
-                        <strong style="color: #FFD700 !important;">Console Area with 4 PS5s</strong>
-                        <span style="color: #ffffff !important;"> - Latest PlayStation exclusives</span>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
-                        <strong style="color: #FFD700 !important;">2 Professional Driving Rigs</strong>
-                        <span style="color: #ffffff !important;"> - Racing simulation experience</span>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
-                        <strong style="color: #FFD700 !important;">VR Gaming Station</strong>
-                        <span style="color: #ffffff !important;"> - Immersive virtual reality</span>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
-                        <strong style="color: #FFD700 !important;">Nintendo Switch Setup</strong>
-                        <span style="color: #ffffff !important;"> - Party games and exclusives</span>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
-                        <strong style="color: #FFD700 !important;">Premium Bubble Tea Bar</strong>
-                        <span style="color: #ffffff !important;"> - Fuel your gaming sessions</span>
-                    </div>
-                    
-                    <div style="margin-bottom: 0;">
-                        <strong style="color: #FFD700 !important;">Study & Chill Zone</strong>
-                        <span style="color: #ffffff !important;"> - Perfect for work or relaxation</span>
-                    </div>
+                <!-- Event Details -->
+                <div style="border: 2px solid #ddd; border-left: 6px solid #FFD700; padding: 20px; border-radius: 8px; margin: 25px 0; background: #f9f9f9;">
+                    <h2 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 20px;">{event_data['title']}</h2>
+                    <p style="margin: 8px 0; font-size: 15px;"><strong>Game:</strong> {event_data.get('game_title', 'TBD')}</p>
+                    <p style="margin: 8px 0; font-size: 15px;"><strong>Date:</strong> {event_date}</p>
+                    <p style="margin: 8px 0; font-size: 15px;"><strong>Time:</strong> {event_time}</p>
+                    <p style="margin: 8px 0; font-size: 15px;"><strong>Location:</strong> SideQuest Gaming Cafe, Canterbury</p>
+                    {f'<p style="margin: 8px 0; font-size: 15px;"><strong>Entry Fee:</strong> £{event_data["entry_fee"]}</p>' if event_data.get('entry_fee', 0) > 0 else '<p style="margin: 8px 0; font-size: 15px;"><strong>Entry:</strong> FREE</p>'}
+                </div>
+
+                <!-- Confirmation Code -->
+                <div style="background: #FFD700; color: #000; padding: 25px; border-radius: 10px; text-align: center; margin: 25px 0;">
+                    <h3 style="margin: 0 0 15px 0; color: #000; font-size: 18px;">Your Confirmation Code</h3>
+                    <div style="font-size: 32px; font-weight: 900; letter-spacing: 4px; font-family: 'Courier New', monospace; color: #000; padding: 10px; border: 2px dashed #000; border-radius: 5px; background: rgba(255,255,255,0.3);">{confirmation_code}</div>
+                    <p style="margin: 15px 0 0 0; font-size: 14px; color: #000; font-weight: 600;">Show this when you arrive</p>
                 </div>
 
             </div>
 
             <!-- Discord Community Section -->
-            <div style="background-color: #5865F2; color: #ffffff !important; padding: 30px; text-align: center;">
-                <h3 style="margin: 0 0 15px 0; color: #ffffff !important; font-size: 22px; font-weight: 700;">
+            <div style="background: #5865F2; color: white; padding: 25px; border-radius: 12px; text-align: center; margin: 25px 0;">
+                <h3 style="margin: 0 0 15px 0; color: white; font-size: 20px; font-weight: 700;">
                     🎮 Join Our Discord Community
                 </h3>
-                <p style="margin: 0 0 25px 0; font-size: 16px; color: #ffffff !important;">
-                    Connect with other players, get event updates, and join the conversation!
+                <p style="margin: 0 0 20px 0; font-size: 16px; color: white;">
+                    Connect with other players, get tournament updates, and join the conversation!
                 </p>
                 <a href="https://discord.gg/CuwQM7Zwuk" 
-                   style="display: inline-block; background-color: #ffffff; color: #5865F2 !important; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px; border: 2px solid #ffffff;">
+                   style="display: inline-block; background: white; color: #5865F2; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px; border: 2px solid white;">
                     Join Discord Server
                 </a>
             </div>
 
+            <!-- What to Bring -->
+            <div style="border: 2px solid #28a745; border-radius: 10px; padding: 20px; margin: 25px 0;">
+                <h3 style="color: #28a745; margin-top: 0; font-size: 18px; font-weight: 700;">What to Bring:</h3>
+                <ul style="margin: 15px 0; padding-left: 25px; font-size: 15px;">
+                    <li style="margin-bottom: 8px;">Your confirmation code</li>
+                    <li style="margin-bottom: 8px;">Positive attitude and competitive spirit</li>
+                    {f'<li style="margin-bottom: 8px;">£{event_data["entry_fee"]} entry fee</li>' if event_data.get('entry_fee', 0) > 0 else ''}
+                </ul>
+            </div>
+
+            <!-- Important Notes -->
+            <div style="border: 2px solid #ff6b35; border-left: 6px solid #ff6b35; border-radius: 8px; padding: 20px; margin: 25px 0; background: #fff5f2;">
+                <h3 style="color: #ff6b35; margin-top: 0; font-size: 18px; font-weight: 700;">Important Notes:</h3>
+                <ul style="margin: 15px 0; padding-left: 25px; font-size: 15px;">
+                    <li style="margin-bottom: 8px;">Join our Discord for real-time updates and communication during the tournament</li>
+                    <li style="margin-bottom: 8px;">Arrive 15 minutes early for check-in and setup</li>
+                    <li style="margin-bottom: 8px;">Tournament bracket and rules will be posted in Discord</li>
+                </ul>
+            </div>
+
             <!-- Footer -->
-            <div style="background-color: #333; color: #ffffff !important; text-align: center; padding: 30px;">
-                <p style="color: #FFD700 !important; font-size: 16px; margin-bottom: 15px; font-weight: 600;">Questions? Reply to this email or visit us in Canterbury.</p>
+            <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #ddd;">
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Questions? Reply to this email or visit us in Canterbury.</p>
                 <div style="margin: 20px 0;">
-                    <a href="https://discord.gg/CuwQM7Zwuk" style="color: #5865F2 !important; text-decoration: none; font-weight: 600; font-size: 16px;">🎮 Join Our Discord</a>
+                    <a href="https://discord.gg/CuwQM7Zwuk" style="color: #5865F2; text-decoration: none; font-weight: 600; font-size: 16px;">🎮 Join Our Discord</a>
                 </div>
-                <div style="color: #ffffff !important; font-size: 14px; line-height: 1.6;">
-                    <strong style="color: #FFD700 !important;">SideQuest Gaming Cafe</strong><br>
+                <div style="color: #888; font-size: 13px; line-height: 1.4;">
+                    <strong>SideQuest Gaming Cafe</strong><br>
                     Canterbury, UK<br>
                     marketing@sidequestcanterbury.com
                 </div>
@@ -4625,20 +4362,32 @@ def send_welcome_email(email, player_name):
         </html>
         """
         
+        # Rest of the function remains the same...
+        # Prepare email with attachment
+        attachments = []
+        if calendar_invite:
+            import base64
+            calendar_b64 = base64.b64encode(calendar_invite.encode('utf-8')).decode('utf-8')
+            attachments = [{
+                "name": f"{event_data['title'].replace(' ', '_')}_tournament.ics",
+                "content": calendar_b64
+            }]
+        
         # Send email
         send_email = sib_api_v3_sdk.SendSmtpEmail(
             sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
             to=[{"email": email, "name": player_name}],
             subject=subject,
-            html_content=html_content
+            html_content=html_content,
+            attachment=attachments if attachments else None
         )
         
         response = api_instance.send_transac_email(send_email)
-        log_activity(f"Welcome email sent to {email}", "success")
+        log_activity(f"Tournament confirmation sent to {email} for {event_data['title']}", "success")
         return True
         
     except Exception as e:
-        log_error(f"Failed to send welcome email to {email}: {e}")
+        log_error(f"Failed to send tournament confirmation to {email}: {e}")
         return False
 
 @app.route('/api/events/<int:event_id>/debug-registration', methods=['POST'])

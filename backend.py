@@ -3479,6 +3479,545 @@ def get_event(event_id):
         log_error(f"Error getting event {event_id}: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/api/events/<int:event_id>/cancel', methods=['POST'])
+@limiter.limit("3 per hour")  # Prevent abuse
+def cancel_event_registration(event_id):
+    """Cancel an event registration"""
+    try:
+        data = request.json or {}
+        email = sanitize_email(data.get('email', ''))
+        confirmation_code = sanitize_text_input(data.get('confirmation_code', ''), 50)
+        reason = sanitize_text_input(data.get('reason', ''), 500)
+        
+        if not email or not confirmation_code:
+            return jsonify({"success": False, "error": "Email and confirmation code are required"}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor()
+        
+        # Find registration
+        cursor.execute("""
+            SELECT r.id, r.subscriber_email, r.player_name, r.cancelled_at, e.title, e.date_time
+            FROM event_registrations r
+            JOIN events e ON r.event_id = e.id
+            WHERE r.event_id = %s AND r.subscriber_email = %s AND r.confirmation_code = %s
+        """, (event_id, email, confirmation_code))
+        
+        registration = cursor.fetchone()
+        
+        if not registration:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Invalid confirmation code or email"}), 400
+        
+        reg_dict = dict(registration)
+        
+        if reg_dict['cancelled_at']:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Registration already cancelled"}), 400
+        
+        # Process cancellation
+        cursor.execute("""
+            UPDATE event_registrations 
+            SET cancelled_at = NOW(), cancellation_reason = %s
+            WHERE id = %s
+        """, (reason, reg_dict['id']))
+        
+        # Log to activity_log using your existing structure
+        log_activity(f"Cancelled registration: {reg_dict['subscriber_email']} for {reg_dict['title']}", "warning")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Send cancellation confirmation email using your existing email system
+        send_cancellation_confirmation_email(
+            email=reg_dict['subscriber_email'],
+            player_name=reg_dict['player_name'],
+            event_title=reg_dict['title'],
+            event_date=reg_dict['date_time']
+        )
+        
+        return jsonify({
+            "success": True,
+            "message": "Registration cancelled successfully",
+            "event_title": reg_dict['title']
+        })
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        log_error(f"Error cancelling registration: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+@app.route('/cancel')
+def cancellation_page():
+    """Public cancellation form page"""
+    confirmation_code = request.args.get('code', '')
+    
+    cancellation_html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cancel Registration - SideQuest Canterbury</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }}
+        
+        .container {{
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 2px solid #ff6b35;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }}
+        
+        .logo {{
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 12px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: #1a1a1a;
+            font-size: 18px;
+        }}
+        
+        h1 {{
+            color: #ff6b35;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            font-weight: 800;
+        }}
+        
+        .form-group {{
+            margin-bottom: 20px;
+            text-align: left;
+        }}
+        
+        label {{
+            display: block;
+            margin-bottom: 8px;
+            color: #FFD700;
+            font-weight: 600;
+        }}
+        
+        input, textarea {{
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #444;
+            border-radius: 12px;
+            font-size: 16px;
+            background: #1a1a1a;
+            color: #ffffff;
+            transition: all 0.3s ease;
+        }}
+        
+        input:focus, textarea:focus {{
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2);
+        }}
+        
+        .btn {{
+            width: 100%;
+            padding: 18px 25px;
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            border: none;
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }}
+        
+        .btn:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.4);
+        }}
+        
+        .message {{
+            margin-top: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }}
+        
+        .message.show {{ opacity: 1; }}
+        
+        .message.success {{
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+            color: #1a1a1a;
+        }}
+        
+        .message.error {{
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            color: #ffffff;
+        }}
+        
+        .back-link {{
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #444;
+        }}
+        
+        .back-link a {{
+            color: #FFD700;
+            text-decoration: none;
+            font-weight: 600;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">SQ</div>
+        <h1>Cancel Registration</h1>
+        
+        <div id="message" class="message"></div>
+        
+        <form id="cancellationForm">
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirmation_code">Confirmation Code *</label>
+                <input type="text" id="confirmation_code" name="confirmation_code" 
+                       value="{confirmation_code}" required 
+                       placeholder="Found in your confirmation email">
+            </div>
+            
+            <div class="form-group">
+                <label for="reason">Reason for Cancellation (Optional)</label>
+                <textarea id="reason" name="reason" rows="3" 
+                          placeholder="Help us improve by sharing why you need to cancel"></textarea>
+            </div>
+            
+            <button type="submit" class="btn">Cancel My Registration</button>
+        </form>
+        
+        <div class="back-link">
+            <a href="/">← Back to SideQuest</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('cancellationForm').addEventListener('submit', async function(e) {{
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {{
+                email: formData.get('email'),
+                confirmation_code: formData.get('confirmation_code'),
+                reason: formData.get('reason')
+            }};
+            
+            const messageDiv = document.getElementById('message');
+            
+            try {{
+                const response = await fetch('/api/cancel-registration', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify(data)
+                }});
+                
+                const result = await response.json();
+                
+                if (result.success) {{
+                    messageDiv.className = 'message success show';
+                    messageDiv.innerHTML = '✅ ' + result.message + '<br><small>You should receive a confirmation email shortly.</small>';
+                    e.target.reset();
+                }} else {{
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = '❌ ' + (result.error || 'Something went wrong');
+                }}
+            }} catch (error) {{
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Network error. Please try again.';
+            }}
+        }});
+    </script>
+</body>
+</html>'''
+    
+    response = make_response(cancellation_html)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
+@app.route('/api/cancel-registration', methods=['POST'])
+@limiter.limit("5 per hour")
+def cancel_registration_api():
+    """API endpoint for cancelling registrations"""
+    try:
+        data = request.json or {}
+        email = sanitize_email(data.get('email', ''))
+        confirmation_code = sanitize_text_input(data.get('confirmation_code', ''), 50)
+        reason = sanitize_text_input(data.get('reason', ''), 500)
+        
+        if not email or not confirmation_code:
+            return jsonify({"success": False, "error": "Email and confirmation code are required"}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor()
+        
+        # Find registration
+        cursor.execute("""
+            SELECT r.id, r.subscriber_email, r.player_name, r.cancelled_at, e.title, e.date_time, e.id as event_id
+            FROM event_registrations r
+            JOIN events e ON r.event_id = e.id
+            WHERE r.subscriber_email = %s AND r.confirmation_code = %s
+        """, (email, confirmation_code))
+        
+        registration = cursor.fetchone()
+        
+        if not registration:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Invalid confirmation code or email"}), 400
+        
+        reg_dict = dict(registration)
+        
+        if reg_dict['cancelled_at']:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Registration already cancelled"}), 400
+        
+        # Process cancellation
+        cursor.execute("""
+            UPDATE event_registrations 
+            SET cancelled_at = NOW(), cancellation_reason = %s
+            WHERE id = %s
+        """, (reason, reg_dict['id']))
+        
+        # Log to activity_log
+        log_activity(f"Registration cancelled: {reg_dict['subscriber_email']} for {reg_dict['title']} - Reason: {reason}", "warning")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        # Send cancellation confirmation email
+        send_cancellation_confirmation_email(
+            email=reg_dict['subscriber_email'],
+            player_name=reg_dict['player_name'],
+            event_title=reg_dict['title'],
+            event_date=reg_dict['date_time']
+        )
+        
+        return jsonify({
+            "success": True,
+            "message": "Registration cancelled successfully"
+        })
+        
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+        log_error(f"Error cancelling registration: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+        
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'conn' in locals() and conn:
+            conn.close()
+
+def send_cancellation_confirmation_email(email, player_name, event_title, event_date):
+    """Send cancellation confirmation email using your existing Brevo setup"""
+    if not api_instance:
+        log_error("Brevo API not initialized")
+        return False
+        
+    try:
+        event_date_str = event_date.strftime('%A, %B %d, %Y at %I:%M %p')
+        
+        subject = f"Cancellation Confirmed - {event_title}"
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cancellation Confirmed</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        
+        <!-- Header -->
+        <div style="background-color: #1a1a1a; padding: 30px; text-align: center;">
+            <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 12px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: #1a1a1a; font-weight: 900; font-size: 18px;">
+                SQ
+            </div>
+            <h1 style="color: #ff6b35; margin: 0; font-size: 24px;">Registration Cancelled</h1>
+        </div>
+        
+        <!-- Content -->
+        <div style="padding: 30px;">
+            <h2 style="color: #333; margin-bottom: 20px;">Hi {player_name or 'there'},</h2>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+                Your registration has been successfully cancelled for:
+            </p>
+            
+            <div style="background-color: #f8f8f8; padding: 20px; border-radius: 8px; border-left: 4px solid #ff6b35; margin: 20px 0;">
+                <h3 style="color: #ff6b35; margin: 0 0 10px 0;">{event_title}</h3>
+                <p style="color: #666; margin: 0;">📅 {event_date_str}</p>
+            </div>
+            
+            <div style="background-color: #f0f8ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #2196F3; margin: 0 0 15px 0;">What happens next?</h3>
+                <ul style="color: #666; line-height: 1.6; margin: 0; padding-left: 20px;">
+                    <li>Your spot has been freed up for other players</li>
+                    <li>If you paid an entry fee, your refund will be processed within 2-3 business days</li>
+                    <li>For cash payments, please visit our store during business hours</li>
+                    <li>You'll continue to receive updates about other gaming events</li>
+                </ul>
+            </div>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+                We're sorry you can't make it to this event, but we hope to see you at future gaming sessions!
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background-color: #f8f8f8; padding: 30px; text-align: center;">
+            <p style="color: #666; margin: 0 0 15px 0;">
+                <strong>SideQuest Canterbury Gaming Cafe</strong><br>
+                C10, The Riverside, 1 Sturry Rd, Canterbury CT1 1BU<br>
+                📞 01227 915058 | 📧 marketing@sidequestcanterbury.com
+            </p>
+            <p style="color: #999; font-size: 12px; margin: 0;">
+                Questions about your cancellation? Just reply to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+        """
+        
+        send_email = sib_api_v3_sdk.SendSmtpEmail(
+            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
+            to=[{"email": email, "name": player_name}],
+            subject=subject,
+            html_content=html_content
+        )
+        
+        api_instance.send_transac_email(send_email)
+        log_activity(f"Cancellation confirmation sent to {email} for {event_title}", "info")
+        return True
+        
+    except Exception as e:
+        log_error(f"Failed to send cancellation confirmation to {email}: {e}")
+        return False
+
+@app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
+def get_event_attendees(event_id):
+    """Get list of attendees for an event - now includes cancellation status"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+            
+        cursor = conn.cursor()
+        
+        # Get event details
+        cursor.execute("SELECT title FROM events WHERE id = %s", (event_id,))
+        event_row = cursor.fetchone()
+        
+        if not event_row:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        event_title = event_row['title']
+        
+        # Get attendees including cancelled registrations
+        cursor.execute("""
+            SELECT 
+                subscriber_email,
+                player_name,
+                confirmation_code,
+                registered_at,
+                attended,
+                cancelled_at,
+                cancellation_reason,
+                CASE 
+                    WHEN cancelled_at IS NOT NULL THEN 'cancelled'
+                    WHEN attended = true THEN 'attended'
+                    ELSE 'registered'
+                END as status
+            FROM event_registrations 
+            WHERE event_id = %s 
+            ORDER BY cancelled_at ASC, registered_at ASC
+        """, (event_id,))
+        
+        rows = cursor.fetchall()
+        
+        # Convert to list of dictionaries
+        attendees = []
+        for row in rows:
+            attendee = {
+                'subscriber_email': row['subscriber_email'],
+                'player_name': row['player_name'],
+                'confirmation_code': row['confirmation_code'],
+                'registered_at': row['registered_at'].isoformat() if row['registered_at'] else None,
+                'attended': row['attended'] if row['attended'] is not None else False,
+                'cancelled_at': row['cancelled_at'].isoformat() if row['cancelled_at'] else None,
+                'cancellation_reason': row['cancellation_reason'],
+                'status': row['status']
+            }
+            attendees.append(attendee)
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "attendees": attendees,
+            "event_title": event_title,
+            "total_count": len(attendees),
+            "active_count": len([a for a in attendees if a['status'] != 'cancelled']),
+            "cancelled_count": len([a for a in attendees if a['status'] == 'cancelled'])
+        })
+        
+    except Exception as e:
+        log_error(f"Error getting event attendees: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+
 @app.route('/api/events', methods=['POST'])
 @csrf_required
 def create_event():
@@ -4636,6 +5175,37 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
                         </td>
                     </tr>
                     
+                    <!-- Cancellation Information -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #666; font-weight: normal;">
+                                            Need to Cancel?
+                                        </h3>
+                                        <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #666; line-height: 20px;">
+                                            If your plans change, you can cancel your registration using the link below:
+                                        </p>
+                                        <table border="0" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center" style="background-color: #6b7280; border-radius: 6px;">
+                                                    <a href="{window.location.origin}/cancel?code={confirmation_code}" 
+                                                       style="display: inline-block; padding: 12px 20px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #ffffff; text-decoration: none; font-weight: bold;">
+                                                        Cancel Registration
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <p style="margin: 15px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #999;">
+                                            Keep this email safe - you'll need your confirmation code to cancel.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
                     <!-- Discord Community Section -->
                     <tr>
                         <td style="padding: 20px 30px;">
@@ -4792,6 +5362,11 @@ Entry: {'£' + str(event_data["entry_fee"]) if event_data.get('entry_fee', 0) > 
 
 YOUR CONFIRMATION CODE: {confirmation_code}
 Show this when you arrive
+
+NEED TO CANCEL?
+If your plans change, you can cancel your registration here:
+https://sidequest-newsletter-production.up.railway.app/cancel?code={confirmation_code}
+Keep this email safe - you'll need your confirmation code to cancel.
 
 JOIN OUR DISCORD COMMUNITY:
 Connect with other players, get tournament updates, and join the conversation!

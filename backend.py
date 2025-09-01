@@ -728,6 +728,8 @@ def init_database():
                 status VARCHAR(50) DEFAULT 'active'
             )
         ''')
+
+        add_birthday_columns()
         
         # Add name columns if they don't exist
         try:
@@ -4151,28 +4153,100 @@ def send_cancellation_confirmation_email(email, player_name, event_title, event_
         log_error(f"Failed to send cancellation confirmation to {email}: {e}")
         return False
 
+def add_birthday_columns():
+    """Add birthday-specific columns to events table"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Add birthday-specific columns
+        birthday_columns = [
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS birthday_person_name VARCHAR(200);',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(20);',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255);',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS package_type VARCHAR(50);',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS duration_hours INTEGER;',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS deposit_required BOOLEAN DEFAULT FALSE;',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS deposit_amount DECIMAL(10,2);',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS special_notes TEXT;'
+        ]
+        
+        for sql in birthday_columns:
+            try:
+                cursor.execute(sql)
+                print(f"✅ Executed: {sql}")
+            except Exception as e:
+                print(f"ℹ️ Column may already exist: {e}")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"Error adding birthday columns: {e}")
+        return False
+
 @app.route('/api/events', methods=['POST'])
 @csrf_required
 def create_event():
-    """Create a new event with input sanitization"""
+    """Create a new event with birthday party support and input sanitization"""
     try:
         data = request.json or {}
         
-        # Sanitize all text inputs
+        # Sanitize basic inputs
         title = sanitize_text_input(data.get('title', ''), 255)
         event_type = sanitize_text_input(data.get('event_type', ''), 50)
+        
+        # Check if this is a birthday party
+        is_birthday = event_type == 'birthday'
+        
+        # Birthday-specific handling
+        if is_birthday:
+            # Birthday-specific fields
+            birthday_person_name = sanitize_text_input(data.get('birthday_person_name', ''), 200)
+            contact_phone = sanitize_text_input(data.get('contact_phone', ''), 20)
+            contact_email = sanitize_email(data.get('contact_email', ''))
+            package_type = sanitize_text_input(data.get('package_type', 'console'), 50)
+            duration_hours = int(sanitize_numeric_input(data.get('duration_hours', 2), 1, 12))
+            deposit_required = bool(data.get('deposit_required', True))
+            deposit_amount = sanitize_numeric_input(data.get('deposit_amount', 20), 0, 100)
+            special_notes = sanitize_text_input(data.get('special_notes', ''), 1000)
+            
+            # Validation for birthday parties
+            if not birthday_person_name or not contact_phone or not contact_email:
+                return jsonify({"success": False, "error": "Birthday person name, contact phone, and email are required"}), 400
+            
+            # Auto-generate title if not provided
+            if not title:
+                title = f"{birthday_person_name}'s Birthday Party"
+            
+            # Set capacity based on package type
+            if package_type == 'console':
+                capacity = 12
+            else:
+                capacity = int(sanitize_numeric_input(data.get('capacity', 0), 0, 1000))
+        else:
+            # Standard event handling
+            birthday_person_name = contact_phone = contact_email = package_type = special_notes = None
+            duration_hours = None
+            deposit_required = False
+            deposit_amount = 0
+            capacity = int(sanitize_numeric_input(data.get('capacity', 0), 0, 1000))
+        
+        # Common field sanitization
         game_title = sanitize_text_input(data.get('game_title', ''), 255)
         description = sanitize_text_input(data.get('description', ''), 2000)
         prize_pool = sanitize_text_input(data.get('prize_pool', ''), 500)
         requirements = sanitize_text_input(data.get('requirements', ''), 1000)
         status = sanitize_text_input(data.get('status', 'draft'), 50)
         image_url = sanitize_text_input(data.get('image_url', ''), 500)
-        
-        # Sanitize numeric inputs
-        capacity = int(sanitize_numeric_input(data.get('capacity', 0), 0, 1000))
         entry_fee = sanitize_numeric_input(data.get('entry_fee', 0), 0, 1000)
         
-        # Validate required fields
+        # Validation
         if not title or len(title) < 3:
             return jsonify({"success": False, "error": "Title must be at least 3 characters"}), 400
             
@@ -4182,7 +4256,7 @@ def create_event():
         if status not in ['draft', 'published', 'cancelled', 'completed']:
             return jsonify({"success": False, "error": "Invalid status"}), 400
         
-        # Validate and parse dates (keep your existing date parsing)
+        # Date parsing
         try:
             date_time = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
         except Exception as e:
@@ -4195,33 +4269,44 @@ def create_event():
                 end_time = datetime.fromisoformat(data['end_time'].replace('Z', '+00:00'))
             except:
                 pass
-                
-        # Use your existing database query with sanitized inputs
-        query = """
-            INSERT INTO events (
+        
+        # Database insertion
+        if is_birthday:
+            query = """
+                INSERT INTO events (
+                    title, event_type, game_title, date_time, end_time,
+                    capacity, description, entry_fee, prize_pool, status,
+                    image_url, requirements, birthday_person_name, contact_phone,
+                    contact_email, package_type, duration_hours, deposit_required,
+                    deposit_amount, special_notes
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """
+            
+            params = (
+                title, event_type, game_title, date_time, end_time,
+                capacity, description, entry_fee, prize_pool, status,
+                image_url, requirements, birthday_person_name, contact_phone,
+                contact_email, package_type, duration_hours, deposit_required,
+                deposit_amount, special_notes
+            )
+        else:
+            query = """
+                INSERT INTO events (
+                    title, event_type, game_title, date_time, end_time,
+                    capacity, description, entry_fee, prize_pool, status,
+                    image_url, requirements
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """
+            
+            params = (
                 title, event_type, game_title, date_time, end_time,
                 capacity, description, entry_fee, prize_pool, status,
                 image_url, requirements
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """
+            )
         
-        params = (
-            title,          # sanitized
-            event_type,     # sanitized
-            game_title,     # sanitized
-            date_time,
-            end_time,
-            capacity,       # sanitized
-            description,    # sanitized
-            entry_fee,      # sanitized
-            prize_pool,     # sanitized
-            status,         # sanitized
-            image_url,      # sanitized
-            requirements    # sanitized
-        )
-        
-        # Keep your existing database execution logic
+        # Execute query
         result = execute_query_one(query, params)
         
         if result is None:
@@ -4230,7 +4315,11 @@ def create_event():
         
         if isinstance(result, dict) and 'id' in result:
             event_id = result['id']
-            log_activity(f"Successfully created event: {title} (ID: {event_id})", "success")
+            
+            if is_birthday:
+                log_activity(f"Birthday party created: {title} for {birthday_person_name} (ID: {event_id})", "success")
+            else:
+                log_activity(f"Successfully created event: {title} (ID: {event_id})", "success")
             
             return jsonify({
                 "success": True,

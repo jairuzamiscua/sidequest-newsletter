@@ -62,6 +62,10 @@ app.config.update(
 
 
 IS_PROD = os.getenv("IS_PROD", "false").lower() in ("1", "true", "yes")
+if IS_PROD:
+    print("🔒 Production mode: Dangerous operations restricted")
+else:
+    print("⚠️  Development mode: All operations enabled")
 
 def no_store(resp):
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -2193,28 +2197,74 @@ def manual_brevo_sync():
 
 @app.route('/clear-data', methods=['POST'])
 @csrf_required
+@limiter.limit("1 per hour")  # Very restrictive rate limiting
 def clear_all_data():
-    """🔥 ENHANCED: Clear data from both database AND Brevo"""
+    """Secured data clearing with multiple authentication layers"""
     try:
+        # LAYER 1: Production protection
+        if IS_PROD:
+            return jsonify({
+                "success": False, 
+                "error": "Data deletion is disabled in production for security"
+            }), 403
+        
         data = request.json or {}
         confirmation = data.get('confirmation', '')
-        clear_brevo = data.get('clear_brevo', False)  # Optional flag
+        admin_password = data.get('admin_password', '')
+        clear_brevo = data.get('clear_brevo', False)
         
-        if confirmation != 'DELETE':
-            return jsonify({"success": False, "error": "Invalid confirmation"}), 400
+        # LAYER 2: Double confirmation required
+        if confirmation != 'DELETE_ALL_DATA_PERMANENTLY':
+            return jsonify({
+                "success": False, 
+                "error": "Invalid confirmation. Must type 'DELETE_ALL_DATA_PERMANENTLY'"
+            }), 400
         
-        # Get all subscribers before deleting
+        # LAYER 3: Fresh admin password required
+        if admin_password != ADMIN_PASSWORD:
+            log_activity(f"Failed data deletion attempt - wrong password from IP {client_ip()}", "danger")
+            return jsonify({
+                "success": False, 
+                "error": "Admin password required for data deletion"
+            }), 401
+        
+        # LAYER 4: Fresh session requirement (within last 5 minutes)
+        last_activity = session.get('last_activity')
+        if not last_activity:
+            return jsonify({"success": False, "error": "Session expired"}), 401
+            
+        last_time = datetime.fromisoformat(last_activity)
+        if datetime.now() - last_time > timedelta(minutes=5):
+            session.clear()
+            return jsonify({
+                "success": False, 
+                "error": "Fresh authentication required. Please log in again."
+            }), 401
+        
+        # LAYER 5: Additional confirmation for Brevo
+        if clear_brevo and data.get('brevo_confirmation') != 'CLEAR_BREVO_CONTACTS':
+            return jsonify({
+                "success": False,
+                "error": "To clear Brevo contacts, you must also confirm with 'CLEAR_BREVO_CONTACTS'"
+            }), 400
+        
+        # Log the attempt with full details
+        log_activity(
+            f"DATA DELETION INITIATED by admin from IP {client_ip()} - "
+            f"Database: YES, Brevo: {clear_brevo}", 
+            "danger"
+        )
+        
+        # Rest of your deletion code...
         subscribers = get_all_subscribers()
         
-        # Clear database tables
         conn = get_db_connection()
         if conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM event_registrations")  # Clear registrations first (foreign key)
-            cursor.execute("DELETE FROM subscribers")
+            cursor.execute("DELETE FROM event_registrations")
+            cursor.execute("DELETE FROM subscribers") 
             cursor.execute("DELETE FROM activity_log")
-            cursor.execute("DELETE FROM events")  # Clear events if needed
-            count = cursor.rowcount
+            cursor.execute("DELETE FROM events")
             conn.commit()
             cursor.close()
             conn.close()
@@ -2222,12 +2272,8 @@ def clear_all_data():
             return jsonify({"success": False, "error": "Database connection failed"}), 500
         
         brevo_cleared = 0
-        
-        # Optionally clear from Brevo (be very careful with this!)
         if clear_brevo and AUTO_SYNC_TO_BREVO and contacts_api:
-            print("⚠️ CLEARING BREVO CONTACTS - This is irreversible!")
-            log_activity("Starting Brevo contact deletion - IRREVERSIBLE!", "danger")
-            
+            log_activity("BREVO DELETION STARTED - IRREVERSIBLE!", "danger")
             import time
             for subscriber in subscribers:
                 try:
@@ -2235,11 +2281,18 @@ def clear_all_data():
                     result = remove_from_brevo_contact(email)
                     if result.get("success", False):
                         brevo_cleared += 1
-                    time.sleep(0.1)  # Rate limiting
+                    time.sleep(0.2)  # Slower rate limiting for safety
                 except Exception as e:
                     log_error(f"Error clearing {email} from Brevo: {e}")
         
-        log_activity(f"ALL DATA CLEARED - database: {len(subscribers)} subscribers, Brevo: {brevo_cleared} contacts", "danger")
+        # Invalidate session after dangerous action
+        session.clear()
+        
+        log_activity(
+            f"DATA DELETION COMPLETED - database: {len(subscribers)} subscribers, "
+            f"Brevo: {brevo_cleared} contacts - Session invalidated", 
+            "danger"
+        )
         
         return jsonify({
             "success": True,
@@ -2247,7 +2300,8 @@ def clear_all_data():
                       (f" and {brevo_cleared} from Brevo" if clear_brevo else ""),
             "database_cleared": len(subscribers),
             "brevo_cleared": brevo_cleared,
-            "note": "Database cleared. Brevo contacts " + ("also cleared" if clear_brevo else "not affected")
+            "note": "Session invalidated for security. Please log in again.",
+            "warning": "This action cannot be undone"
         })
         
     except Exception as e:

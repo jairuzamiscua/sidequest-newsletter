@@ -1617,6 +1617,84 @@
       }
     }
 
+    /* Birthday Party Form Styles */
+    .birthday-package-option {
+      cursor: pointer;
+      display: block;
+      margin: 0;
+    }
+
+    .birthday-package-option input[type="radio"] {
+      display: none;
+    }
+
+    .package-card {
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      border: 2px solid #444;
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .birthday-package-option input[type="radio"]:checked + .package-card {
+      border-color: #FF69B4;
+      background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+      box-shadow: 0 0 0 3px rgba(255, 105, 180, 0.2);
+    }
+
+    .package-card:hover {
+      border-color: #FF69B4;
+      transform: translateY(-2px);
+    }
+
+    .package-card h4 {
+      color: #FF69B4;
+      margin: 0 0 10px 0;
+      font-size: 1.1rem;
+    }
+
+    .package-card p {
+      margin: 8px 0;
+      color: #cccccc;
+      font-size: 0.9rem;
+    }
+
+    .package-card ul {
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+
+    #birthdayPartyForm .form-input:focus,
+    #birthdayPartyForm .form-select:focus,
+    #birthdayPartyForm .form-textarea:focus {
+      border-color: #FF69B4;
+      box-shadow: 0 0 0 3px rgba(255, 105, 180, 0.2);
+    }
+
+    #birthdayPricingSummary h4 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #birthdayPricingSummary p {
+      margin: 8px 0;
+      color: #cccccc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #birthdayPricingSummary p:last-child {
+      border-top: 1px solid #444;
+      padding-top: 10px;
+      margin-top: 15px;
+      font-weight: 700;
+      color: #FF69B4;
+      font-size: 1.1rem;
+    }
+
  </style>
 </head>
 <body>
@@ -1991,74 +2069,176 @@
                         </div> 
 
                         <form id="createEventForm">
+                            <!-- Event Type Selection (First) -->
                             <div class="form-group">
-                                <label class="form-label">Event Title*</label>
-                                <input type="text" class="form-input" id="eventTitle" placeholder="e.g Valorant Friday Night Tournament">
+                                <label class="form-label">Event Type*</label>
+                                <select class="form-select" id="eventType" required onchange="toggleEventTypeForm()">
+                                    <option value="">Select Type*</option>
+                                    <option value="tournament">Tournament</option>
+                                    <option value="game_night">Game Night</option>
+                                    <option value="special">Special Event</option>
+                                    <option value="birthday">Birthday Party</option>
+                                </select>
                             </div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+
+                            <!-- Birthday Party Specific Form -->
+                            <div id="birthdayPartyForm" style="display: none;">
+                                <div style="background: linear-gradient(135deg, #FF69B4 0%, #FF1493 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                                    <h3 style="margin: 0 0 10px 0; font-size: 1.3rem;">🎂 Birthday Party Booking</h3>
+                                    <p style="margin: 0; font-size: 0.9rem; opacity: 0.9;">Follow our streamlined birthday party workflow</p>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Birthday Person's Name*</label>
+                                        <input type="text" class="form-input" id="birthdayPersonName" placeholder="e.g., Emma">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Contact Phone*</label>
+                                        <input type="tel" class="form-input" id="birthdayContactPhone" placeholder="07xxx xxx xxx">
+                                    </div>
+                                </div>
+
                                 <div class="form-group">
-                                    <label class="form-label">Event Type*</label>
-                                    <select class="form-select" id="eventType" required>
-                                        <option value="">Select Type*</option>
-                                        <option value="tournament">Tournament</option>
-                                        <option value="game_night">Game Night</option>
-                                        <option value="special">Special Event</option>
-                                        <option value="birthday">Birthday</option>
-                                    </select>
-                                </div> 
+                                    <label class="form-label">Contact Email*</label>
+                                    <input type="email" class="form-input" id="birthdayContactEmail" placeholder="parent@example.com">
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Date & Start Time*</label>
+                                        <input type="datetime-local" class="form-input" id="birthdayStartTime" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Duration (hours)*</label>
+                                        <select class="form-select" id="birthdayDuration" onchange="updateBirthdayPricing()">
+                                            <option value="2">2 hours (Standard)</option>
+                                            <option value="3">3 hours (+£56)</option>
+                                            <option value="4">4 hours (+£112)</option>
+                                            <option value="5">5 hours (+£168)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Package Type*</label>
+                                    <div style="display: grid; gap: 15px;">
+                                        <label class="birthday-package-option">
+                                            <input type="radio" name="birthdayPackage" value="console" onclick="updateBirthdayPricing()" checked>
+                                            <div class="package-card">
+                                                <h4>🎮 Console Birthday Package</h4>
+                                                <p><strong>£148 for first 2 hours</strong> then £56/hour</p>
+                                                <p>Includes: 4 PS5s, 2 Racing Sims, 1 Switch, 1 VR, long table</p>
+                                                <p><strong>Up to 12 people gaming simultaneously</strong></p>
+                                                <ul style="margin: 10px 0 0 20px; color: #00ff88;">
+                                                    <li>10% off drinks & food</li>
+                                                    <li>50% off extra Knit Gift Bags</li>
+                                                    <li>Free Birthday Knit Bag (KitKat + Lollipop)</li>
+                                                    <li>Birthday decorations included</li>
+                                                </ul>
+                                            </div>
+                                        </label>
+                                        <label class="birthday-package-option">
+                                            <input type="radio" name="birthdayPackage" value="standard" onclick="updateBirthdayPricing()">
+                                            <div class="package-card">
+                                                <h4>🎯 Standard Birthday (Pay-as-you-play)</h4>
+                                                <p>Standard gaming rates depending on equipment used</p>
+                                                <p>No package - charged per game/hour</p>
+                                                <ul style="margin: 10px 0 0 20px; color: #FFD700;">
+                                                    <li>Free Birthday Knit Bag (KitKat + Lollipop)</li>
+                                                    <li>Birthday decorations included</li>
+                                                    <li>Flexible gaming options</li>
+                                                </ul>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div id="birthdayPricingSummary" style="background: #1a1a1a; border: 2px solid #FF69B4; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                                    <h4 style="color: #FF69B4; margin: 0 0 15px 0;">💰 Pricing Summary</h4>
+                                    <div id="pricingDetails">
+                                        <p><strong>Console Package (2 hours):</strong> £148</p>
+                                        <p><strong>Deposit Required:</strong> £20 (deducted from final bill)</p>
+                                        <p><strong>Total Due:</strong> £148</p>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Special Requests/Notes</label>
+                                    <textarea class="form-textarea" id="birthdayNotes" rows="3" placeholder="Any special requests, dietary requirements, or additional notes..."></textarea>
+                                </div>
+
+                                <div style="background: #2a2a2a; border-left: 4px solid #FFD700; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                    <h4 style="color: #FFD700; margin: 0 0 10px 0;">📋 Birthday Party Checklist</h4>
+                                    <ul style="color: #ccc; margin: 0 0 0 20px; line-height: 1.6;">
+                                        <li>Set up birthday decorations in designated area</li>
+                                        <li>Prepare FREE Knit Bag: 1 KitKat + 1 Lollipop</li>
+                                        <li>Write "Happy Birthday! This Gift Bag is for you~" on loyalty card</li>
+                                        <li>Place bag and card in party area before arrival</li>
+                                        <li>Send deposit payment link via SMS/Email (check spam!)</li>
+                                        <li>Log all gaming fees on temporary accounts + iPad system</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Standard Event Form (Hidden when Birthday selected) -->
+                            <div id="standardEventForm">
+                                <div class="form-group">
+                                    <label class="form-label">Event Title*</label>
+                                    <input type="text" class="form-input" id="eventTitle" placeholder="e.g Valorant Friday Night Tournament">
+                                </div>
                                 
                                 <div class="form-group">
                                     <label class="form-label">Game Title</label>
                                     <input type="text" class="form-input" id="gameTitle" placeholder="e.g Valorant, Fortnite">
-                                </div>  
-                            </div>
-
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                <div class="form-group">
-                                    <label class="form-label">Start Date & Time*</label>
-                                    <input type="datetime-local" class="form-input" id="eventDateTime" required>
                                 </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">End Date & Time*</label>
-                                    <input type="datetime-local" class="form-input" id="eventEndTime">
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Start Date & Time*</label>
+                                        <input type="datetime-local" class="form-input" id="eventDateTime" required>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label class="form-label">End Date & Time*</label>
+                                        <input type="datetime-local" class="form-input" id="eventEndTime">
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-                                <div class="form-group">
-                                    <label class="form-label">Capacity</label>
-                                    <input type="number" class="form-input" id="eventCapacity" min="0" placeholder="0 (Unlimited)">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Capacity</label>
+                                        <input type="number" class="form-input" id="eventCapacity" min="0" placeholder="0 (Unlimited)">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label class="form-label">Entry Fee (£)</label>
+                                        <input type="text" class="form-input" id="eventFee" min="0" step="0.01" placeholder="0.00 (Free)">
+                                    </div>  
+
+                                    <div class="form-group">
+                                        <label class="form-label">Status</label>
+                                        <select class="form-select" id="eventStatus">
+                                            <option value="draft">Upcoming</option>
+                                            <option value="published">Completed</option>
+                                        </select>
+                                    </div>    
                                 </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">Entry Fee (£)</label>
-                                    <input type="text" class="form-input" id="eventFee" min="0" step="0.01" placeholder="0.00 (Free)">
-                                </div>  
 
                                 <div class="form-group">
-                                    <label class="form-label">Status</label>
-                                    <select class="form-select" id="eventStatus">
-                                        <option value="draft">Upcoming</option>
-                                        <option value="published">Completed</option>
-                                    </select>
-                                </div>    
-                            </div>
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-textarea" id="eventDescription" rows="4" placeholder="Event details, rules, what to bring..."></textarea>
+                                </div>
 
-                            <div class="form-group">
-                                <label class="form-label">Description</label>
-                                <textarea class="form-textarea" id="eventDescription" rows="4" placeholder="Event details, rules, what to bring..."></textarea>
-                            </div>
+                                <div class="form-group">
+                                    <label class="form-label">Prize Pool (JSON format)</label>
+                                    <input type="text" class="form-input" id="eventPrizes" placeholder='{"1st": "£100", "2nd": "£50", "3rd": "£25"}'>
+                                </div>
 
-                            <div class="form-group">
-                                <label class="form-label">Prize Pool (JSON format)</label>
-                                <input type="text" class="form-input" id="eventPrizes" placeholder='{"1st": "£100", "2nd": "£50", "3rd": "£25"}'>
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label">Requirements</label>
-                                <input type="text" class="form-input" id="eventRequirements" placeholder="e.g., Bring your own controller">
+                                <div class="form-group">
+                                    <label class="form-label">Requirements</label>
+                                    <input type="text" class="form-input" id="eventRequirements" placeholder="e.g., Bring your own controller">
+                                </div>
                             </div>
 
                             <div style="display: flex; gap: 12px;">
@@ -3089,65 +3269,109 @@
     }
    
 
-    // Fixed handleCreateEvent function
+       // Modified handleCreateEvent to handle birthday parties
     async function handleCreateEvent(e) {
-    e.preventDefault();
-    
-    if (e.target.dataset.submitting === 'true') return;
-    e.target.dataset.submitting = 'true';
+      e.preventDefault();
+      
+      if (e.target.dataset.submitting === 'true') return;
+      e.target.dataset.submitting = 'true';
 
-    // ADD THESE DEBUG LINES:
-    console.log('DEBUG: currentEditingEventId =', currentEditingEventId);
-    const isEditing = currentEditingEventId !== null;
-    console.log('DEBUG: isEditing =', isEditing);
+      const isEditing = currentEditingEventId !== null;
+      const eventType = document.getElementById('eventType').value;
       
       try {
-        const eventData = {
-          title: document.getElementById('eventTitle').value,
-          event_type: document.getElementById('eventType').value,
-          game_title: document.getElementById('gameTitle').value,
-          date_time: document.getElementById('eventDateTime').value,
-          end_time: document.getElementById('eventEndTime').value,
-          capacity: parseInt(document.getElementById('eventCapacity').value) || 0,
-          entry_fee: parseFloat(document.getElementById('eventFee').value) || 0,
-          status: document.getElementById('eventStatus').value,
-          description: document.getElementById('eventDescription').value,
-          prize_pool: document.getElementById('eventPrizes').value,
-          requirements: document.getElementById('eventRequirements').value
-        };
+        let eventData;
+        
+        if (eventType === 'birthday') {
+          // Handle birthday party specific data
+          const birthdayPersonName = document.getElementById('birthdayPersonName').value.trim();
+          const contactPhone = document.getElementById('birthdayContactPhone').value.trim();
+          const contactEmail = document.getElementById('birthdayContactEmail').value.trim();
+          const startTime = document.getElementById('birthdayStartTime').value;
+          const duration = parseInt(document.getElementById('birthdayDuration').value);
+          const packageType = document.querySelector('input[name="birthdayPackage"]:checked')?.value;
+          const notes = document.getElementById('birthdayNotes').value.trim();
+          
+          // Validation for birthday parties
+          if (!birthdayPersonName || !contactPhone || !contactEmail || !startTime) {
+            alert('Please fill in all required birthday party fields');
+            return;
+          }
+          
+          // Calculate end time
+          const startDate = new Date(startTime);
+          const endDate = new Date(startDate.getTime() + (duration * 60 * 60 * 1000));
+          
+          // Generate birthday party title and description
+          const title = `${birthdayPersonName}'s Birthday Party`;
+          const description = generateBirthdayDescription(packageType, duration, notes);
+          
+          eventData = {
+            title: title,
+            event_type: 'birthday',
+            game_title: packageType === 'console' ? 'Console Package' : 'Standard Package',
+            date_time: startTime,
+            end_time: endDate.toISOString().slice(0, 16),
+            capacity: packageType === 'console' ? 12 : 0,
+            entry_fee: calculateBirthdayPrice(packageType, duration),
+            status: 'draft',
+            description: description,
+            requirements: 'Birthday decorations, gift bag preparation',
+            // Birthday-specific fields
+            birthday_person_name: birthdayPersonName,
+            contact_phone: contactPhone,
+            contact_email: contactEmail,
+            package_type: packageType,
+            duration_hours: duration,
+            deposit_required: true,
+            deposit_amount: 20,
+            special_notes: notes
+          };
+        } else {
+          // Standard event data
+          eventData = {
+            title: document.getElementById('eventTitle').value,
+            event_type: eventType,
+            game_title: document.getElementById('gameTitle').value,
+            date_time: document.getElementById('eventDateTime').value,
+            end_time: document.getElementById('eventEndTime').value,
+            capacity: parseInt(document.getElementById('eventCapacity').value) || 0,
+            entry_fee: parseFloat(document.getElementById('eventFee').value) || 0,
+            status: document.getElementById('eventStatus').value,
+            description: document.getElementById('eventDescription').value,
+            prize_pool: document.getElementById('eventPrizes').value,
+            requirements: document.getElementById('eventRequirements').value
+          };
+        }
 
         let response;
-
-
+        
         if (isEditing) {
-              console.log('DEBUG: Making PUT request to update event:', currentEditingEventId);
-              response = await securePut(`${API_BASE}/api/events/${currentEditingEventId}`, eventData);
-            } else {
-              console.log('DEBUG: Making POST request to create new event');
-              response = await securePost(`${API_BASE}/api/events`, eventData);
-            }
-
-      const data = await response.json();
-
-      if (data.success) {
-        const action = isEditing ? 'updated' : 'created'; // Fix: Use isEditing variable consistently
-        showSuccess(`Event ${action} successfully!`);
-        
-        // Reset edit state and form
-        currentEditingEventId = null;
-        resetCreateFormUI();
-        resetEventForm();
-        switchEventView('list');
-        
-        // If published, offer to send announcement (only for new events)
-        if (!isEditing && eventData.status === 'published') { // Fix: Use isEditing here too
-          if (confirm('Would you like to send an announcement email to all subscribers?')) {
-            sendEventAnnouncement(data.event_id);
-          }
+          response = await securePut(`${API_BASE}/api/events/${currentEditingEventId}`, eventData);
+        } else {
+          response = await securePost(`${API_BASE}/api/events`, eventData);
         }
-      } else {
-        alert('Error: ' + (data.error || `Failed to ${isEditing ? 'update' : 'create'} event`)); // Fix: Use isEditing
-      }
+
+        const data = await response.json();
+
+        if (data.success) {
+          const action = isEditing ? 'updated' : 'created';
+          
+          if (eventType === 'birthday') {
+            showBirthdaySuccessMessage(eventData, data.event_id);
+          } else {
+            showSuccess(`Event ${action} successfully!`);
+          }
+          
+          // Reset form and state
+          currentEditingEventId = null;
+          resetCreateFormUI();
+          resetEventForm();
+          switchEventView('list');
+          
+        } else {
+          alert('Error: ' + (data.error || `Failed to ${isEditing ? 'update' : 'create'} event`));
+        }
       } catch (error) {
         const isEditing = currentEditingEventId !== null;
         console.error(`Error ${isEditing ? 'updating' : 'creating'} event:`, error);
@@ -5882,6 +6106,92 @@
         chartCtx.textAlign = 'center';
         chartCtx.fillText('Chart error - check console', ctx.width/2, ctx.height/2);
       }
+    }
+
+    // Birthday Party Form Functions
+    function toggleEventTypeForm() {
+      const eventType = document.getElementById('eventType').value;
+      const birthdayForm = document.getElementById('birthdayPartyForm');
+      const standardForm = document.getElementById('standardEventForm');
+      
+      if (eventType === 'birthday') {
+        birthdayForm.style.display = 'block';
+        standardForm.style.display = 'none';
+        
+        // Set default time for birthday parties (usually afternoons)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 7); // Default to next week
+        tomorrow.setHours(14, 0, 0, 0); // 2 PM default
+        const birthdayStartTime = document.getElementById('birthdayStartTime');
+        if (birthdayStartTime) {
+          birthdayStartTime.value = tomorrow.toISOString().slice(0, 16);
+        }
+        
+        updateBirthdayPricing();
+      } else {
+        birthdayForm.style.display = 'none';
+        standardForm.style.display = 'block';
+        
+        // Set default time for other events (evenings)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(19, 0, 0, 0); // 7 PM default
+        const dateInput = document.getElementById('eventDateTime');
+        if (dateInput) {
+          dateInput.value = tomorrow.toISOString().slice(0, 16);
+        }
+      }
+    }
+
+    function updateBirthdayPricing() {
+      const duration = parseInt(document.getElementById('birthdayDuration')?.value || '2');
+      const packageType = document.querySelector('input[name="birthdayPackage"]:checked')?.value || 'console';
+      const pricingDetails = document.getElementById('pricingDetails');
+      
+      if (!pricingDetails) return;
+      
+      let html = '';
+      
+      if (packageType === 'console') {
+        const basePrice = 148; // First 2 hours
+        const additionalHours = Math.max(0, duration - 2);
+        const additionalCost = additionalHours * 56;
+        const totalCost = basePrice + additionalCost;
+        const deposit = 20;
+        
+        html = `
+          <p><strong>Console Package (${duration} hours):</strong> <span>£${totalCost}</span></p>
+          <p style="color: #aaa; font-size: 0.85rem; margin-left: 20px;">
+            • Base (2 hours): £148<br>
+            ${additionalHours > 0 ? `• Additional ${additionalHours} hour${additionalHours > 1 ? 's' : ''}: £${additionalCost}<br>` : ''}
+            • 10% off food & drinks<br>
+            • 50% off extra Knit Bags<br>
+            • Free birthday decorations & gift bag
+          </p>
+          <p><strong>Deposit Required:</strong> <span>£${deposit}</span></p>
+          <p style="border-top: 1px solid #444; padding-top: 10px; margin-top: 15px; font-weight: 700; color: #FF69B4; font-size: 1.1rem;">
+            <strong>Total Due:</strong> <span>£${totalCost}</span>
+          </p>
+          <p style="font-size: 0.8rem; color: #aaa; font-style: italic;">
+            *Deposit will be deducted from final bill
+          </p>
+        `;
+      } else {
+        html = `
+          <p><strong>Standard Birthday Rate:</strong> <span>Pay as you play</span></p>
+          <p style="color: #aaa; font-size: 0.85rem; margin-left: 20px;">
+            • Charged per game/equipment used<br>
+            • Free birthday decorations & gift bag<br>
+            • Flexible gaming options
+          </p>
+          <p><strong>Deposit Required:</strong> <span>£20</span></p>
+          <p style="font-size: 0.8rem; color: #aaa; font-style: italic;">
+            *Final cost depends on games played. Deposit deducted from bill.
+          </p>
+        `;
+      }
+      
+      pricingDetails.innerHTML = html;
     }
 
     // Update event types performance

@@ -4325,7 +4325,6 @@ def register_for_event(event_id):
 # Replace your get_event_attendees function with this FIXED version:
 
 @app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
-@app.route('/api/events/<int:event_id>/attendees', methods=['GET'])
 def get_event_attendees(event_id):
     """Get list of attendees for an event - now includes cancellation status"""
     try:
@@ -4398,7 +4397,7 @@ def get_event_attendees(event_id):
     except Exception as e:
         log_error(f"Error getting event attendees: {e}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
-
+        
 # 2. ALSO ADD THIS DEBUG ENDPOINT to test if registrations exist:
 
 @app.route('/api/events/<int:event_id>/debug', methods=['GET'])
@@ -5078,7 +5077,28 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
                         </td>
                     </tr>
                     
-                   <!-- Cancellation Information -->
+                    <!-- Confirmation Code -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #FFD700; border-radius: 8px;">
+                                <tr>
+                                    <td align="center">
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #1a1a1a; font-weight: bold;">
+                                            Your Confirmation Code
+                                        </h3>
+                                        <div style="font-family: monospace; font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #1a1a1a; margin: 10px 0;">
+                                            {confirmation_code}
+                                        </div>
+                                        <p style="margin: 10px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a;">
+                                            Show this when you arrive
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Cancellation Information -->
                     <tr>
                         <td style="padding: 20px 30px;">
                             <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px;">

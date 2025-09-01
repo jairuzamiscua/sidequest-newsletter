@@ -4514,24 +4514,16 @@ END:VCALENDAR"""
         log_error(f"Error generating calendar invite: {e}")
         return None
 
-def send_simple_tournament_confirmation(email, event_data, confirmation_code, player_name):
-    """Send simple tournament confirmation with calendar invite and Discord link"""
+def send_welcome_email(email, player_name):
+    """Send welcome email for new SideQuest community members"""
     if not api_instance:
         log_error("Brevo API not initialized")
         return False
         
     try:
-        # Generate calendar invite
-        calendar_invite = generate_calendar_invite(event_data, confirmation_code)
+        subject = "Welcome to SideQuest - Your Gaming Community Account is Ready"
         
-        # Format event details
-        event_start = datetime.fromisoformat(event_data['date_time']) if isinstance(event_data['date_time'], str) else event_data['date_time']
-        event_date = event_start.strftime('%A, %B %d, %Y')
-        event_time = event_start.strftime('%I:%M %p')
-        
-        subject = f"Tournament Registration Confirmed - {event_data['title']}"
-        
-        # SIMPLIFIED HTML template that works in both light and dark modes
+        # Welcome email HTML template with explicit white text for dark mode compatibility
         html_content = f"""
         <!DOCTYPE html>
         <html>
@@ -4539,86 +4531,91 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0; background-color: #FFD700;">
             
-            <!-- Header -->
-            <div style="text-align: center; margin-bottom: 30px;">
-                <div style="width: 80px; height: 80px; background: #FFD700; border-radius: 15px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 900; font-size: 24px;">SQ</div>
-                <h1 style="color: #FFD700; margin: 0; font-size: 28px;">Tournament Registration Confirmed</h1>
+            <!-- Header Section -->
+            <div style="background-color: #FFD700; padding: 30px 20px; text-align: center;">
+                <div style="background-color: #333; color: #FFD700 !important; padding: 20px 40px; border-radius: 15px; display: inline-block; margin-bottom: 20px;">
+                    <h1 style="margin: 0; font-size: 28px; font-weight: 900; color: #FFD700 !important;">WELCOME TO SIDEQUEST</h1>
+                </div>
+                <h2 style="color: #333 !important; margin: 0; font-size: 22px; font-weight: 600;">Your Gaming Community Account is Ready</h2>
             </div>
 
             <!-- Main Content -->
-            <div style="border: 3px solid #FFD700; border-radius: 15px; padding: 30px; margin-bottom: 20px;">
+            <div style="background-color: #333; color: #ffffff !important; padding: 40px 30px;">
                 
-                <p style="font-size: 18px; margin-bottom: 20px; font-weight: 600;">
-                    Hey {player_name}!
-                </p>
+                <h2 style="color: #FFD700 !important; margin-top: 0; margin-bottom: 20px; font-size: 24px; font-weight: 700;">
+                    Hi {player_name}!
+                </h2>
                 
-                <p style="margin-bottom: 25px; font-size: 16px;">
-                    You're all set for the tournament. Here are your details:
+                <p style="margin-bottom: 25px; font-size: 16px; color: #ffffff !important;">
+                    Thank you for joining! You've successfully signed up and we're excited to have you in store.
                 </p>
 
-                <!-- Event Details -->
-                <div style="border: 2px solid #ddd; border-left: 6px solid #FFD700; padding: 20px; border-radius: 8px; margin: 25px 0; background: #f9f9f9;">
-                    <h2 style="color: #333; margin-top: 0; margin-bottom: 15px; font-size: 20px;">{event_data['title']}</h2>
-                    <p style="margin: 8px 0; font-size: 15px;"><strong>Game:</strong> {event_data.get('game_title', 'TBD')}</p>
-                    <p style="margin: 8px 0; font-size: 15px;"><strong>Date:</strong> {event_date}</p>
-                    <p style="margin: 8px 0; font-size: 15px;"><strong>Time:</strong> {event_time}</p>
-                    <p style="margin: 8px 0; font-size: 15px;"><strong>Location:</strong> SideQuest Gaming Cafe, Canterbury</p>
-                    {f'<p style="margin: 8px 0; font-size: 15px;"><strong>Entry Fee:</strong> £{event_data["entry_fee"]}</p>' if event_data.get('entry_fee', 0) > 0 else '<p style="margin: 8px 0; font-size: 15px;"><strong>Entry:</strong> FREE</p>'}
-                </div>
-
-                <!-- Confirmation Code -->
-                <div style="background: #FFD700; color: #000; padding: 25px; border-radius: 10px; text-align: center; margin: 25px 0;">
-                    <h3 style="margin: 0 0 15px 0; color: #000; font-size: 18px;">Your Confirmation Code</h3>
-                    <div style="font-size: 32px; font-weight: 900; letter-spacing: 4px; font-family: 'Courier New', monospace; color: #000; padding: 10px; border: 2px dashed #000; border-radius: 5px; background: rgba(255,255,255,0.3);">{confirmation_code}</div>
-                    <p style="margin: 15px 0 0 0; font-size: 14px; color: #000; font-weight: 600;">Show this when you arrive</p>
+                <!-- Gaming Hub Features -->
+                <div style="border: 3px solid #FFD700; border-radius: 15px; padding: 30px; margin: 25px 0; background-color: #444;">
+                    <h3 style="color: #FFD700 !important; margin-top: 0; margin-bottom: 20px; font-size: 20px; font-weight: 700;">Your Gaming Hub Features:</h3>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">35 High-Performance PCs</strong>
+                        <span style="color: #ffffff !important;"> - Latest games and competitive setups</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">Console Area with 4 PS5s</strong>
+                        <span style="color: #ffffff !important;"> - Latest PlayStation exclusives</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">2 Professional Driving Rigs</strong>
+                        <span style="color: #ffffff !important;"> - Racing simulation experience</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">VR Gaming Station</strong>
+                        <span style="color: #ffffff !important;"> - Immersive virtual reality</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">Nintendo Switch Setup</strong>
+                        <span style="color: #ffffff !important;"> - Party games and exclusives</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #666;">
+                        <strong style="color: #FFD700 !important;">Premium Bubble Tea Bar</strong>
+                        <span style="color: #ffffff !important;"> - Fuel your gaming sessions</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 0;">
+                        <strong style="color: #FFD700 !important;">Study & Chill Zone</strong>
+                        <span style="color: #ffffff !important;"> - Perfect for work or relaxation</span>
+                    </div>
                 </div>
 
             </div>
 
             <!-- Discord Community Section -->
-            <div style="background: #5865F2; color: white; padding: 25px; border-radius: 12px; text-align: center; margin: 25px 0;">
-                <h3 style="margin: 0 0 15px 0; color: white; font-size: 20px; font-weight: 700;">
+            <div style="background-color: #5865F2; color: #ffffff !important; padding: 30px; text-align: center;">
+                <h3 style="margin: 0 0 15px 0; color: #ffffff !important; font-size: 22px; font-weight: 700;">
                     🎮 Join Our Discord Community
                 </h3>
-                <p style="margin: 0 0 20px 0; font-size: 16px; color: white;">
-                    Connect with other players, get tournament updates, and join the conversation!
+                <p style="margin: 0 0 25px 0; font-size: 16px; color: #ffffff !important;">
+                    Connect with other players, get event updates, and join the conversation!
                 </p>
                 <a href="https://discord.gg/CuwQM7Zwuk" 
-                   style="display: inline-block; background: white; color: #5865F2; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px; border: 2px solid white;">
+                   style="display: inline-block; background-color: #ffffff; color: #5865F2 !important; padding: 15px 30px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px; border: 2px solid #ffffff;">
                     Join Discord Server
                 </a>
             </div>
 
-            <!-- What to Bring -->
-            <div style="border: 2px solid #28a745; border-radius: 10px; padding: 20px; margin: 25px 0;">
-                <h3 style="color: #28a745; margin-top: 0; font-size: 18px; font-weight: 700;">What to Bring:</h3>
-                <ul style="margin: 15px 0; padding-left: 25px; font-size: 15px;">
-                    <li style="margin-bottom: 8px;">Your confirmation code</li>
-                    <li style="margin-bottom: 8px;">Positive attitude and competitive spirit</li>
-                    {f'<li style="margin-bottom: 8px;">£{event_data["entry_fee"]} entry fee</li>' if event_data.get('entry_fee', 0) > 0 else ''}
-                </ul>
-            </div>
-
-            <!-- Important Notes -->
-            <div style="border: 2px solid #ff6b35; border-left: 6px solid #ff6b35; border-radius: 8px; padding: 20px; margin: 25px 0; background: #fff5f2;">
-                <h3 style="color: #ff6b35; margin-top: 0; font-size: 18px; font-weight: 700;">Important Notes:</h3>
-                <ul style="margin: 15px 0; padding-left: 25px; font-size: 15px;">
-                    <li style="margin-bottom: 8px;">Join our Discord for real-time updates and communication during the tournament</li>
-                    <li style="margin-bottom: 8px;">Arrive 15 minutes early for check-in and setup</li>
-                    <li style="margin-bottom: 8px;">Tournament bracket and rules will be posted in Discord</li>
-                </ul>
-            </div>
-
             <!-- Footer -->
-            <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #ddd;">
-                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Questions? Reply to this email or visit us in Canterbury.</p>
+            <div style="background-color: #333; color: #ffffff !important; text-align: center; padding: 30px;">
+                <p style="color: #FFD700 !important; font-size: 16px; margin-bottom: 15px; font-weight: 600;">Questions? Reply to this email or visit us in Canterbury.</p>
                 <div style="margin: 20px 0;">
-                    <a href="https://discord.gg/CuwQM7Zwuk" style="color: #5865F2; text-decoration: none; font-weight: 600; font-size: 16px;">🎮 Join Our Discord</a>
+                    <a href="https://discord.gg/CuwQM7Zwuk" style="color: #5865F2 !important; text-decoration: none; font-weight: 600; font-size: 16px;">🎮 Join Our Discord</a>
                 </div>
-                <div style="color: #888; font-size: 13px; line-height: 1.4;">
-                    <strong>SideQuest Gaming Cafe</strong><br>
+                <div style="color: #ffffff !important; font-size: 14px; line-height: 1.6;">
+                    <strong style="color: #FFD700 !important;">SideQuest Gaming Cafe</strong><br>
                     Canterbury, UK<br>
                     marketing@sidequestcanterbury.com
                 </div>
@@ -4628,32 +4625,20 @@ def send_simple_tournament_confirmation(email, event_data, confirmation_code, pl
         </html>
         """
         
-        # Rest of the function remains the same...
-        # Prepare email with attachment
-        attachments = []
-        if calendar_invite:
-            import base64
-            calendar_b64 = base64.b64encode(calendar_invite.encode('utf-8')).decode('utf-8')
-            attachments = [{
-                "name": f"{event_data['title'].replace(' ', '_')}_tournament.ics",
-                "content": calendar_b64
-            }]
-        
         # Send email
         send_email = sib_api_v3_sdk.SendSmtpEmail(
             sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
             to=[{"email": email, "name": player_name}],
             subject=subject,
-            html_content=html_content,
-            attachment=attachments if attachments else None
+            html_content=html_content
         )
         
         response = api_instance.send_transac_email(send_email)
-        log_activity(f"Tournament confirmation sent to {email} for {event_data['title']}", "success")
+        log_activity(f"Welcome email sent to {email}", "success")
         return True
         
     except Exception as e:
-        log_error(f"Failed to send tournament confirmation to {email}: {e}")
+        log_error(f"Failed to send welcome email to {email}: {e}")
         return False
 
 @app.route('/api/events/<int:event_id>/debug-registration', methods=['POST'])

@@ -1426,6 +1426,7 @@ def get_subscribers():
         error_msg = f"Error getting subscribers: {str(e)}"
         print(f"Subscribers error: {traceback.format_exc()}")
         return jsonify({"success": False, "error": error_msg}), 500
+
 def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=None):
     """Send automated welcome email with high deliverability (avoids promotions tab)"""
     if not api_instance:
@@ -1453,323 +1454,313 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         else:
             subject = "Welcome to SideQuest Canterbury - Account Details & Member Benefits"
         
-        # Create HTML email content with reduced promotional language
+        # Create HTML email content - mobile-optimized with universal CSS
         html_content = f"""
-<!DOCTYPE html>
-<html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Welcome to SideQuest Canterbury</title>
-    <style>
-        body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            color: #ffffff;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-        }}
-        
-        .container {{ 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background: #1a1a1a;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }}
-        
-        .header {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 30px 25px;
-            text-align: center;
-            border: 2px solid #FFD700;
-        }}
-        
-        .logo-placeholder {{
-            width: 350px;
-            height: 100px;
-            background: #1a1a1a;
-            border-radius: 12px;
-            margin: 0 auto 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #FFD700;
-            font-size: 2rem;
-            font-weight: 900;
-            letter-spacing: 2px;
-        }}
-        
-        .header p {{
-            font-size: 1.2rem;
-            margin: 0;
-            font-weight: 600;
-        }}
-        
-        .content {{
-            padding: 30px 25px;
-            background: #2d2d2d;
-        }}
-        
-        .welcome-text {{
-            font-size: 1.1rem;
-            margin-bottom: 25px;
-            color: #ffffff;
-        }}
-        
-        .facilities {{
-            background: linear-gradient(135deg, #333 0%, #444 100%);
-            padding: 25px;
-            border-radius: 12px;
-            margin: 25px 0;
-            border: 1px solid #555;
-        }}
-        
-        .facilities h2 {{
-            color: #FFD700;
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-            font-weight: 700;
-        }}
-        
-        .facility-list {{
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }}
-        
-        .facility-list li {{
-            padding: 8px 0;
-            border-bottom: 1px solid #555;
-            font-size: 1rem;
-        }}
-        
-        .facility-list li:last-child {{
-            border-bottom: none;
-        }}
-        
-        .member-benefit-box {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-            color: #1a1a1a;
-            padding: 25px;
-            border-radius: 12px;
-            text-align: center;
-            margin: 30px 0;
-            border: 2px solid #FFD700;
-            box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3);
-        }}
-        
-        .member-benefit-box h2 {{
-            font-size: 1.6rem;
-            margin-bottom: 15px;
-            font-weight: 700;
-        }}
-        
-        .benefit-text {{
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }}
-        
-        .expiry {{
-            font-size: 1rem;
-            font-weight: 700;
-            margin-top: 15px;
-        }}
-        
-        .terms-info {{
-            background: #333;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            font-size: 0.85rem;
-            color: #ccc;
-        }}
-        
-        .footer {{
-            padding: 25px;
-            text-align: center;
-            background: #1a1a1a;
-            color: #888;
-            font-size: 0.9rem;
-        }}
-        
-        .footer a {{
-            color: #FFD700;
-            text-decoration: none;
-        }}
-        
-        .location-button {{
-            background: #1a1a1a;
-            color: #FFD700;
-            padding: 12px 25px;
-            border-radius: 8px;
-            display: inline-block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            border: 2px solid #1a1a1a;
-            text-decoration: none;
-            margin-top: 10px;
-        }}
-        
-        .account-button {{
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 12px;
-            display: inline-block;
-            font-size: 1.2rem;
-            font-weight: 700;
-            box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
-            border: 2px solid #4CAF50;
-            text-decoration: none;
-        }}
-    </style>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo-placeholder">SIDEQUEST</div>
-            <p>Your Gaming Community Account is Ready</p>
-        </div>
-        
-        <div class="content">
-            <div class="welcome-text">
-                <h2 style="color: #FFD700; margin-bottom: 15px;">{greeting}</h2>
-                <p>Thank you for joining the SideQuest Canterbury community. Your account has been created successfully and you now have access to member benefits and event notifications.</p>
-            </div>
-            
-            <div class="facilities">
-                <h2>Your Gaming Hub Features:</h2>
-                <ul class="facility-list">
-                    <li><strong>35 High-Performance PCs</strong> - Latest games and competitive setups</li>
-                    <li><strong>Console Area with 4 PS5s</strong> - Latest PlayStation exclusives</li>
-                    <li><strong>2 Professional Driving Rigs</strong> - Racing simulation experience</li>
-                    <li><strong>VR Gaming Station</strong> - Immersive virtual reality</li>
-                    <li><strong>Nintendo Switch Setup</strong> - Party games and exclusives</li>
-                    <li><strong>Premium Bubble Tea Bar</strong> - Fuel your gaming sessions</li>
-                    <li><strong>Study & Chill Zone</strong> - Perfect for work or relaxation</li>
-                </ul>
-            </div>
-            
-            <div style="background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%); padding: 30px 25px; border-radius: 15px; margin: 30px 0; border: 2px solid #FFD700;">
-                <h2 style="color: #FFD700; font-size: 1.8rem; margin-bottom: 20px; font-weight: 700; text-align: center;">
-                    Community Features
-                </h2>
-                <p style="text-align: center; font-size: 1.1rem; color: #ccc; margin-bottom: 25px;">
-                    As a community member, you'll receive notifications about:
-                </p>
-                
-                <div style="display: grid; gap: 15px;">
-                    <div style="background: rgba(255, 215, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFD700;">
-                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFD700;">Tournament Events</strong></div>
-                        <div style="color: #ddd; font-size: 1rem;">Competitive gaming across FPS, FIFA, and board games</div>
-                    </div>
+<body style="margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f4f4f4;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 20px 10px;">
+                <!-- Main Container -->
+                <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                     
-                    <div style="background: rgba(255, 165, 0, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #FFA500;">
-                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #FFA500;">Community Nights</strong></div>
-                        <div style="color: #ddd; font-size: 1rem;">Social gaming sessions and special events</div>
-                    </div>
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 40px 30px 30px 30px; background-color: #1a1a1a; border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 36px; font-weight: bold; color: #FFD700; text-align: center; letter-spacing: 2px;">
+                                WELCOME TO SIDEQUEST
+                            </h1>
+                        </td>
+                    </tr>
                     
-                    <div style="background: rgba(76, 175, 80, 0.1); padding: 15px 20px; border-radius: 10px; border-left: 4px solid #4CAF50;">
-                        <div style="font-size: 1.2rem; margin-bottom: 5px;"><strong style="color: #4CAF50;">Member Events</strong></div>
-                        <div style="color: #ddd; font-size: 1rem;">Exclusive member-only gatherings and previews</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="member-benefit-box">
-                <h2>Welcome Member Benefit</h2>
-                <div class="benefit-text">
-                    Present this email on your first visit to receive:<br>
-                    <strong style="font-size: 1.3rem;">30% member discount on any bubble tea</strong>
-                </div>
-                <div class="expiry">Valid until: {expiry_date}</div>
-                
-                <div style="margin-top: 20px;">
-                    <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" class="location-button">
-                        View Location & Hours
-                    </a>
-                </div>
-            </div>
-            
-            <div class="terms-info">
-                <strong>Member Benefit Terms:</strong><br>
-                • Valid for first-time members only<br>
-                • Present this email on your mobile device in-store<br>
-                • One use per member account<br>
-                • Valid for 7 days from account creation
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="https://sidequesthub.com/home" style="text-decoration: none;">
-                    <div class="account-button">
-                        Complete Your Account Setup<br>
-                        <span style="font-size: 1rem; font-weight: 600;">Unlock 30 Minutes Free Gaming Time</span>
-                    </div>
-                </a>
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px;">
-                <p style="font-size: 1.1rem; color: #FFD700;">Welcome to the community. See you at SideQuest!</p>
-            </div>
-        </div>
-        
-        <div class="footer">
-            <div style="margin-bottom: 15px;">
-                <strong style="color: #FFD700;">SideQuest Canterbury Gaming Lounge</strong><br>
-                C10, The Riverside, 1 Sturry Rd<br>
-                Canterbury CT1 1BU<br>
-                01227 915058<br>
-                <a href="mailto:marketing@sidequestcanterbury.com" style="color: #FFD700;">marketing@sidequestcanterbury.com</a>
-            </div>
-            
-            <div style="margin-bottom: 15px; font-size: 0.9rem;">
-                <strong style="color: #FFD700;">Opening Hours:</strong><br>
-                <span style="color: #ccc;">
-                Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed<br>
-                Friday: 2-9pm • Saturday: 12-9pm
-                </span>
-            </div>
-            
-            <p style="margin-top: 15px; font-size: 0.8rem;">
-                You received this account notification because you subscribed to community updates. 
-                <a href="{unsubscribe_url}" style="color: #FFD700;">Manage preferences</a>
-            </p>
-        </div>
-    </div>
+                    <!-- Greeting -->
+                    <tr>
+                        <td style="padding: 30px 30px 20px 30px;">
+                            <h2 style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 24px; color: #333333; font-weight: normal;">
+                                {greeting}
+                            </h2>
+                            <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 24px; color: #666666;">
+                                Thanks for joining the SideQuest Canterbury community! We're excited to welcome you to our gaming hub and can't wait to see you in store.
+                            </p>
+                            <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 24px; color: #666666;">
+                                Your account has been successfully created and you now have access to member benefits and event notifications.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- What We Offer -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <h3 style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 20px; color: #1a1a1a; font-weight: bold;">
+                                Here's What We Have To Offer:
+                            </h3>
+                            
+                            <!-- Facilities List -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                            <strong>35 High-Performance PCs</strong> - Latest games and competitive setups
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                            <strong>Console Area with 4 PS5s</strong> - Latest PlayStation exclusives
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                            <strong>2 Professional Driving Rigs</strong> - Racing simulation experience
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                            <strong>VR Gaming Station</strong> - Immersive virtual reality
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                            <strong>Nintendo Switch Setup</strong> - Party games and exclusives
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                            <strong>Premium Bubble Tea Bar</strong> - Fuel your gaming sessions
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0;">
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                            <strong>Study & Chill Zone</strong> - Perfect for work or relaxation
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Community Features -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #1a1a1a; font-weight: bold; text-align: center;">
+                                            Community Events You'll Be Notified About:
+                                        </h3>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 10px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong style="color: #FFD700;">Tournament Events</strong><br/>
+                                                        <span style="color: #666666;">Competitive gaming across FPS, FIFA, and board games</span>
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 10px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong style="color: #FFA500;">Community Nights</strong><br/>
+                                                        <span style="color: #666666;">Social gaming sessions and special events</span>
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 10px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong style="color: #4CAF50;">Member Events</strong><br/>
+                                                        <span style="color: #666666;">Exclusive member-only gatherings and previews</span>
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Member Benefit -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #FFD700; border-radius: 8px;">
+                                <tr>
+                                    <td align="center">
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 22px; color: #1a1a1a; font-weight: bold;">
+                                            Welcome Member Benefit
+                                        </h3>
+                                        <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; font-weight: bold;">
+                                            Present this email on your first visit to receive:
+                                        </p>
+                                        <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 20px; color: #1a1a1a; font-weight: bold;">
+                                            30% member discount on any bubble tea
+                                        </p>
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a; font-weight: bold;">
+                                            Valid until: {expiry_date}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- CTA Button -->
+                    <tr>
+                        <td align="center" style="padding: 30px 30px 20px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" style="background-color: #4CAF50; border-radius: 8px;">
+                                        <a href="https://sidequesthub.com/home" style="display: inline-block; padding: 20px 30px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #ffffff; text-decoration: none; font-weight: bold;">
+                                            Complete Your Account Setup<br/>
+                                            <span style="font-size: 14px;">Unlock 30 Minutes Free Gaming Time</span>
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Location Button -->
+                    <tr>
+                        <td align="center" style="padding: 0 30px 30px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" style="background-color: #1a1a1a; border-radius: 8px;">
+                                        <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" style="display: inline-block; padding: 15px 25px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; text-decoration: none; font-weight: bold;">
+                                            View Location & Hours
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Terms -->
+                    <tr>
+                        <td style="padding: 0 30px 30px 30px;">
+                            <table border="0" cellpadding="15" cellspacing="0" width="100%" style="background-color: #f0f0f0; border-radius: 8px;">
+                                <tr>
+                                    <td>
+                                        <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #666666; font-weight: bold;">
+                                            Member Benefit Terms:
+                                        </p>
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #666666; line-height: 18px;">
+                                            • Valid for first-time members only<br/>
+                                            • Present this email on your mobile device in-store<br/>
+                                            • One use per member account<br/>
+                                            • Valid for 7 days from account creation
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 30px 40px 30px; background-color: #f8f8f8; border-radius: 0 0 8px 8px;">
+                            <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; text-align: center; font-weight: bold;">
+                                Welcome to the community. See you at SideQuest!
+                            </p>
+                            
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #666666; line-height: 20px;">
+                                            <strong>SideQuest Canterbury Gaming Lounge</strong><br/>
+                                            C10, The Riverside, 1 Sturry Rd<br/>
+                                            Canterbury CT1 1BU<br/>
+                                            01227 915058<br/>
+                                            <a href="mailto:marketing@sidequestcanterbury.com" style="color: #4CAF50; text-decoration: none;">marketing@sidequestcanterbury.com</a>
+                                        </p>
+                                        
+                                        <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #666666; line-height: 18px;">
+                                            <strong>Opening Hours:</strong><br/>
+                                            Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed<br/>
+                                            Friday: 2-9pm • Saturday: 12-9pm
+                                        </p>
+                                        
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #999999;">
+                                            You received this account notification because you subscribed to community updates. 
+                                            <a href="{unsubscribe_url}" style="color: #4CAF50; text-decoration: none;">Manage preferences</a>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
         """
         
-        # Plain text version (also less promotional)
+        # Plain text version
         text_content = f"""
+WELCOME TO SIDEQUEST
+
 {greeting}
 
-Welcome to SideQuest Canterbury Gaming Community!
+Thanks for joining the SideQuest Canterbury community! We're excited to welcome you to our gaming hub and can't wait to see you in store.
 
-Your account has been successfully created. As a member, you'll receive notifications about tournaments, community nights, and special events.
+Your account has been successfully created and you now have access to member benefits and event notifications.
+
+HERE'S WHAT WE HAVE TO OFFER:
 
 GAMING FACILITIES:
-- 35 High-Performance PCs with latest games
-- Console Area with 4 PS5s  
-- 2 Professional Driving Rigs
-- VR Gaming Station
-- Nintendo Switch Setup
-- Premium Bubble Tea Bar
-- Study & Chill Zone
+- 35 High-Performance PCs with latest games and competitive setups
+- Console Area with 4 PS5s - Latest PlayStation exclusives  
+- 2 Professional Driving Rigs - Racing simulation experience
+- VR Gaming Station - Immersive virtual reality
+- Nintendo Switch Setup - Party games and exclusives
+- Premium Bubble Tea Bar - Fuel your gaming sessions
+- Study & Chill Zone - Perfect for work or relaxation
 
-MEMBER BENEFIT:
+COMMUNITY EVENTS YOU'LL BE NOTIFIED ABOUT:
+- Tournament Events: Competitive gaming across FPS, FIFA, and board games
+- Community Nights: Social gaming sessions and special events
+- Member Events: Exclusive member-only gatherings and previews
+
+WELCOME MEMBER BENEFIT:
 Present this email on your first visit to receive a 30% member discount on any bubble tea.
 Valid until: {expiry_date}
 
 COMPLETE YOUR ACCOUNT:
 Visit https://sidequesthub.com/home to unlock 30 minutes of free gaming time.
 
-TERMS: Valid for first-time members only. One use per account.
+MEMBER BENEFIT TERMS: 
+Valid for first-time members only. Present this email on your mobile device in-store. One use per account. Valid for 7 days from account creation.
+
+Welcome to the community. See you at SideQuest!
 
 ---
 SideQuest Canterbury Gaming Lounge

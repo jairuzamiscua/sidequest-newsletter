@@ -4641,7 +4641,7 @@
     // Check backend health
     async function checkHealth() {
       try {
-        const response = await fetch(`${API_BASE}/health`);
+        const response = await fetch(`${API_BASE}/healthz`);
         
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);

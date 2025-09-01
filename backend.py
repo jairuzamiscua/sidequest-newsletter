@@ -60,6 +60,33 @@ app.config.update(
     WTF_CSRF_SECRET_KEY=app.secret_key  # Use same key as Flask session
 )
 
+
+IS_PROD = os.getenv("IS_PROD", "false").lower() in ("1", "true", "yes")
+
+def no_store(resp):
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
+
+def is_admin_session() -> bool:
+    # adjust to however you already mark admin auth
+    return bool(session.get("is_admin") or session.get("admin_authenticated"))
+
+def client_ip() -> str:
+    # honor Railway’s proxy header
+    xff = request.headers.get("X-Forwarded-For", "")
+    return (xff.split(",")[0] or request.remote_addr or "").strip()
+
+def ip_allowlisted() -> bool:
+    # Optional: set ADMIN_IPS="1.2.3.4,5.6.7.8" in Railway
+    allow = os.getenv("ADMIN_IPS")
+    if not allow:
+        return True
+    allowed = {ip.strip() for ip in allow.split(",") if ip.strip()}
+    return client_ip() in allowed
+
+
+
 # =============================
 # --- CONFIG & GLOBALS FIRST ---
 # =============================
@@ -1315,50 +1342,45 @@ def log_response_info(response):
 # Routes
 # =============================
 
-@app.route('/health', methods=['GET'])
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Enhanced health check with Brevo sync status"""
-    try:
-        brevo_connected, brevo_status, brevo_email = test_brevo_connection()
-        db_connected = get_db_connection() is not None
-        
-        # Test Brevo contact operations
-        brevo_ops_working = False
-        if brevo_connected and contacts_api:
-            try:
-                # Test with a dummy email to see if operations work
-                test_result = add_to_brevo_contact("test@example.com", {'test': True})
-                brevo_ops_working = test_result.get("success", False) or "already exists" in test_result.get("message", "")
-            except:
-                brevo_ops_working = False
-        
-        return jsonify({
-            "status": "healthy",
-            "subscribers_count": len(get_all_subscribers()),
-            "brevo_sync_enabled": AUTO_SYNC_TO_BREVO,
-            "brevo_status": "connected" if brevo_connected else brevo_status,
-            "brevo_operations_working": brevo_ops_working,
-            "brevo_email": brevo_email,
-            "brevo_list_id": BREVO_LIST_ID,
-            "activities": len(get_activity_log(100)),
-            "api_instances_initialized": (api_instance is not None and contacts_api is not None),
-            "database_connected": db_connected,
-            "sync_functions": {
-                "add_contact": "add_to_brevo_contact",
-                "remove_contact": "remove_from_brevo_contact", 
-                "bulk_sync": "bulk_sync_to_brevo"
-            }
-        })
-    except Exception as e:
-        error_msg = f"Health check error: {str(e)}"
-        log_error(error_msg)
-        return jsonify({
-            "status": "error",
-            "error": error_msg,
-            "brevo_status": "error",
-            "database_connected": False,
-        }), 500
+@app.route("/healthz", methods=["GET"])
+def healthz():
+    """
+    Public, minimal health for uptime checks (safe in prod).
+    Never leak infra details here.
+    """
+    payload = {"status": "ok"}
+    resp = make_response(jsonify(payload), 200)
+    return no_store(resp)
+
+
+@app.route("/admin/health", methods=["GET"])
+def admin_health():
+    """
+    Detailed health — admin-only. Redacts sensitive fields even in dev.
+    Gate by session + (optional) IP allowlist.
+    """
+    if not is_admin_session() or not ip_allowlisted():
+        # do NOT reveal that the endpoint exists or why it failed
+        return ("", 404)
+
+    # —— Build your internal health here (whatever you had before) ——
+    # Example sketch; replace the booleans with your real checks:
+    details = {
+        "status": "healthy",
+        "database_connected": check_db_connection_somehow(),   # your function
+        "brevo_status": "connected" if brevo_is_ok() else "error",  # your function
+        "api_instances_initialized": True,
+        "brevo_sync_enabled": True,
+        "subscribers_count": safe_count_subscribers(),         # optional
+        "activities": safe_count_activities(),                 # optional
+    }
+
+    # —— REDACT: never include emails, list IDs, keys, function names, etc. ——
+    # e.g. DO NOT return: brevo_email, brevo_list_id, sync function names
+
+    resp = make_response(jsonify(details), 200)
+    return no_store(resp)
+
 
 @app.route('/debug/brevo-test/<email>', methods=['POST'])
 def debug_brevo_test(email):

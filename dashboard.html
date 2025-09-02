@@ -4454,40 +4454,51 @@
       }, 500);
     });
 
+    const __decoderEl = document.createElement('textarea');
+    function decodeEntities(str) {
+      if (typeof str !== 'string') return str;
+      __decoderEl.innerHTML = str;
+      return __decoderEl.value;
+    }
+
+
     function fillFormWithEventData(event) {
       const type = (event.event_type || event.type || 'special').toLowerCase();
       const birthdayForm = document.getElementById('birthdayPartyForm');
       const standardForm = document.getElementById('standardEventForm');
       const form = type === 'birthday' ? birthdayForm : standardForm;
 
-      // Common fields (use names/ids that exist in BOTH, scoped to the active form)
-      setScoped(form, 'eventTitle', event.title || event.name || '');
-      setScoped(form, 'entryFee', (event.entry_fee ?? event.fee ?? event.price ?? '').toString());
-      setScoped(form, 'eventStatus', event.status || event.state || 'upcoming');
-      setScoped(form, 'description', event.description || event.special_notes || '');
-
       const dt = event.date_time || event.start_time || event.startDate || event.start;
 
+      // ---------- Common (decode text fields) ----------
+      setScoped(form, 'eventTitle', decodeEntities(event.title || event.name || ''));
+      setScoped(form, 'gameTitle',  decodeEntities(event.game_title || event.game || '')); // if this input exists
+      setScoped(form, 'entryFee', (event.entry_fee ?? event.fee ?? event.price ?? '').toString());
+      setScoped(form, 'eventStatus', event.status || event.state || 'upcoming');
+      setScoped(form, 'description', decodeEntities(event.description || event.special_notes || ''));
+
       if (type === 'birthday') {
-        // Birthday-specific (IDs OR name=... — whichever your form uses)
-        setScoped(form, 'birthdayPersonName', event.birthday_person_name || event.child_name || '');
-        setScoped(form, 'birthdayContactPhone', event.contact_phone || event.parent_phone || '');
-        setScoped(form, 'birthdayContactEmail', event.contact_email || event.parent_email || '');
+        // ---------- Birthday-specific (decode text where relevant) ----------
+        setScoped(form, 'birthdayPersonName',  decodeEntities(event.birthday_person_name || event.child_name || ''));
+        setScoped(form, 'birthdayContactPhone', event.contact_phone || event.parent_phone || ''); // phone: raw is fine
+        setScoped(form, 'birthdayContactEmail', decodeEntities(event.contact_email || event.parent_email || ''));
         if (dt) setScoped(form, 'birthdayStartTime', toLocalInputValue(dt));
 
         setScoped(form, 'birthdayPackageType', event.package_type || 'console');
         if (event.duration_hours != null) setScoped(form, 'birthdayDurationHours', String(event.duration_hours));
+
+        // Deposit fields (if you have these inputs)
         if (event.deposit_amount != null) setScoped(form, 'birthdayDeposit', String(event.deposit_amount));
-        // Reflect capacity=1 in UI if you show a capacity input inside birthday form
+
+        // Reflect the rule: capacity = 1 for birthdays (if you show a capacity input)
         setScoped(form, 'capacity', '1');
 
-        // Recalc after population (your guard already prevents defaulting while editing)
+        // Recalculate pricing after values are set (your guard prevents defaulting while editing)
         if (typeof updateBirthdayPricing === 'function') updateBirthdayPricing();
       } else {
         if (dt) setScoped(form, 'eventDateTime', toLocalInputValue(dt));
       }
     }
-
 
     function updateCreateFormForEdit(eventTitle) {
       // Update form title

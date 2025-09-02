@@ -1695,6 +1695,84 @@
       font-size: 1.1rem;
     }
 
+    /* Deposit Payment Styles */
+    .deposit-status {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-left: 10px;
+    }
+
+    .deposit-pending {
+        background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+        color: white;
+    }
+
+    .deposit-sent {
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+        color: #1a1a1a;
+    }
+
+    .deposit-paid {
+        background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+        color: #1a1a1a;
+    }
+
+    .deposit-waived {
+        background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+        color: white;
+    }
+
+    .booking-confirmed {
+        background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+        color: #1a1a1a;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        margin-left: 8px;
+    }
+
+    .deposit-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 8px;
+        margin-top: 15px;
+        padding: 15px;
+        background: #1a1a1a;
+        border-radius: 10px;
+        border-left: 3px solid #FFD700;
+    }
+
+    .deposit-actions .btn {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+
+    .payment-info-card {
+        background: #2a2a2a;
+        border: 2px solid #FFD700;
+        border-radius: 12px;
+        padding: 15px;
+        margin: 15px 0;
+    }
+
+    .payment-info-card h4 {
+        color: #FFD700;
+        margin-bottom: 10px;
+        font-size: 1rem;
+    }
+
+    .payment-details {
+        font-size: 0.9rem;
+        color: #cccccc;
+        line-height: 1.4;
+    }
+
  </style>
 </head>
 <body>
@@ -2810,7 +2888,153 @@
       }
     }
 
-    // Create event card as DOM element (not HTML string)
+    async function markDepositLinkSent(eventId, method) {
+      try {
+        const confirmed = confirm(`Mark that you've contacted the customer via ${method} about the £20 deposit?`);
+        if (!confirmed) return;
+        
+        const notes = prompt(`Add contact notes (optional):`) || `Customer contacted via ${method} about in-store deposit payment`;
+        
+        const response = await securePost(`${API_BASE}/api/events/${eventId}/deposit`, {
+          action: 'send_link',
+          payment_method: method,
+          payment_link: 'in-store-payment',
+          notes: notes
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          loadEvents();
+          showSuccess(`Customer contact marked for ${method}. Deposit payment expected in-store.`);
+        } else {
+          alert('Error: ' + (data.error || 'Failed to mark customer contact'));
+        }
+      } catch (error) {
+        console.error('Error marking customer contact:', error);
+        alert('Network error: ' + error.message);
+      }
+    }
+
+    async function markDepositPaid(eventId) {
+      if (!confirm('Mark the deposit as paid and confirm the booking?')) return;
+      
+      try {
+        const notes = prompt('Add payment notes (cash/card/method):') || 'Deposit paid in-store';
+        
+        const response = await securePost(`${API_BASE}/api/events/${eventId}/deposit`, {
+          action: 'mark_paid',
+          notes: notes
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          loadEvents();
+          showSuccess('Deposit marked as paid and booking confirmed!');
+        } else {
+          alert('Error: ' + (data.error || 'Failed to mark deposit as paid'));
+        }
+      } catch (error) {
+        console.error('Error marking deposit as paid:', error);
+        alert('Network error: ' + error.message);
+      }
+    }
+
+    async function waiveDeposit(eventId) {
+      if (!confirm('Waive the deposit requirement and confirm the booking?')) return;
+      
+      try {
+        const reason = prompt('Reason for waiving deposit:') || 'Deposit waived by manager';
+        
+        const response = await securePost(`${API_BASE}/api/events/${eventId}/deposit`, {
+          action: 'waive_deposit',
+          notes: reason
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          loadEvents();
+          showSuccess('Deposit waived and booking confirmed!');
+        } else {
+          alert('Error: ' + (data.error || 'Failed to waive deposit'));
+        }
+      } catch (error) {
+        console.error('Error waiving deposit:', error);
+        alert('Network error: ' + error.message);
+      }
+    }
+
+    async function resetDepositStatus(eventId) {
+      if (!confirm('Reset the deposit status to pending? This will unconfirm the booking.')) return;
+      
+      try {
+        const reason = prompt('Reason for resetting:') || 'Status reset by manager';
+        
+        const response = await securePost(`${API_BASE}/api/events/${eventId}/deposit`, {
+          action: 'mark_pending',
+          notes: reason
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+          loadEvents();
+          showSuccess('Deposit status reset to pending');
+        } else {
+          alert('Error: ' + (data.error || 'Failed to reset deposit status'));
+        }
+      } catch (error) {
+        console.error('Error resetting deposit status:', error);
+        alert('Network error: ' + error.message);
+      }
+    }
+
+    async function viewDepositDetails(eventId) {
+      try {
+        const response = await fetch(`${API_BASE}/api/events/${eventId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const event = data.event;
+          const modal = document.getElementById('eventModal');
+          const modalTitle = document.getElementById('modalEventTitle');
+          const modalContent = document.getElementById('modalEventContent');
+          
+          modalTitle.textContent = `Deposit Details - ${event.title}`;
+          
+          const depositSentDate = event.deposit_sent_at ? new Date(event.deposit_sent_at).toLocaleString() : 'Not contacted';
+          const depositPaidDate = event.deposit_paid_at ? new Date(event.deposit_paid_at).toLocaleString() : 'Not paid';
+          
+          modalContent.innerHTML = `
+            <div class="payment-info-card">
+              <h4>💳 Deposit Information</h4>
+              <div class="payment-details">
+                <p><strong>Amount:</strong> £${event.deposit_amount || 20}</p>
+                <p><strong>Status:</strong> ${event.deposit_payment_status || 'pending'}</p>
+                <p><strong>Contact Method:</strong> ${event.deposit_payment_method || 'Not specified'}</p>
+                <p><strong>Customer Contacted:</strong> ${depositSentDate}</p>
+                <p><strong>Payment Date:</strong> ${depositPaidDate}</p>
+                <p><strong>Booking Confirmed:</strong> ${event.booking_confirmed ? 'Yes' : 'No'}</p>
+                ${event.deposit_notes ? `<p><strong>Notes:</strong> ${event.deposit_notes}</p>` : ''}
+              </div>
+              
+              <div style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeEventModal()">Close</button>
+              </div>
+            </div>
+          `;
+          
+          modal.style.display = 'flex';
+        }
+      } catch (error) {
+        console.error('Error viewing deposit details:', error);
+        alert('Failed to load deposit details');
+      }
+    }
+
+    // Enhanced createEventCardElement function with deposit payment status
     function createEventCardElement(event) {
       const card = document.createElement('div');
       card.className = `event-card ${event.event_type || event.type || ''}`;
@@ -2829,12 +3053,11 @@
         if (dateField) {
           eventDate = new Date(dateField);
           if (!isNaN(eventDate.getTime())) {
-            break; // Valid date found
+            break;
           }
         }
       }
       
-      // Fallback if no valid date found
       if (!eventDate || isNaN(eventDate.getTime())) {
         eventDate = new Date();
         console.warn('Invalid or missing date for event:', event);
@@ -2850,31 +3073,64 @@
         minute: '2-digit' 
       });
       
-      // FIXED: Handle capacity calculation properly with MORE field name variations
-      const registrations = event.attendeeCount || 
-                            event.registrations || 
-                            event.current_attendees || 
-                            event.registration_count || 
-                            event.attendees_count || 0;
-                            
-      const capacity = event.maxAttendees || 
-                      event.capacity || 
-                      event.max_capacity || 
-                      event.event_capacity || 0;
-                      
+      const registrations = event.attendeeCount || event.registrations || event.current_attendees || event.registration_count || event.attendees_count || 0;
+      const capacity = event.maxAttendees || event.capacity || event.max_capacity || event.event_capacity || 0;
       const capacityText = capacity > 0 ? `${registrations}/${capacity}` : `${registrations} registered`;
       const capacityPercent = capacity > 0 ? Math.min((registrations / capacity) * 100, 100) : 0;
 
-      // Handle different event type field names
       const eventType = event.event_type || event.type || 'special';
       const rawTitle = event.title || event.name || 'Untitled Event';
       const safeTitle = escapeHtml(decodeEntities(rawTitle));
-
       const rawGame = event.game_title || event.game || event.gameTitle || '';
       const safeGame = escapeHtml(decodeEntities(rawGame));
       const entryFee = parseFloat(event.entry_fee || event.fee || event.price || 0);
 
-      // Build birthday contact block (only for birthdays, only if data present)
+      // Deposit payment status handling
+      const requiresDeposit = event.requires_deposit || (event.deposit_required && event.deposit_amount > 0);
+      const depositStatus = event.deposit_payment_status || 'pending';
+      const bookingConfirmed = event.booking_confirmed || false;
+      const depositAmount = event.deposit_amount || 20;
+
+      // Create deposit status badge
+      let depositBadge = '';
+      if (requiresDeposit) {
+        let badgeClass = '';
+        let badgeText = '';
+        let badgeIcon = '';
+
+        switch (depositStatus) {
+          case 'pending':
+            badgeClass = 'deposit-pending';
+            badgeText = 'Deposit Pending';
+            badgeIcon = '⏳';
+            break;
+          case 'sent':
+            badgeClass = 'deposit-sent';
+            badgeText = 'Link Sent';
+            badgeIcon = '📧';
+            break;
+          case 'paid':
+            badgeClass = 'deposit-paid';
+            badgeText = 'Paid';
+            badgeIcon = '✅';
+            break;
+          case 'waived':
+            badgeClass = 'deposit-waived';
+            badgeText = 'Waived';
+            badgeIcon = '🎫';
+            break;
+        }
+
+        depositBadge = `<span class="deposit-status ${badgeClass}">${badgeIcon} ${badgeText}</span>`;
+      }
+
+      // Booking confirmation badge
+      let confirmationBadge = '';
+      if (requiresDeposit && bookingConfirmed) {
+        confirmationBadge = '<span class="booking-confirmed">✓ Confirmed</span>';
+      }
+
+      // Birthday contact block for birthdays only
       let birthdayContactHTML = '';
       if (eventType === 'birthday') {
         const email = (event.contact_email || '').trim();
@@ -2898,7 +3154,7 @@
           `;
         }
       }
-      
+
       // Build the card content
       card.innerHTML = `
         <div class="event-header">
@@ -2906,7 +3162,11 @@
             <h3 class="event-title">${safeTitle}</h3>
             ${rawGame ? `<div class="event-game-subtitle">${safeGame}</div>` : ''}
           </div>
-          <span class="event-badge badge-${eventType}">${eventType.replace('_', ' ').toUpperCase()}</span>
+          <div style="text-align: right;">
+            <span class="event-badge badge-${eventType}">${eventType.replace('_', ' ').toUpperCase()}</span>
+            ${depositBadge}
+            ${confirmationBadge}
+          </div>
         </div>
         
         <div class="event-details">
@@ -2928,6 +3188,12 @@
               £${entryFee.toFixed(2)}
             </div>
           ` : ''}
+          ${requiresDeposit ? `
+            <div class="event-detail">
+              <span class="event-detail-icon">🏦</span>
+              £${depositAmount} deposit
+            </div>
+          ` : ''}
         </div>
 
         ${birthdayContactHTML}
@@ -2936,6 +3202,47 @@
           <div class="capacity-bar">
             <div class="capacity-fill" style="width: ${Math.min(capacityPercent, 100)}%"></div>
             <div class="capacity-text">${Math.round(capacityPercent)}% Full</div>
+          </div>
+        ` : ''}
+
+        ${requiresDeposit && depositStatus === 'pending' ? `
+          <div class="deposit-actions">
+            <button class="btn btn-primary btn-sm" onclick="markDepositLinkSent(${event.id}, 'email'); event.stopPropagation();">
+              📧 Sent via Email
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="markDepositLinkSent(${event.id}, 'sms'); event.stopPropagation();">
+              📱 Sent via SMS
+            </button>
+            <button class="btn btn-success btn-sm" onclick="markDepositPaid(${event.id}); event.stopPropagation();">
+              ✅ Mark Paid
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="waiveDeposit(${event.id}); event.stopPropagation();">
+              🎫 Waive
+            </button>
+          </div>
+        ` : requiresDeposit && depositStatus === 'sent' ? `
+          <div class="deposit-actions">
+            <button class="btn btn-success btn-sm" onclick="markDepositPaid(${event.id}); event.stopPropagation();">
+              ✅ Mark Paid
+            </button>
+            <button class="btn btn-warning btn-sm" onclick="markDepositLinkSent(${event.id}, 'resend'); event.stopPropagation();">
+              🔄 Resent Link
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="waiveDeposit(${event.id}); event.stopPropagation();">
+              🎫 Waive
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="resetDepositStatus(${event.id}); event.stopPropagation();">
+              ↩️ Reset
+            </button>
+          </div>
+        ` : requiresDeposit && (depositStatus === 'paid' || depositStatus === 'waived') ? `
+          <div class="deposit-actions">
+            <button class="btn btn-info btn-sm" onclick="viewDepositDetails(${event.id}); event.stopPropagation();">
+              ℹ️ Details
+            </button>
+            <button class="btn btn-warning btn-sm" onclick="resetDepositStatus(${event.id}); event.stopPropagation();">
+              ↩️ Reset Status
+            </button>
           </div>
         ` : ''}
 
@@ -2957,6 +3264,8 @@
       
       return card;
     }
+
+
 
     function decodeEntities(str){
       if (typeof str !== 'string') return str;
@@ -6344,7 +6653,7 @@
         const additionalHours = Math.max(0, duration - 2);
         const additionalCost = additionalHours * 56;
         const totalCost = basePrice + additionalCost;
-        const deposit = 20;
+        const deposit = 20; // Fixed £20 deposit for Console Area bookings
         
         html = `
           <p><strong>Console Package (${duration} hours):</strong> <span>£${totalCost}</span></p>
@@ -6355,12 +6664,15 @@
             • 50% off extra Knit Bags<br>
             • Free birthday decorations & gift bag
           </p>
-          <p><strong>Deposit Required:</strong> <span>£${deposit}</span></p>
+          <p style="color: #FFD700; font-weight: 700; margin-top: 10px;">
+            <strong>£${deposit} Deposit Required</strong> 
+            <span style="font-weight: 400; color: #aaa; font-size: 0.85rem;">(pay in-store to secure booking)</span>
+          </p>
           <p style="border-top: 1px solid #444; padding-top: 10px; margin-top: 15px; font-weight: 700; color: #FF69B4; font-size: 1.1rem;">
-            <strong>Total Due:</strong> <span>£${totalCost}</span>
+            <strong>Total Due on Day:</strong> <span>£${totalCost}</span>
           </p>
           <p style="font-size: 0.8rem; color: #aaa; font-style: italic;">
-            *Deposit will be deducted from final bill
+            *Deposit deducted from final bill. Booking secured once deposit paid in-store.
           </p>
         `;
       } else {
@@ -6369,11 +6681,11 @@
           <p style="color: #aaa; font-size: 0.85rem; margin-left: 20px;">
             • Charged per game/equipment used<br>
             • Free birthday decorations & gift bag<br>
-            • Flexible gaming options
+            • Flexible gaming options<br>
+            • No deposit required
           </p>
-          <p><strong>Deposit Required:</strong> <span>£20</span></p>
           <p style="font-size: 0.8rem; color: #aaa; font-style: italic;">
-            *Final cost depends on games played. Deposit deducted from bill.
+            *Final cost depends on games played. No advance payment needed.
           </p>
         `;
       }

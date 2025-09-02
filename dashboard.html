@@ -4153,26 +4153,40 @@
     // Modified editEvent function
     async function editEvent(eventId) {
       window.isEditingEvent = true;
-      console.log('EDIT DEBUG: Setting currentEditingEventId to:', eventId); // ADD THIS
-      
+      console.log('EDIT DEBUG: Setting currentEditingEventId to:', eventId);
+
       try {
         const response = await fetch(`${API_BASE}/api/events/${eventId}`);
         const data = await response.json();
-        
+
         if (!data.success) {
           alert('Failed to load event data');
           return;
         }
-        
-        const event = data.event;
-        currentEditingEventId = eventId; // Make sure this line exists
-        console.log('EDIT DEBUG: currentEditingEventId is now:', currentEditingEventId); // ADD THIS
 
+        const event = data.event;
+        currentEditingEventId = eventId;
+        console.log('EDIT DEBUG: currentEditingEventId is now:', currentEditingEventId);
+
+        // 1) Show create view (your switchEventView does not reset form state)
         switchEventView('create');
+
+        // 2) Set event type select FIRST so the correct form section is visible
+        const typeSel = document.getElementById('eventType');
+        if (typeSel) typeSel.value = event.event_type || event.type || 'special';
+
+        // 3) Show the correct section, defaults suppressed by isEditingEvent
+        toggleEventTypeForm();
+
+        // 4) Now populate values
         fillFormWithEventData(event);
+
+        // 5) Mark UI as editing
         updateCreateFormForEdit(event.title);
+
+        // Only close a modal if that’s what you want (some setups keep it open)
         closeEventModal();
-        
+
       } catch (error) {
         console.error('Error loading event for edit:', error);
         alert('Failed to load event data');
@@ -4181,7 +4195,6 @@
       }
     }
 
-    
     function updateCreateFormForEdit(eventTitle) {
       const formTitle = document.querySelector('#event-create-view .card-title');
       if (formTitle) {

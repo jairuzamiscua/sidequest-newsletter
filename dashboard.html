@@ -6175,6 +6175,14 @@
         birthdayForm.style.display = 'block';
         standardForm.style.display = 'none';
         
+        // Enable birthday form required fields
+        const birthdayRequiredFields = birthdayForm.querySelectorAll('[required]');
+        birthdayRequiredFields.forEach(field => field.required = true);
+        
+        // Disable standard form required fields
+        const standardRequiredFields = standardForm.querySelectorAll('[required]');
+        standardRequiredFields.forEach(field => field.required = false);
+        
         // Set default time for birthday parties (usually afternoons)
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 7); // Default to next week
@@ -6189,6 +6197,14 @@
         birthdayForm.style.display = 'none';
         standardForm.style.display = 'block';
         
+        // Disable birthday form required fields
+        const birthdayRequiredFields = birthdayForm.querySelectorAll('[required]');
+        birthdayRequiredFields.forEach(field => field.required = false);
+        
+        // Enable standard form required fields
+        const standardRequiredFields = standardForm.querySelectorAll('[required]');
+        standardRequiredFields.forEach(field => field.required = true);
+        
         // Set default time for other events (evenings)
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -6198,57 +6214,6 @@
           dateInput.value = tomorrow.toISOString().slice(0, 16);
         }
       }
-    }
-
-    function updateBirthdayPricing() {
-      const duration = parseInt(document.getElementById('birthdayDuration')?.value || '2');
-      const packageType = document.querySelector('input[name="birthdayPackage"]:checked')?.value || 'console';
-      const pricingDetails = document.getElementById('pricingDetails');
-      
-      if (!pricingDetails) return;
-      
-      let html = '';
-      
-      if (packageType === 'console') {
-        const basePrice = 148; // First 2 hours
-        const additionalHours = Math.max(0, duration - 2);
-        const additionalCost = additionalHours * 56;
-        const totalCost = basePrice + additionalCost;
-        const deposit = 20;
-        
-        html = `
-          <p><strong>Console Package (${duration} hours):</strong> <span>£${totalCost}</span></p>
-          <p style="color: #aaa; font-size: 0.85rem; margin-left: 20px;">
-            • Base (2 hours): £148<br>
-            ${additionalHours > 0 ? `• Additional ${additionalHours} hour${additionalHours > 1 ? 's' : ''}: £${additionalCost}<br>` : ''}
-            • 10% off food & drinks<br>
-            • 50% off extra Knit Bags<br>
-            • Free birthday decorations & gift bag
-          </p>
-          <p><strong>Deposit Required:</strong> <span>£${deposit}</span></p>
-          <p style="border-top: 1px solid #444; padding-top: 10px; margin-top: 15px; font-weight: 700; color: #FF69B4; font-size: 1.1rem;">
-            <strong>Total Due:</strong> <span>£${totalCost}</span>
-          </p>
-          <p style="font-size: 0.8rem; color: #aaa; font-style: italic;">
-            *Deposit will be deducted from final bill
-          </p>
-        `;
-      } else {
-        html = `
-          <p><strong>Standard Birthday Rate:</strong> <span>Pay as you play</span></p>
-          <p style="color: #aaa; font-size: 0.85rem; margin-left: 20px;">
-            • Charged per game/equipment used<br>
-            • Free birthday decorations & gift bag<br>
-            • Flexible gaming options
-          </p>
-          <p><strong>Deposit Required:</strong> <span>£20</span></p>
-          <p style="font-size: 0.8rem; color: #aaa; font-style: italic;">
-            *Final cost depends on games played. Deposit deducted from bill.
-          </p>
-        `;
-      }
-      
-      pricingDetails.innerHTML = html;
     }
 
     // Update event types performance

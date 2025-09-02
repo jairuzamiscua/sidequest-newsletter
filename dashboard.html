@@ -3358,7 +3358,15 @@
           const action = isEditing ? 'updated' : 'created';
           
           if (eventType === 'birthday') {
-            showBirthdaySuccessMessage(eventData, data.event_id);
+            // Show birthday-specific success message
+            const personName = eventData.birthday_person_name;
+            const packageType = eventData.package_type;
+            const duration = eventData.duration_hours;
+            const totalCost = eventData.entry_fee;
+            
+            const message = `🎂 Birthday Party ${action} successfully!\n\n• Party for: ${personName}\n• Package: ${packageType === 'console' ? 'Console Package' : 'Standard Package'}\n• Duration: ${duration} hours\n• Total Cost: £${totalCost}\n• Event ID: ${data.event_id || 'N/A'}\n\nDon't forget to:\n✓ Set up birthday decorations\n✓ Prepare FREE Knit Bag with KitKat + Lollipop\n✓ Send deposit payment link to contact`;
+            
+            alert(message);
           } else {
             showSuccess(`Event ${action} successfully!`);
           }

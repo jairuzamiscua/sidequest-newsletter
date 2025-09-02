@@ -2538,9 +2538,11 @@
     let calendar;
 
     // Initialize FullCalendar
+    // Initialize FullCalendar (drop-in)
     function initFullCalendar() {
       const calendarEl = document.getElementById('fullCalendar');
-      
+      if (!calendarEl) return;
+
       calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         headerToolbar: {
@@ -2549,50 +2551,45 @@
           right: 'dayGridMonth,listWeek'
         },
         height: 'auto',
+
+        // Your existing source (function or URL)
         events: loadCalendarEvents,
-        
-        // Event styling based on type
+
+        // ✅ Fix entities + normalize fields on every load/refetch
+        eventDataTransform: (raw) => {
+          const title = decodeEntities(raw.title || raw.name || 'Untitled Event');
+          const start = raw.start || raw.date_time || raw.start_time || raw.startDate || raw.startStr;
+          const end   = raw.end   || raw.end_time  || raw.endDate  || raw.endStr   || null;
+
+          // carry over id & type safely
+          const id = raw.id || raw.event_id || raw.extendedProps?.id;
+          const event_type = raw.event_type || raw.type || raw.extendedProps?.event_type || 'default';
+
+          return {
+            id,
+            title,
+            start,
+            end,
+            // keep everything else in extendedProps
+            extendedProps: { ...(raw.extendedProps || {}), event_type, ...raw }
+          };
+        },
+
+        // One unified eventDidMount: style + tooltip
         eventDidMount: function(info) {
           const eventType = info.event.extendedProps.event_type || 'default';
           info.el.classList.add(eventType);
-        },
-        
-        dateClick: function(info) {
-        // Pre-fill the date in create form
-        const selectedDate = info.dateStr + 'T18:00'; // Format: 2025-08-22T18:00
-        
-        // Switch to events tab first
-        document.querySelector('.tab[data-tab="events"]').click();
-        
-        // Small delay to ensure tab loads, then switch to create view and set date
-        setTimeout(() => {
-          switchEventView('create');
 
-              // Set the date after view loads
-              setTimeout(() => {
-                const dateInput = document.getElementById('eventDateTime');
-                if (dateInput) {
-                  dateInput.value = selectedDate;
-                  console.log('Date set to:', selectedDate); // For debugging
-                } else {
-                  console.error('eventDateTime input not found');
-                }
-              }, 100);
-            }, 100);
-        },
+          // Native title attribute (fallback)
+          const timeText = info.event.start
+            ? info.event.start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+            : '';
+          info.el.setAttribute('title', `${info.event.title}${timeText ? '\n' + timeText : ''}`);
 
-        // Add hover tooltips to your FullCalendar config
-        eventDidMount: function(info) {
-          const eventType = info.event.extendedProps.event_type || 'default';
-          info.el.classList.add(eventType);
-          
-          // Add tooltip on hover
-          info.el.setAttribute('title', `${info.event.title}\n${info.event.start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
-          
-          // Better hover popup
+          // Custom tooltip
           info.el.addEventListener('mouseenter', function() {
-            // Create custom tooltip
             const tooltip = document.createElement('div');
+            tooltip.id = 'event-tooltip';
             tooltip.style.cssText = `
               position: absolute;
               background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
@@ -2605,33 +2602,62 @@
               z-index: 9999;
               box-shadow: 0 8px 25px rgba(0,0,0,0.3);
               pointer-events: none;
-              max-width: 200px;
+              max-width: 240px;
+              line-height: 1.3;
             `;
-            tooltip.textContent = info.event.title;
-            tooltip.id = 'event-tooltip';
+            tooltip.textContent = info.event.title + (timeText ? ` — ${timeText}` : '');
             document.body.appendChild(tooltip);
-            
-            // Position tooltip
-            const rect = info.el.getBoundingClientRect();
-            tooltip.style.left = rect.left + 'px';
-            tooltip.style.top = (rect.top - tooltip.offsetHeight - 5) + 'px';
+
+            // position after layout
+            requestAnimationFrame(() => {
+              const rect = info.el.getBoundingClientRect();
+              const top = Math.max(window.scrollY + rect.top - tooltip.offsetHeight - 8, 0);
+              const left = Math.max(window.scrollX + rect.left, 0);
+              tooltip.style.top = `${top}px`;
+              tooltip.style.left = `${left}px`;
+            });
           });
-          
+
           info.el.addEventListener('mouseleave', function() {
             const tooltip = document.getElementById('event-tooltip');
             if (tooltip) tooltip.remove();
           });
         },
-        
-        // Click event to view details
+
+        // Click to open your details
         eventClick: function(info) {
-          showEventDetails(info.event.id);
+          // Ensure we pass the DB id (we mapped it in eventDataTransform)
+          const eid = info.event.id || info.event.extendedProps.id;
+          showEventDetails(eid);
         },
-        
+
         dayMaxEvents: 3,
-        moreLinkClick: 'popover'
+        moreLinkClick: 'popover',
+
+        // Your existing dateClick logic preserved
+        dateClick: function(info) {
+          const selectedDate = info.dateStr + 'T18:00'; // e.g. 2025-08-22T18:00
+
+          // Switch to events tab first
+          document.querySelector('.tab[data-tab="events"]').click();
+
+          // Small delay to ensure tab loads, then switch to create view and set date
+          setTimeout(() => {
+            switchEventView('create');
+
+            setTimeout(() => {
+              const dateInput = document.getElementById('eventDateTime');
+              if (dateInput) {
+                dateInput.value = selectedDate;
+                console.log('Date set to:', selectedDate);
+              } else {
+                console.error('eventDateTime input not found');
+              }
+            }, 100);
+          }, 100);
+        }
       });
-      
+
       calendar.render();
     }
 

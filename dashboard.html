@@ -2841,8 +2841,11 @@
 
       // Handle different event type field names
       const eventType = event.event_type || event.type || 'special';
-      const eventTitle = event.title || event.name || 'Untitled Event';
-      const gameTitle = event.game_title || event.game || event.gameTitle;
+      const rawTitle = event.title || event.name || 'Untitled Event';
+      const safeTitle = escapeHtml(decodeEntities(rawTitle));
+
+      const rawGame = event.game_title || event.game || event.gameTitle || '';
+      const safeGame = escapeHtml(decodeEntities(rawGame));
       const entryFee = parseFloat(event.entry_fee || event.fee || event.price || 0);
 
       // Build birthday contact block (only for birthdays, only if data present)
@@ -2874,8 +2877,8 @@
       card.innerHTML = `
         <div class="event-header">
           <div>
-            <h3 class="event-title">${escapeHtml(eventTitle)}</h3>
-            ${gameTitle ? `<div class="event-game-subtitle">${escapeHtml(gameTitle)}</div>` : ''}
+            <h3 class="event-title">${safeTitle}</h3>
+            ${rawGame ? `<div class="event-game-subtitle">${safeGame}</div>` : ''}
           </div>
           <span class="event-badge badge-${eventType}">${eventType.replace('_', ' ').toUpperCase()}</span>
         </div>
@@ -2929,6 +2932,12 @@
       return card;
     }
 
+    function decodeEntities(str){
+      if (typeof str !== 'string') return str;
+      const el = document.createElement('textarea');
+      el.innerHTML = str;
+      return el.value;
+    }
 
     // Helper function to escape HTML
     function escapeHtml(text) {
@@ -2963,6 +2972,8 @@
       }
     }
 
+
+
     // Social proof badge display function
     function showBadge(message, type = 'urgency') {
       const badgeContainer = document.getElementById('social-proof-container') || createBadgeContainer();
@@ -2978,6 +2989,14 @@
       // Animate in
       setTimeout(() => badge.classList.add('visible'), 100);
     }
+
+    function decodeEntities(str) {
+      if (typeof str !== 'string') return str;
+      const el = document.createElement('textarea');
+      el.innerHTML = str;
+      return el.value;
+    }
+
 
     function createBadgeContainer() {
       const container = document.createElement('div');
@@ -4468,6 +4487,7 @@
         if (dt) setScoped(form, 'eventDateTime', toLocalInputValue(dt));
       }
     }
+
 
     function updateCreateFormForEdit(eventTitle) {
       // Update form title

@@ -811,6 +811,8 @@ def init_database():
             )
         ''')
         
+
+        add_deposit_payment_columns()
         conn.commit()
         cursor.close()
         conn.close()
@@ -3576,9 +3578,10 @@ def execute_query_one(query, params=None):
 # Event Management Routes
 # =============================
 
+# Update the get_events route to include deposit information
 @app.route('/api/events', methods=['GET'])
 def get_events():
-    """Get all events with optional filtering"""
+    """Get all events with deposit payment information"""
     try:
         event_type = request.args.get('type', 'all')
         status = request.args.get('status', 'all')
@@ -3591,7 +3594,11 @@ def get_events():
                 CASE 
                     WHEN e.capacity > 0 THEN e.capacity - COUNT(r.id)
                     ELSE NULL
-                END as spots_available
+                END as spots_available,
+                CASE 
+                    WHEN e.deposit_required = TRUE AND e.deposit_amount > 0 THEN TRUE
+                    ELSE FALSE
+                END as requires_deposit
             FROM events e
             LEFT JOIN event_registrations r ON e.id = r.event_id
             WHERE 1=1
@@ -3624,8 +3631,12 @@ def get_events():
                 event['end_time'] = event['end_time'].isoformat()
             if event['created_at']:
                 event['created_at'] = event['created_at'].isoformat()
+            if event['deposit_sent_at']:
+                event['deposit_sent_at'] = event['deposit_sent_at'].isoformat()
+            if event['deposit_paid_at']:
+                event['deposit_paid_at'] = event['deposit_paid_at'].isoformat()
                 
-        log_activity(f"Retrieved {len(events)} events", "info")
+        log_activity(f"Retrieved {len(events)} events with deposit info", "info")
         
         return jsonify({
             "success": True,
@@ -4153,7 +4164,41 @@ def send_cancellation_confirmation_email(email, player_name, event_title, event_
         log_error(f"Failed to send cancellation confirmation to {email}: {e}")
         return False
 
-
+def add_deposit_payment_columns():
+    """Add deposit payment tracking columns to events table"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        # Add deposit payment tracking columns
+        deposit_columns = [
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS deposit_payment_status VARCHAR(50) DEFAULT \'pending\';',  # pending, sent, paid, waived
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS deposit_payment_link TEXT;',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS deposit_sent_at TIMESTAMP;',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS deposit_paid_at TIMESTAMP;',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS deposit_payment_method VARCHAR(50);',  # sms, email
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS deposit_notes TEXT;',
+            'ALTER TABLE events ADD COLUMN IF NOT EXISTS booking_confirmed BOOLEAN DEFAULT FALSE;'
+        ]
+        
+        for sql in deposit_columns:
+            try:
+                cursor.execute(sql)
+                print(f"✅ Executed: {sql}")
+            except Exception as e:
+                print(f"ℹ️ Column may already exist: {e}")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"Error adding deposit payment columns: {e}")
+        return False
 
 def add_birthday_columns():
     """Add birthday-specific columns to events table"""
@@ -4192,6 +4237,122 @@ def add_birthday_columns():
         print(f"Error adding birthday columns: {e}")
         return False
 
+@app.route('/api/events/<int:event_id>/deposit', methods=['POST'])
+@csrf_required
+def update_deposit_status(event_id):
+    """Update deposit payment status for an event"""
+    try:
+        data = request.json or {}
+        action = data.get('action')  # 'send_link', 'mark_paid', 'waive_deposit', 'mark_pending'
+        payment_method = data.get('payment_method', 'email')  # 'sms' or 'email'
+        payment_link = data.get('payment_link', '')
+        notes = sanitize_text_input(data.get('notes', ''), 500)
+        
+        if not action:
+            return jsonify({"success": False, "error": "Action is required"}), 400
+        
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"success": False, "error": "Database connection failed"}), 500
+        
+        cursor = conn.cursor()
+        
+        # Get current event details
+        cursor.execute("""
+            SELECT title, birthday_person_name, contact_email, contact_phone, 
+                   deposit_amount, deposit_payment_status
+            FROM events WHERE id = %s
+        """, (event_id,))
+        
+        event = cursor.fetchone()
+        if not event:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Event not found"}), 404
+        
+        event_dict = dict(event)
+        
+        # Handle different actions
+        if action == 'send_link':
+            cursor.execute("""
+                UPDATE events 
+                SET deposit_payment_status = 'sent', 
+                    deposit_payment_link = %s,
+                    deposit_payment_method = %s,
+                    deposit_sent_at = NOW(),
+                    deposit_notes = %s
+                WHERE id = %s
+            """, (payment_link, payment_method, notes, event_id))
+            
+            log_activity(f"Deposit payment link sent via {payment_method} for {event_dict['title']}", "info")
+            message = f"Payment link sent via {payment_method}"
+            
+        elif action == 'mark_paid':
+            cursor.execute("""
+                UPDATE events 
+                SET deposit_payment_status = 'paid', 
+                    deposit_paid_at = NOW(),
+                    booking_confirmed = TRUE,
+                    deposit_notes = %s
+                WHERE id = %s
+            """, (notes, event_id))
+            
+            log_activity(f"Deposit payment confirmed for {event_dict['title']}", "success")
+            message = "Deposit marked as paid and booking confirmed"
+            
+        elif action == 'waive_deposit':
+            cursor.execute("""
+                UPDATE events 
+                SET deposit_payment_status = 'waived', 
+                    booking_confirmed = TRUE,
+                    deposit_notes = %s
+                WHERE id = %s
+            """, (notes, event_id))
+            
+            log_activity(f"Deposit waived for {event_dict['title']}", "info")
+            message = "Deposit waived and booking confirmed"
+            
+        elif action == 'mark_pending':
+            cursor.execute("""
+                UPDATE events 
+                SET deposit_payment_status = 'pending', 
+                    deposit_payment_link = NULL,
+                    deposit_sent_at = NULL,
+                    deposit_paid_at = NULL,
+                    booking_confirmed = FALSE,
+                    deposit_notes = %s
+                WHERE id = %s
+            """, (notes, event_id))
+            
+            log_activity(f"Deposit status reset to pending for {event_dict['title']}", "warning")
+            message = "Deposit status reset to pending"
+            
+        else:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "error": "Invalid action"}), 400
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True,
+            "message": message,
+            "action": action
+        })
+        
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+        log_error(f"Error updating deposit status: {e}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'conn' in locals() and conn:
+            conn.close()
+
 def generateBirthdayDescription(packageType, duration, notes):
     """Generate clean birthday party description"""
     if packageType == 'console':
@@ -4207,7 +4368,7 @@ def generateBirthdayDescription(packageType, duration, notes):
 @app.route('/api/events', methods=['POST'])
 @csrf_required
 def create_event():
-    """Create a new event with birthday party support and input sanitization"""
+    """Create a new event with automatic deposit requirements for whole area bookings"""
     try:
         data = request.json or {}
         
@@ -4226,8 +4387,6 @@ def create_event():
             contact_email = sanitize_email(data.get('contact_email', ''))
             package_type = sanitize_text_input(data.get('package_type', 'console'), 50)
             duration_hours = int(sanitize_numeric_input(data.get('duration_hours', 2), 1, 12))
-            deposit_required = bool(data.get('deposit_required', True))
-            deposit_amount = sanitize_numeric_input(data.get('deposit_amount', 20), 0, 100)
             special_notes = sanitize_text_input(data.get('special_notes', ''), 1000)
             
             # Validation for birthday parties
@@ -4238,15 +4397,22 @@ def create_event():
             if not title:
                 title = f"{birthday_person_name}'s Birthday Party"
             
-            # Set capacity based on package type
+            # Set deposit requirements based on package type
             if package_type == 'console':
+                deposit_required = True
+                deposit_amount = 20  # Fixed £20 deposit for Console Area
                 capacity = 12
             else:
+                deposit_required = False  # Standard birthday parties don't require deposit
+                deposit_amount = 0
                 capacity = int(sanitize_numeric_input(data.get('capacity', 0), 0, 1000))
         else:
-            # Standard event handling
+            # Standard event handling - check if it's a whole area booking
             birthday_person_name = contact_phone = contact_email = package_type = special_notes = None
             duration_hours = None
+            
+            # For now, only birthday console packages require deposits
+            # You can extend this logic for other whole area bookings
             deposit_required = False
             deposit_amount = 0
             capacity = int(sanitize_numeric_input(data.get('capacity', 0), 0, 1000))
@@ -4309,15 +4475,15 @@ def create_event():
                 INSERT INTO events (
                     title, event_type, game_title, date_time, end_time,
                     capacity, description, entry_fee, prize_pool, status,
-                    image_url, requirements
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    image_url, requirements, deposit_required, deposit_amount
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """
             
             params = (
                 title, event_type, game_title, date_time, end_time,
                 capacity, description, entry_fee, prize_pool, status,
-                image_url, requirements
+                image_url, requirements, deposit_required, deposit_amount
             )
         
         # Execute query
@@ -4330,15 +4496,19 @@ def create_event():
         if isinstance(result, dict) and 'id' in result:
             event_id = result['id']
             
-            if is_birthday:
-                log_activity(f"Birthday party created: {title} for {birthday_person_name} (ID: {event_id})", "success")
+            if is_birthday and package_type == 'console':
+                log_activity(f"Console birthday party created: {title} for {birthday_person_name} - £20 deposit required (ID: {event_id})", "success")
+            elif is_birthday:
+                log_activity(f"Standard birthday party created: {title} for {birthday_person_name} - no deposit (ID: {event_id})", "success")
             else:
                 log_activity(f"Successfully created event: {title} (ID: {event_id})", "success")
             
             return jsonify({
                 "success": True,
                 "event_id": event_id,
-                "message": "Event created successfully"
+                "message": "Event created successfully",
+                "deposit_required": deposit_required,
+                "deposit_amount": deposit_amount
             })
         else:
             log_error(f"Unexpected result format from execute_query_one: {result}")

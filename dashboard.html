@@ -3340,7 +3340,7 @@
             game_title: packageType === 'console' ? 'Console Package' : 'Standard Package',
             date_time: startTime,
             end_time: endDate.toISOString().slice(0, 16),
-            capacity: packageType === 'console' ? 1,
+            capacity: packageType === 'console' ? 1 : 0,
             entry_fee: calculateBirthdayPrice(packageType, duration),
             status: 'draft',
             description: description,

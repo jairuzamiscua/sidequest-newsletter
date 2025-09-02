@@ -2895,11 +2895,22 @@
         
         const notes = prompt(`Add contact notes (optional):`) || `Customer contacted via ${method} about in-store deposit payment`;
         
-        const response = await securePost(`${API_BASE}/api/events/${eventId}/deposit`, {
-          action: 'send_link',
-          payment_method: method,
-          payment_link: 'in-store-payment',
-          notes: notes
+        // Get CSRF token first
+        const csrfToken = await csrfManager.getToken();
+        
+        const response = await fetch(`${API_BASE}/api/events/${eventId}/deposit`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({
+            action: 'send_link',
+            payment_method: method,
+            payment_link: 'in-store-payment',
+            notes: notes
+          })
         });
 
         const data = await response.json();
@@ -2922,9 +2933,20 @@
       try {
         const notes = prompt('Add payment notes (cash/card/method):') || 'Deposit paid in-store';
         
-        const response = await securePost(`${API_BASE}/api/events/${eventId}/deposit`, {
-          action: 'mark_paid',
-          notes: notes
+        // Get CSRF token first
+        const csrfToken = await csrfManager.getToken();
+        
+        const response = await fetch(`${API_BASE}/api/events/${eventId}/deposit`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({
+            action: 'mark_paid',
+            notes: notes
+          })
         });
 
         const data = await response.json();
@@ -2947,9 +2969,20 @@
       try {
         const reason = prompt('Reason for waiving deposit:') || 'Deposit waived by manager';
         
-        const response = await securePost(`${API_BASE}/api/events/${eventId}/deposit`, {
-          action: 'waive_deposit',
-          notes: reason
+        // Get CSRF token first
+        const csrfToken = await csrfManager.getToken();
+        
+        const response = await fetch(`${API_BASE}/api/events/${eventId}/deposit`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({
+            action: 'waive_deposit',
+            notes: reason
+          })
         });
 
         const data = await response.json();
@@ -2972,9 +3005,20 @@
       try {
         const reason = prompt('Reason for resetting:') || 'Status reset by manager';
         
-        const response = await securePost(`${API_BASE}/api/events/${eventId}/deposit`, {
-          action: 'mark_pending',
-          notes: reason
+        // Get CSRF token first
+        const csrfToken = await csrfManager.getToken();
+        
+        const response = await fetch(`${API_BASE}/api/events/${eventId}/deposit`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({
+            action: 'mark_pending',
+            notes: reason
+          })
         });
 
         const data = await response.json();
@@ -2990,6 +3034,9 @@
         alert('Network error: ' + error.message);
       }
     }
+    
+
+   
 
     async function viewDepositDetails(eventId) {
       try {

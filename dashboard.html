@@ -2691,6 +2691,7 @@
     // Event variables
     let currentEvents = [];
     let currentEditingEventId = null;
+    window.isEditingEvent = false;
 
     // Initialize event management
     function initializeEventManagement() {
@@ -4151,6 +4152,7 @@
 
     // Modified editEvent function
     async function editEvent(eventId) {
+      window.isEditingEvent = true;
       console.log('EDIT DEBUG: Setting currentEditingEventId to:', eventId); // ADD THIS
       
       try {
@@ -4175,6 +4177,7 @@
         console.error('Error loading event for edit:', error);
         alert('Failed to load event data');
         currentEditingEventId = null;
+        window.isEditingEvent = false;
       }
     }
 
@@ -6190,16 +6193,20 @@
         const standardRequiredFields = standardForm.querySelectorAll('[required]');
         standardRequiredFields.forEach(field => field.required = false);
         
-        // Set default time for birthday parties (usually afternoons)
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 7); // Default to next week
-        tomorrow.setHours(14, 0, 0, 0); // 2 PM default
-        const birthdayStartTime = document.getElementById('birthdayStartTime');
-        if (birthdayStartTime) {
-          birthdayStartTime.value = tomorrow.toISOString().slice(0, 16);
+        // ✅ Only set defaults if NOT editing
+        if (!window.isEditingEvent) {
+          // Set default time for birthday parties (usually afternoons)
+          const nextWeek = new Date();
+          nextWeek.setDate(nextWeek.getDate() + 7); // Default to next week
+          nextWeek.setHours(14, 0, 0, 0); // 2 PM default
+          const birthdayStartTime = document.getElementById('birthdayStartTime');
+          if (birthdayStartTime) {
+            birthdayStartTime.value = nextWeek.toISOString().slice(0, 16);
+          }
+          
+          updateBirthdayPricing();
         }
-        
-        updateBirthdayPricing();
+
       } else {
         birthdayForm.style.display = 'none';
         standardForm.style.display = 'block';
@@ -6212,16 +6219,20 @@
         const standardRequiredFields = standardForm.querySelectorAll('[required]');
         standardRequiredFields.forEach(field => field.required = true);
         
-        // Set default time for other events (evenings)
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(19, 0, 0, 0); // 7 PM default
-        const dateInput = document.getElementById('eventDateTime');
-        if (dateInput) {
-          dateInput.value = tomorrow.toISOString().slice(0, 16);
+        // ✅ Only set defaults if NOT editing
+        if (!window.isEditingEvent) {
+          // Set default time for other events (evenings)
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          tomorrow.setHours(19, 0, 0, 0); // 7 PM default
+          const dateInput = document.getElementById('eventDateTime');
+          if (dateInput) {
+            dateInput.value = tomorrow.toISOString().slice(0, 16);
+          }
         }
       }
     }
+
 
     function updateBirthdayPricing() {
       const duration = parseInt(document.getElementById('birthdayDuration')?.value || '2');

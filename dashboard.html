@@ -2825,11 +2825,11 @@
       
       // FIXED: Handle capacity calculation properly with MORE field name variations
       const registrations = event.attendeeCount || 
-                          event.registrations || 
-                          event.current_attendees || 
-                          event.registration_count || 
-                          event.attendees_count || 0;
-                          
+                            event.registrations || 
+                            event.current_attendees || 
+                            event.registration_count || 
+                            event.attendees_count || 0;
+                            
       const capacity = event.maxAttendees || 
                       event.capacity || 
                       event.max_capacity || 
@@ -2843,6 +2843,35 @@
       const eventTitle = event.title || event.name || 'Untitled Event';
       const gameTitle = event.game_title || event.game || event.gameTitle;
       const entryFee = parseFloat(event.entry_fee || event.fee || event.price || 0);
+
+      // Build birthday contact block (only for birthdays, only if data present)
+      let birthdayContactHTML = '';
+      if (eventType === 'birthday') {
+        const email = (event.contact_email || '').trim();
+        const phone = (event.contact_phone || '').trim();
+        if (email || phone) {
+          birthdayContactHTML = `
+            <div class="event-details">
+              ${email ? `
+                <div class="event-detail">
+                  <span class="event-detail-icon">📧</span>
+                  <a href="mailto:${escapeHtml(email)}" onclick="event.stopPropagation()" rel="noopener noreferrer">
+                    ${escapeHtml(email)}
+                  </a>
+                </div>
+              ` : ''}
+              ${phone ? `
+                <div class="event-detail">
+                  <span class="event-detail-icon">📞</span>
+                  <a href="tel:${escapeHtml(phone).replace(/\\s+/g,'')}" onclick="event.stopPropagation()" rel="noopener noreferrer">
+                    ${escapeHtml(phone)}
+                  </a>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }
+      }
       
       // Build the card content
       card.innerHTML = `
@@ -2874,6 +2903,8 @@
             </div>
           ` : ''}
         </div>
+
+        ${birthdayContactHTML}
         
         ${capacity > 0 ? `
           <div class="capacity-bar">
@@ -2881,7 +2912,7 @@
             <div class="capacity-text">${Math.round(capacityPercent)}% Full</div>
           </div>
         ` : ''}
-        
+
         <div class="event-actions">
           <button class="btn btn-primary" onclick="quickRegister(${event.id}); event.stopPropagation();">
             QUICK REGISTER
@@ -2900,6 +2931,7 @@
       
       return card;
     }
+
 
     // Helper function to escape HTML
     function escapeHtml(text) {

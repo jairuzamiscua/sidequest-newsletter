@@ -4153,6 +4153,8 @@ def send_cancellation_confirmation_email(email, player_name, event_title, event_
         log_error(f"Failed to send cancellation confirmation to {email}: {e}")
         return False
 
+
+
 def add_birthday_columns():
     """Add birthday-specific columns to events table"""
     try:
@@ -4189,6 +4191,18 @@ def add_birthday_columns():
     except Exception as e:
         print(f"Error adding birthday columns: {e}")
         return False
+
+def generateBirthdayDescription(packageType, duration, notes):
+    """Generate clean birthday party description"""
+    if packageType == 'console':
+        description = f"Console Birthday Package ({duration} hours) - Up to 12 players simultaneously"
+    else:
+        description = f"Standard Birthday Package ({duration} hours) - Pay-as-you-play pricing"
+    
+    if notes:
+        description += f"\n\nSpecial requests: {notes}"
+    
+    return description
 
 @app.route('/api/events', methods=['POST'])
 @csrf_required

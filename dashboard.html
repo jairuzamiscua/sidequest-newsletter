@@ -2855,17 +2855,13 @@
               ${email ? `
                 <div class="event-detail">
                   <span class="event-detail-icon">📧</span>
-                  <a href="mailto:${escapeHtml(email)}" onclick="event.stopPropagation()" rel="noopener noreferrer">
-                    ${escapeHtml(email)}
-                  </a>
+                  <span>${escapeHtml(email)}</span>
                 </div>
               ` : ''}
               ${phone ? `
                 <div class="event-detail">
                   <span class="event-detail-icon">📞</span>
-                  <a href="tel:${escapeHtml(phone).replace(/\\s+/g,'')}" onclick="event.stopPropagation()" rel="noopener noreferrer">
-                    ${escapeHtml(phone)}
-                  </a>
+                  <span>${escapeHtml(phone)}</span>
                 </div>
               ` : ''}
             </div>

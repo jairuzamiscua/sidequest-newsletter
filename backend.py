@@ -6904,6 +6904,12 @@ def send_tournament_reminder_email(email, player_name, event_data, confirmation_
         log_error(f"Failed to send reminder to {email}: {e}")
         return False
 
+def heartbeat():
+    logger.info(f"[HEARTBEAT] Scheduler alive at {datetime.utcnow()}")
+
+# when scheduler starts
+scheduler.add_job(heartbeat, "interval", seconds=60)
+
 def check_and_send_reminders():
     """Check for tournaments tomorrow and send reminders"""
     try:

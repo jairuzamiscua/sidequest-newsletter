@@ -825,6 +825,113 @@ def init_database():
         print(f"❌ Database initialization error: {e}")
         return False
 
+@app.route('/api/generate-qr', methods=['POST'])
+@csrf_required
+def generate_qr_code():
+    """Generate QR code for signup URL"""
+    try:
+        data = request.json or {}
+        url = data.get('url', '').strip()
+        
+        if not url:
+            return jsonify({"success": False, "error": "URL is required"}), 400
+        
+        # Validate URL format
+        if not (url.startswith('http://') or url.startswith('https://')):
+            return jsonify({"success": False, "error": "URL must start with http:// or https://"}), 400
+        
+        if QR_CODE_AVAILABLE:
+            # Generate QR code using qrcode library
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(url)
+            qr.make(fit=True)
+            
+            # Create QR code image
+            qr_image = qr.make_image(fill_color="black", back_color="white")
+            
+            # Convert to base64
+            img_buffer = io.BytesIO()
+            qr_image.save(img_buffer, format='PNG')
+            img_buffer.seek(0)
+            img_data = base64.b64encode(img_buffer.getvalue()).decode()
+            
+            # Return as data URL
+            qr_data_url = f"data:image/png;base64,{img_data}"
+            
+            log_activity(f"Generated QR code for URL: {url}", "info")
+            
+            return jsonify({
+                "success": True,
+                "qr_code": qr_data_url,
+                "url": url,
+                "message": "QR code generated successfully"
+            })
+        else:
+            # Fallback to external service
+            external_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={quote(url)}&format=png"
+            
+            return jsonify({
+                "success": True,
+                "qr_code": external_url,
+                "url": url,
+                "message": "QR code generated using external service"
+            })
+            
+    except Exception as e:
+        log_error(f"Error generating QR code: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/qr-signup', methods=['GET'])
+def get_signup_qr():
+    """Get QR code specifically for signup page"""
+    try:
+        # Use your Railway domain
+        signup_url = "https://sidequest-newsletter-production.up.railway.app/signup"
+        
+        if QR_CODE_AVAILABLE:
+            # Generate QR code
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_M,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(signup_url)
+            qr.make(fit=True)
+            
+            # Create image with SideQuest colors
+            qr_image = qr.make_image(fill_color="#1a1a1a", back_color="white")
+            
+            # Convert to base64
+            img_buffer = io.BytesIO()
+            qr_image.save(img_buffer, format='PNG')
+            img_buffer.seek(0)
+            img_data = base64.b64encode(img_buffer.getvalue()).decode()
+            
+            return jsonify({
+                "success": True,
+                "qr_code": f"data:image/png;base64,{img_data}",
+                "url": signup_url
+            })
+        else:
+            # External service fallback
+            external_url = f"https://api.qrserver.com/v1/create-qr-code/?size=400x400&data={quote(signup_url)}&color=1a1a1a&bgcolor=ffffff"
+            
+            return jsonify({
+                "success": True,
+                "qr_code": external_url,
+                "url": signup_url
+            })
+            
+    except Exception as e:
+        log_error(f"Error generating signup QR code: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # Also add this backup function for safety
 def backup_database_schema():
     """Create a backup of the current database schema"""

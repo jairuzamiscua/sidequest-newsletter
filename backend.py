@@ -6799,6 +6799,35 @@ def send_tournament_reminder_email(email, player_name, event_data, confirmation_
         
         subject = f"Tournament Tomorrow - {event_data['title']} Reminder"
         
+        # Add text content that was missing!
+        text_content = f"""
+Tournament Reminder
+
+Hi {player_name},
+
+Just a friendly reminder that your tournament is tomorrow!
+
+Tournament: {event_data['title']}
+Game: {event_data.get('game_title', 'TBD')}
+Date: {event_date}
+Time: {event_time}
+Your Code: {confirmation_code}
+
+Tournament Checklist:
+- Arrive 15 minutes early for check-in
+- Bring your confirmation code: {confirmation_code}
+- Join our Discord for bracket updates
+{'- Bring £' + str(event_data["entry_fee"]) + ' entry fee' if event_data.get('entry_fee', 0) > 0 else ''}
+- Bring your A-game!
+
+Join Discord: https://discord.gg/CuwQM7Zwuk
+
+Questions? Reply to this email or ask at the front desk.
+
+SideQuest Gaming Cafe, Canterbury
+Cancel: https://sidequest-newsletter-production.up.railway.app/cancel?code={confirmation_code}
+        """
+        
         html_content = f"""
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -6896,22 +6925,27 @@ def send_tournament_reminder_email(email, player_name, event_data, confirmation_
             text_content=text_content
         )
         
-        api_instance.send_transac_email(send_email)
+        response = api_instance.send_transac_email(send_email)
         log_activity(f"Reminder sent to {email} for {event_data['title']}", "info")
+        print(f"✅ Reminder email sent to {email}, Brevo response: {response}")
         return True
         
     except Exception as e:
         log_error(f"Failed to send reminder to {email}: {e}")
+        print(f"❌ Failed to send reminder to {email}: {e}")
         return False
-
 
 def check_and_send_reminders():
     """Check for tournaments tomorrow and send reminders"""
+    print(f"🔍 Checking for tournaments tomorrow at {datetime.now()}")
+    
     try:
         # Get tournaments happening tomorrow
         tomorrow = datetime.now() + timedelta(days=1)
         tomorrow_start = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow_end = tomorrow.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        print(f"📅 Looking for tournaments between {tomorrow_start} and {tomorrow_end}")
         
         query = """
             SELECT e.*, r.subscriber_email, r.player_name, r.confirmation_code, r.id as registration_id
@@ -6927,16 +6961,28 @@ def check_and_send_reminders():
         conn = get_db_connection()
         if not conn:
             log_error("No database connection for reminder check")
+            print("❌ No database connection")
             return
             
         cursor = conn.cursor()
         cursor.execute(query, (tomorrow_start, tomorrow_end))
         registrations = cursor.fetchall()
         
+        print(f"📊 Found {len(registrations)} registrations needing reminders")
+        
+        # Debug: Show what we found
+        for reg in registrations:
+            reg_dict = dict(reg)
+            print(f"  - {reg_dict['player_name']} ({reg_dict['subscriber_email']}) for {reg_dict['title']}")
+            print(f"    Event time: {reg_dict['date_time']}")
+            print(f"    Reminder sent: {reg_dict.get('reminder_sent', 'NULL')}")
+        
         reminder_count = 0
         
         for reg in registrations:
             reg_dict = dict(reg)
+            
+            print(f"📧 Sending reminder to {reg_dict['subscriber_email']}...")
             
             # Send reminder email
             success = send_tournament_reminder_email(
@@ -6953,27 +6999,40 @@ def check_and_send_reminders():
                     (reg_dict['registration_id'],)
                 )
                 reminder_count += 1
+                print(f"✅ Marked reminder as sent for registration {reg_dict['registration_id']}")
+            else:
+                print(f"❌ Failed to send reminder for registration {reg_dict['registration_id']}")
         
         conn.commit()
         cursor.close()
         conn.close()
         
+        message = f"Sent {reminder_count} tournament reminders for tomorrow"
+        print(f"📈 {message}")
+        
         if reminder_count > 0:
-            log_activity(f"Sent {reminder_count} tournament reminders for tomorrow", "success")
+            log_activity(message, "success")
+        
+        return {"success": True, "sent": reminder_count, "found": len(registrations)}
         
     except Exception as e:
-        log_error(f"Error checking reminders: {e}")
+        error_msg = f"Error checking reminders: {e}"
+        log_error(error_msg)
+        print(f"❌ {error_msg}")
         if 'conn' in locals():
             conn.close()
+        return {"success": False, "error": str(e)}
 
 # Schedule the reminder check to run daily at 6 PM
 scheduler.add_job(
     func=check_and_send_reminders,
-    trigger=CronTrigger(hour=15, minute=0),  # 6:00 PM daily
+    trigger=CronTrigger(hour=18, minute=0),  # 6:00 PM daily
     id='tournament_reminders',
     name='Send tournament reminders',
     replace_existing=True
 )
+
+print("⏰ Scheduled tournament reminders for 6:00 PM daily")
 
 # Add column for tracking reminder status (run this once)
 def add_reminder_column():
@@ -7000,16 +7059,84 @@ def add_reminder_column():
         print(f"Error adding reminder column: {e}")
         return False
 
-# Manual test endpoint
+# Manual test endpoint with better debugging
 @app.route('/api/test-reminders', methods=['POST'])
 @csrf_required
 def test_tournament_reminders():
     """Test tournament reminder system"""
     try:
-        check_and_send_reminders()
-        return jsonify({"success": True, "message": "Reminder check completed"})
+        result = check_and_send_reminders()
+        return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+# Debug endpoint to check what tournaments exist
+@app.route('/api/debug-tournaments', methods=['GET'])
+@csrf_required
+def debug_tournaments():
+    """Debug: Show all upcoming tournaments"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "No database connection"}), 500
+            
+        cursor = conn.cursor()
+        
+        # Get all tournaments in the next 3 days
+        today = datetime.now()
+        future = today + timedelta(days=3)
+        
+        query = """
+            SELECT e.id, e.title, e.date_time, e.event_type,
+                   COUNT(r.id) as registration_count,
+                   COUNT(CASE WHEN r.reminder_sent = TRUE THEN 1 END) as reminders_sent
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id 
+                AND r.cancelled_at IS NULL
+            WHERE e.date_time BETWEEN %s AND %s
+            GROUP BY e.id, e.title, e.date_time, e.event_type
+            ORDER BY e.date_time
+        """
+        
+        cursor.execute(query, (today, future))
+        tournaments = cursor.fetchall()
+        
+        result = []
+        for t in tournaments:
+            t_dict = dict(t)
+            t_dict['date_time'] = t_dict['date_time'].isoformat() if t_dict['date_time'] else None
+            result.append(t_dict)
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({"tournaments": result, "current_time": today.isoformat()})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Check scheduler status endpoint
+@app.route('/api/scheduler-status', methods=['GET'])
+@csrf_required  
+def scheduler_status():
+    """Check if scheduler is running and show jobs"""
+    try:
+        jobs = []
+        for job in scheduler.get_jobs():
+            jobs.append({
+                "id": job.id,
+                "name": job.name,
+                "next_run": job.next_run_time.isoformat() if job.next_run_time else None,
+                "trigger": str(job.trigger)
+            })
+        
+        return jsonify({
+            "running": scheduler.running,
+            "jobs": jobs,
+            "state": scheduler.state
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # =============================
 # Main

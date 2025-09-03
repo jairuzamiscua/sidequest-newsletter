@@ -31,6 +31,10 @@ from flask_wtf.csrf import CSRFProtect, validate_csrf, generate_csrf, CSRFError
 from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, IntegerField, DecimalField, SelectField, BooleanField, EmailField
 from wtforms.validators import DataRequired, Email, Length, Optional, NumberRange
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import atexit
+
 
 # SINGLE APP CREATION - FIXED!
 app = Flask(__name__, static_folder="static")
@@ -90,6 +94,9 @@ def ip_allowlisted() -> bool:
     allowed = {ip.strip() for ip in allow.split(",") if ip.strip()}
     return client_ip() in allowed
 
+scheduler = BackgroundScheduler()
+scheduler.start()
+atexit.register(lambda: scheduler.shutdown())
 
 
 # =============================
@@ -6777,6 +6784,232 @@ def calculate_capacity_utilization(event_data):
         
     except Exception:
         return 0
+
+
+def send_tournament_reminder_email(email, player_name, event_data, confirmation_code):
+    """Send day-before tournament reminder email"""
+    if not api_instance:
+        log_error("Brevo API not initialized for reminder")
+        return False
+        
+    try:
+        event_start = datetime.fromisoformat(event_data['date_time']) if isinstance(event_data['date_time'], str) else event_data['date_time']
+        event_date = event_start.strftime('%A, %B %d, %Y')
+        event_time = event_start.strftime('%I:%M %p')
+        
+        subject = f"Tournament Tomorrow - {event_data['title']} Reminder"
+        
+        html_content = f"""
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Tournament Reminder</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px;">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 30px; background-color: #FF6B35; border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0; color: white; font-size: 24px;">Tournament Tomorrow!</h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 30px;">
+                            <h2 style="color: #333; margin-bottom: 20px;">Ready for battle, {player_name}?</h2>
+                            
+                            <p style="color: #666; margin-bottom: 20px;">
+                                Just a friendly reminder that your tournament is tomorrow!
+                            </p>
+                            
+                            <!-- Event Details -->
+                            <table border="0" cellpadding="15" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px; margin: 20px 0;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; color: #FF6B35;">{event_data['title']}</h3>
+                                        <p style="margin: 5px 0; color: #333;"><strong>Game:</strong> {event_data.get('game_title', 'TBD')}</p>
+                                        <p style="margin: 5px 0; color: #333;"><strong>Date:</strong> {event_date}</p>
+                                        <p style="margin: 5px 0; color: #333;"><strong>Time:</strong> {event_time}</p>
+                                        <p style="margin: 5px 0; color: #333;"><strong>Your Code:</strong> <strong>{confirmation_code}</strong></p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Reminder checklist -->
+                            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                                <h3 style="color: #28a745; margin-bottom: 15px;">Tournament Checklist:</h3>
+                                <ul style="color: #333; line-height: 1.8;">
+                                    <li>Arrive 15 minutes early for check-in</li>
+                                    <li>Bring your confirmation code: <strong>{confirmation_code}</strong></li>
+                                    <li>Join our Discord for bracket updates</li>
+                                    {'<li>Bring £' + str(event_data["entry_fee"]) + ' entry fee</li>' if event_data.get('entry_fee', 0) > 0 else ''}
+                                    <li>Bring your A-game!</li>
+                                </ul>
+                            </div>
+                            
+                            <!-- Discord reminder -->
+                            <table border="0" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td align="center" style="background-color: #5865F2; border-radius: 6px;">
+                                        <a href="https://discord.gg/CuwQM7Zwuk" style="display: inline-block; padding: 12px 20px; color: white; text-decoration: none; font-weight: bold;">
+                                            Join Discord for Updates
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #666; margin-top: 20px;">
+                                Questions? Reply to this email or ask at the front desk.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 20px; background-color: #f8f8f8; text-align: center; border-radius: 0 0 8px 8px;">
+                            <p style="margin: 0; color: #999; font-size: 12px;">
+                                SideQuest Gaming Cafe, Canterbury<br>
+                                <a href="https://sidequest-newsletter-production.up.railway.app/cancel?code={confirmation_code}" style="color: #999;">Cancel Registration</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        """
+        
+        send_email = sib_api_v3_sdk.SendSmtpEmail(
+            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
+            to=[{"email": email, "name": player_name}],
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content
+        )
+        
+        api_instance.send_transac_email(send_email)
+        log_activity(f"Reminder sent to {email} for {event_data['title']}", "info")
+        return True
+        
+    except Exception as e:
+        log_error(f"Failed to send reminder to {email}: {e}")
+        return False
+
+def check_and_send_reminders():
+    """Check for tournaments tomorrow and send reminders"""
+    try:
+        # Get tournaments happening tomorrow
+        tomorrow = datetime.now() + timedelta(days=1)
+        tomorrow_start = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow_end = tomorrow.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        query = """
+            SELECT e.*, r.subscriber_email, r.player_name, r.confirmation_code, r.id as registration_id
+            FROM events e
+            JOIN event_registrations r ON e.id = r.event_id
+            WHERE e.event_type = 'tournament'
+            AND e.date_time BETWEEN %s AND %s
+            AND r.attended = FALSE
+            AND r.cancelled_at IS NULL
+            AND (r.reminder_sent IS NULL OR r.reminder_sent = FALSE)
+        """
+        
+        conn = get_db_connection()
+        if not conn:
+            log_error("No database connection for reminder check")
+            return
+            
+        cursor = conn.cursor()
+        cursor.execute(query, (tomorrow_start, tomorrow_end))
+        registrations = cursor.fetchall()
+        
+        reminder_count = 0
+        
+        for reg in registrations:
+            reg_dict = dict(reg)
+            
+            # Send reminder email
+            success = send_tournament_reminder_email(
+                email=reg_dict['subscriber_email'],
+                player_name=reg_dict['player_name'],
+                event_data=reg_dict,
+                confirmation_code=reg_dict['confirmation_code']
+            )
+            
+            if success:
+                # Mark reminder as sent
+                cursor.execute(
+                    "UPDATE event_registrations SET reminder_sent = TRUE WHERE id = %s",
+                    (reg_dict['registration_id'],)
+                )
+                reminder_count += 1
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        if reminder_count > 0:
+            log_activity(f"Sent {reminder_count} tournament reminders for tomorrow", "success")
+        
+    except Exception as e:
+        log_error(f"Error checking reminders: {e}")
+        if 'conn' in locals():
+            conn.close()
+
+# Schedule the reminder check to run daily at 6 PM
+scheduler.add_job(
+    func=check_and_send_reminders,
+    trigger=CronTrigger(hour=18, minute=0),  # 6:00 PM daily
+    id='tournament_reminders',
+    name='Send tournament reminders',
+    replace_existing=True
+)
+
+# Add column for tracking reminder status (run this once)
+def add_reminder_column():
+    """Add reminder_sent column to track sent reminders"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('ALTER TABLE event_registrations ADD COLUMN reminder_sent BOOLEAN DEFAULT FALSE;')
+            print("✅ Added reminder_sent column")
+        except Exception:
+            print("ℹ️ reminder_sent column already exists")
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"Error adding reminder column: {e}")
+        return False
+
+# Manual test endpoint
+@app.route('/api/test-reminders', methods=['POST'])
+@csrf_required
+def test_tournament_reminders():
+    """Test tournament reminder system"""
+    try:
+        check_and_send_reminders()
+        return jsonify({"success": True, "message": "Reminder check completed"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 # =============================
 # Main

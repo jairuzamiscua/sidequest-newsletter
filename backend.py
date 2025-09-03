@@ -6909,7 +6909,7 @@ def check_and_send_reminders():
     """Check for tournaments tomorrow and send reminders"""
     try:
         # Get tournaments happening tomorrow
-        tomorrow = datetime.now() + timedelta(days=1)
+        tomorrow = datetime.now()
         tomorrow_start = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow_end = tomorrow.replace(hour=23, minute=59, second=59, microsecond=999999)
         

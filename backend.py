@@ -7011,11 +7011,6 @@ def test_tournament_reminders():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-
-logger.info("[TEST] Forcing send_scheduled_emails to run on startup...")
-send_scheduled_emails()
-
-
 # =============================
 # Main
 # =============================

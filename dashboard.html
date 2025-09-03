@@ -2043,15 +2043,34 @@
                         <button class="btn btn-primary mt-20" onclick="bulkImport()">📥 Import Subscribers</button>
                     </div>
 
+                    <!-- Replace your existing QR Code section in the Tools tab with this: -->
+
                     <div class="form-group">
                         <label class="form-label">Generate QR Code</label>
-                        <div style="display: flex; gap: 12px;">
-                            <input type="text" class="form-input" id="qrUrl" placeholder="Enter signup URL" value="http://localhost:4000/signup">
-                            <button class="btn btn-primary" onclick="generateQR()">Generate QR</button>
+                        
+                        <!-- Quick Signup QR Button -->
+                        <div style="margin-bottom: 15px; padding: 15px; background: #1a1a1a; border-radius: 10px; border-left: 4px solid #FFD700;">
+                            <h4 style="color: #FFD700; margin-bottom: 10px; font-size: 1rem;">Quick Signup QR</h4>
+                            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">Generate a QR code for your signup page instantly</p>
+                            <button class="btn btn-primary" onclick="generateSignupQR()">
+                                📱 Generate Signup QR Code
+                            </button>
                         </div>
-                        <div class="qr-display" id="qrDisplay" style="display: none;">
-                            <canvas id="qrCanvas"></canvas>
-                            <p style="margin-top: 15px; color: #aaaaaa;">Right-click to save QR code</p>
+                        
+                        <!-- Custom URL QR Generator -->
+                        <div style="margin-bottom: 15px;">
+                            <label style="color: #aaa; font-size: 0.9rem; margin-bottom: 10px; display: block;">Or generate QR for custom URL:</label>
+                            <div style="display: flex; gap: 12px;">
+                                <input type="text" class="form-input" id="qrUrl" 
+                                      placeholder="Enter any URL" 
+                                      value="https://sidequest-newsletter-production.up.railway.app/signup">
+                                <button class="btn btn-secondary" onclick="generateQR()">Generate</button>
+                            </div>
+                        </div>
+                        
+                        <!-- QR Display Area -->
+                        <div class="qr-display" id="qrDisplay" style="display: none; margin-top: 20px;">
+                            <!-- QR code will be inserted here -->
                         </div>
                     </div>
 
@@ -5706,35 +5725,191 @@
       }
     }
 
-    // Generate QR Code (placeholder - would need QR library)
-    function generateQR() {
-      try {
-        const urlInput = document.getElementById('qrUrl');
-        if (!urlInput) return;
-        
-        const url = urlInput.value;
-        if (!url) {
-          alert('Please enter a URL');
-          return;
-        }
+    
+    // Replace the existing generateQR function in your dashboard with this:
 
-        const qrDisplay = document.getElementById('qrDisplay');
-        if (qrDisplay) {
-          qrDisplay.style.display = 'block';
-          qrDisplay.innerHTML = `
-            <div style="width: 200px; height: 200px; background: #1a1a1a; border: 2px dashed #FFD700; display: flex; align-items: center; justify-content: center; margin: 0 auto; border-radius: 12px; color: #FFD700;">
-              📱 QR Code<br>
-              <small>Would generate for:<br>${url}</small>
-            </div>
-            <p style="margin-top: 15px; font-size: 12px; color: #aaaaaa;">
-              QR code library integration needed
-            </p>
-          `;
+    async function generateQR() {
+        try {
+            const urlInput = document.getElementById('qrUrl');
+            if (!urlInput) {
+                console.error('QR URL input not found');
+                return;
+            }
+            
+            const url = urlInput.value.trim();
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+
+            // Show loading state
+            const qrDisplay = document.getElementById('qrDisplay');
+            if (qrDisplay) {
+                qrDisplay.style.display = 'block';
+                qrDisplay.innerHTML = `
+                    <div style="text-align: center; padding: 50px;">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 15px; color: #FFD700;">Generating QR code...</p>
+                    </div>
+                `;
+            }
+
+            // Get CSRF token
+            const csrfToken = await csrfManager.getToken();
+            
+            // Make API call to generate QR code
+            const response = await fetch('/api/generate-qr', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ url: url })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Display the QR code
+                if (qrDisplay) {
+                    qrDisplay.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <img src="${data.qr_code}" 
+                                alt="QR Code for ${url}" 
+                                style="max-width: 300px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); background: white; padding: 15px;">
+                            <div style="margin-top: 20px;">
+                                <p style="color: #FFD700; font-weight: 600; margin-bottom: 10px;">QR Code Generated!</p>
+                                <p style="color: #aaa; font-size: 12px; word-break: break-all;">URL: ${data.url}</p>
+                                <div style="margin-top: 15px;">
+                                    <button class="btn btn-primary btn-sm" onclick="downloadQRCode('${data.qr_code}', 'sidequest-signup-qr.png')">
+                                        💾 Download QR Code
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm" onclick="copyQRUrl('${data.url}')">
+                                        📋 Copy URL
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                showSuccess('QR code generated successfully!');
+            } else {
+                throw new Error(data.error || 'Failed to generate QR code');
+            }
+
+        } catch (error) {
+            console.error('Error generating QR code:', error);
+            
+            const qrDisplay = document.getElementById('qrDisplay');
+            if (qrDisplay) {
+                qrDisplay.innerHTML = `
+                    <div style="text-align: center; padding: 30px; color: #ff6b35;">
+                        <p>❌ Failed to generate QR code</p>
+                        <p style="font-size: 0.9rem; color: #aaa; margin-top: 10px;">
+                            Error: ${error.message}
+                        </p>
+                        <button class="btn btn-secondary btn-sm" onclick="generateQR()" style="margin-top: 15px;">
+                            🔄 Try Again
+                        </button>
+                    </div>
+                `;
+            }
+            
+            alert('Failed to generate QR code: ' + error.message);
         }
-      } catch (error) {
-        console.error('Error generating QR code:', error);
-      }
     }
+
+    // Add these helper functions as well:
+
+    function downloadQRCode(dataUrl, filename) {
+        try {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = dataUrl;
+            link.click();
+            showSuccess('QR code downloaded!');
+        } catch (error) {
+            console.error('Download error:', error);
+            // Fallback - open in new window
+            window.open(dataUrl, '_blank');
+            showSuccess('QR code opened in new window!');
+        }
+    }
+
+    function copyQRUrl(url) {
+        navigator.clipboard.writeText(url).then(() => {
+            showSuccess('URL copied to clipboard!');
+        }).catch(() => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = url;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            showSuccess('URL copied to clipboard!');
+        });
+    }
+
+    // Add a quick shortcut to generate signup QR
+    async function generateSignupQR() {
+        try {
+            // Show loading
+            const qrDisplay = document.getElementById('qrDisplay');
+            if (qrDisplay) {
+                qrDisplay.style.display = 'block';
+                qrDisplay.innerHTML = `
+                    <div style="text-align: center; padding: 50px;">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 15px; color: #FFD700;">Generating signup QR code...</p>
+                    </div>
+                `;
+            }
+
+            // Get signup QR code directly
+            const response = await fetch('/api/qr-signup');
+            const data = await response.json();
+
+            if (data.success) {
+                if (qrDisplay) {
+                    qrDisplay.innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <img src="${data.qr_code}" 
+                                alt="SideQuest Signup QR Code" 
+                                style="max-width: 300px; border-radius: 12px; box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3); background: white; padding: 15px;">
+                            <div style="margin-top: 20px;">
+                                <p style="color: #FFD700; font-weight: 700; margin-bottom: 5px;">📱 SideQuest Signup QR Code</p>
+                                <p style="color: #aaa; font-size: 12px; word-break: break-all;">${data.url}</p>
+                                <div style="margin-top: 15px;">
+                                    <button class="btn btn-primary btn-sm" onclick="downloadQRCode('${data.qr_code}', 'sidequest-signup-qr.png')">
+                                        💾 Download
+                                    </button>
+                                    <button class="btn btn-success btn-sm" onclick="window.open('${data.url}', '_blank')">
+                                        👁️ Test Signup
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                showSuccess('Signup QR code ready!');
+            } else {
+                throw new Error(data.error || 'Failed to generate signup QR code');
+            }
+
+        } catch (error) {
+            console.error('Error generating signup QR:', error);
+            alert('Failed to generate signup QR: ' + error.message);
+        }
+    }
+
 
     // Data management
     function backupData() {

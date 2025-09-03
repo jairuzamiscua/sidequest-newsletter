@@ -6969,7 +6969,7 @@ def check_and_send_reminders():
 # Schedule the reminder check to run daily at 6 PM
 scheduler.add_job(
     func=check_and_send_reminders,
-    trigger=CronTrigger(hour=18, minute=0),  # 6:00 PM daily
+    trigger=CronTrigger(hour=15, minute=0),  # 6:00 PM daily
     id='tournament_reminders',
     name='Send tournament reminders',
     replace_existing=True

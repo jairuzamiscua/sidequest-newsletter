@@ -32,7 +32,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, IntegerField, DecimalField, SelectField, BooleanField, EmailField
 from wtforms.validators import DataRequired, Email, Length, Optional, NumberRange
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 import atexit
 
 
@@ -1981,7 +1981,273 @@ Manage preferences: {unsubscribe_url}
     except Exception as e:
         log_error(f"Error sending welcome email: {str(e)}")
         return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
+
+def schedule_event_reminder_emails(event_id, event_date_time):
+    """Schedule automated reminder emails for an event"""
+    try:
+        from datetime import timedelta
         
+        event_datetime = datetime.fromisoformat(event_date_time) if isinstance(event_date_time, str) else event_date_time
+        now = datetime.now()
+        
+        # Schedule 24-hour reminder
+        reminder_24h = event_datetime - timedelta(hours=24)
+        if reminder_24h > now:
+            scheduler.add_job(
+                func=send_event_reminder,
+                trigger='date',
+                run_date=reminder_24h,
+                args=[event_id, '24_hour'],
+                id=f'reminder_24h_{event_id}',
+                replace_existing=True
+            )
+            
+        # Schedule 2-hour reminder  
+        reminder_2h = event_datetime - timedelta(hours=2)
+        if reminder_2h > now:
+            scheduler.add_job(
+                func=send_event_reminder,
+                trigger='date', 
+                run_date=reminder_2h,
+                args=[event_id, '2_hour'],
+                id=f'reminder_2h_{event_id}',
+                replace_existing=True
+            )
+            
+        log_activity(f"Scheduled reminder emails for event {event_id}", "info")
+        return True
+        
+    except Exception as e:
+        log_error(f"Error scheduling reminders for event {event_id}: {e}")
+        return False
+
+def send_event_reminder(event_id, reminder_type):
+    """Send reminder email to event attendees"""
+    try:
+        # Get event details
+        conn = get_db_connection()
+        if not conn:
+            return False
+            
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT e.*, COUNT(r.id) as registration_count
+            FROM events e
+            LEFT JOIN event_registrations r ON e.id = r.event_id  
+            WHERE e.id = %s
+            GROUP BY e.id
+        """, (event_id,))
+        
+        event = cursor.fetchone()
+        if not event:
+            cursor.close()
+            conn.close()
+            return False
+            
+        event_dict = dict(event)
+            
+        # Get attendees
+        cursor.execute("""
+            SELECT subscriber_email, player_name, confirmation_code
+            FROM event_registrations 
+            WHERE event_id = %s AND cancelled_at IS NULL
+        """, (event_id,))
+        
+        attendees = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        if not attendees:
+            return False
+            
+        # Send to each attendee
+        sent_count = 0
+        for attendee in attendees:
+            if send_reminder_email(event_dict, dict(attendee), reminder_type):
+                sent_count += 1
+                
+        log_activity(f"Sent {reminder_type} reminders to {sent_count} attendees for {event_dict['title']}", "success")
+        return True
+        
+    except Exception as e:
+        log_error(f"Error sending reminder for event {event_id}: {e}")
+        return False
+
+def send_reminder_email(event, attendee, reminder_type):
+    """Send individual reminder email"""
+    if not api_instance:
+        return False
+        
+    try:
+        email = attendee['subscriber_email']
+        player_name = attendee['player_name'] or email.split('@')[0]
+        confirmation_code = attendee['confirmation_code']
+        
+        event_datetime = event['date_time']
+        event_date = event_datetime.strftime('%A, %B %d, %Y')
+        event_time = event_datetime.strftime('%I:%M %p')
+        
+        if reminder_type == '24_hour':
+            subject = f"Tomorrow: {event['title']} - Final Reminder"
+            urgency = "Don't forget - your tournament is tomorrow!"
+            time_notice = "less than 24 hours"
+        else:  # 2_hour
+            subject = f"Starting Soon: {event['title']} - Last Call"
+            urgency = "Your tournament starts in 2 hours!"
+            time_notice = "just 2 hours"
+
+        BASE_URL = "https://sidequest-newsletter-production.up.railway.app"
+            
+        html_content = f"""
+        <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+        <html xmlns="http://www.w3.org/1999/xhtml">
+        <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+            <title>Event Reminder - {event['title']}</title>
+        </head>
+        <body style="margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f4f4f4;">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
+                <tr>
+                    <td align="center" style="padding: 20px 10px;">
+                        <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                            
+                            <!-- Header -->
+                            <tr>
+                                <td align="center" style="padding: 40px 30px 30px 30px; background-color: #1a1a1a; border-radius: 8px 8px 0 0;">
+                                    <div style="width: 80px; height: 80px; background-color: #FFD700; border-radius: 15px; margin: 0 auto 20px auto; display: table-cell; vertical-align: middle; text-align: center;">
+                                        <span style="color: #1a1a1a; font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 24px; line-height: 80px;">SQ</span>
+                                    </div>
+                                    <h1 style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 28px; font-weight: bold; color: #ff6b35; text-align: center;">
+                                        {urgency}
+                                    </h1>
+                                </td>
+                            </tr>
+                            
+                            <!-- Event Details -->
+                            <tr>
+                                <td style="padding: 30px;">
+                                    <div style="background: #f8f8f8; padding: 25px; border-radius: 12px; border-left: 4px solid #FFD700; margin-bottom: 25px;">
+                                        <h2 style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 22px; color: #FFD700; font-weight: bold;">
+                                            {event['title']}
+                                        </h2>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="padding: 4px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong>Date:</strong> {event_date}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 4px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong>Time:</strong> {event_time}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                            {f'<tr><td style="padding: 4px 0;"><p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;"><strong>Game:</strong> {event["game_title"]}</p></td></tr>' if event.get('game_title') else ''}
+                                            <tr>
+                                                <td style="padding: 4px 0;">
+                                                    <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #333333;">
+                                                        <strong>Your Confirmation:</strong> {confirmation_code}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    
+                                    <!-- What to Bring -->
+                                    <div style="background: #e8f5e8; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #28a745; font-weight: bold;">
+                                            What to Bring:
+                                        </h3>
+                                        <ul style="margin: 0; padding-left: 20px; color: #333;">
+                                            <li>Your confirmation code: <strong>{confirmation_code}</strong></li>
+                                            <li>Positive attitude and competitive spirit</li>
+                                            {f"<li>£{event['entry_fee']} entry fee</li>" if event.get('entry_fee', 0) > 0 else ''}
+                                        </ul>
+                                    </div>
+                                    
+                                    <p style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #333; line-height: 24px; margin-bottom: 25px;">
+                                        We're excited to see you in {time_notice}!
+                                    </p>
+                                </td>
+                            </tr>
+                            
+                            <!-- Cancellation Section -->
+                            <tr>
+                                <td style="padding: 20px 30px;">
+                                    <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px;">
+                                        <tr>
+                                            <td>
+                                                <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #666; font-weight: normal;">
+                                                    Need to Cancel?
+                                                </h3>
+                                                <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #666; line-height: 20px;">
+                                                    If your plans change, you can cancel your registration using the link below:
+                                                </p>
+                                                <table border="0" cellpadding="0" cellspacing="0">
+                                                    <tr>
+                                                        <td align="center" style="background-color: #6b7280; border-radius: 6px;">
+                                                            <a href="{BASE_URL}/cancel?code={confirmation_code}" 
+                                                            style="display: inline-block; padding: 12px 20px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #ffffff; text-decoration: none; font-weight: bold;">
+                                                                Cancel Registration
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                                <p style="margin: 15px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #999;">
+                                                    Keep this email safe - you'll need your confirmation code to cancel.
+                                                </p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                            
+                            <!-- Footer -->
+                            <tr>
+                                <td style="padding: 30px 30px 40px 30px; background-color: #f8f8f8; border-radius: 0 0 8px 8px;">
+                                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                        <tr>
+                                            <td align="center">
+                                                <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #666666; line-height: 20px;">
+                                                    <strong>SideQuest Canterbury Gaming Cafe</strong><br/>
+                                                    C10, The Riverside, 1 Sturry Rd<br/>
+                                                    Canterbury CT1 1BU<br/>
+                                                    01227 915058<br/>
+                                                    <a href="mailto:marketing@sidequestcanterbury.com" style="color: #4CAF50; text-decoration: none;">marketing@sidequestcanterbury.com</a>
+                                                </p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
+        """
+        
+        send_email = sib_api_v3_sdk.SendSmtpEmail(
+            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
+            to=[{"email": email, "name": player_name}],
+            subject=subject,
+            html_content=html_content
+        )
+        
+        api_instance.send_transac_email(send_email)
+        return True
+        
+    except Exception as e:
+        log_error(f"Failed to send reminder to {email}: {e}")
+        return False
+
 @app.route('/subscribe', methods=['POST'])
 @csrf_required
 def add_subscriber():
@@ -4609,6 +4875,12 @@ def create_event():
         
         if isinstance(result, dict) and 'id' in result:
             event_id = result['id']
+
+            try:
+                schedule_event_reminder_emails(event_id, date_time)
+            except Exception as e:
+                log_error(f"Failed to schedule reminders for event {event_id}: {e}")
+                # Don't fail the event creation if reminders fail
             
             if is_birthday and package_type == 'console':
                 log_activity(f"Console birthday party created: {title} for {birthday_person_name} - £20 deposit required (ID: {event_id})", "success")
@@ -6786,357 +7058,6 @@ def calculate_capacity_utilization(event_data):
         return 0
 
 
-def send_tournament_reminder_email(email, player_name, event_data, confirmation_code):
-    """Send day-before tournament reminder email"""
-    if not api_instance:
-        log_error("Brevo API not initialized for reminder")
-        return False
-        
-    try:
-        event_start = datetime.fromisoformat(event_data['date_time']) if isinstance(event_data['date_time'], str) else event_data['date_time']
-        event_date = event_start.strftime('%A, %B %d, %Y')
-        event_time = event_start.strftime('%I:%M %p')
-        
-        subject = f"Tournament Tomorrow - {event_data['title']} Reminder"
-        
-        # Add text content that was missing!
-        text_content = f"""
-Tournament Reminder
-
-Hi {player_name},
-
-Just a friendly reminder that your tournament is tomorrow!
-
-Tournament: {event_data['title']}
-Game: {event_data.get('game_title', 'TBD')}
-Date: {event_date}
-Time: {event_time}
-Your Code: {confirmation_code}
-
-Tournament Checklist:
-- Arrive 15 minutes early for check-in
-- Bring your confirmation code: {confirmation_code}
-- Join our Discord for bracket updates
-{'- Bring £' + str(event_data["entry_fee"]) + ' entry fee' if event_data.get('entry_fee', 0) > 0 else ''}
-- Bring your A-game!
-
-Join Discord: https://discord.gg/CuwQM7Zwuk
-
-Questions? Reply to this email or ask at the front desk.
-
-SideQuest Gaming Cafe, Canterbury
-Cancel: https://sidequest-newsletter-production.up.railway.app/cancel?code={confirmation_code}
-        """
-        
-        html_content = f"""
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Tournament Reminder</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
-    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-        <tr>
-            <td align="center" style="padding: 20px;">
-                <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px;">
-                    
-                    <!-- Header -->
-                    <tr>
-                        <td align="center" style="padding: 30px; background-color: #FF6B35; border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0; color: white; font-size: 24px;">Tournament Tomorrow!</h1>
-                        </td>
-                    </tr>
-                    
-                    <!-- Content -->
-                    <tr>
-                        <td style="padding: 30px;">
-                            <h2 style="color: #333; margin-bottom: 20px;">Ready for battle, {player_name}?</h2>
-                            
-                            <p style="color: #666; margin-bottom: 20px;">
-                                Just a friendly reminder that your tournament is tomorrow!
-                            </p>
-                            
-                            <!-- Event Details -->
-                            <table border="0" cellpadding="15" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px; margin: 20px 0;">
-                                <tr>
-                                    <td>
-                                        <h3 style="margin: 0 0 15px 0; color: #FF6B35;">{event_data['title']}</h3>
-                                        <p style="margin: 5px 0; color: #333;"><strong>Game:</strong> {event_data.get('game_title', 'TBD')}</p>
-                                        <p style="margin: 5px 0; color: #333;"><strong>Date:</strong> {event_date}</p>
-                                        <p style="margin: 5px 0; color: #333;"><strong>Time:</strong> {event_time}</p>
-                                        <p style="margin: 5px 0; color: #333;"><strong>Your Code:</strong> <strong>{confirmation_code}</strong></p>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <!-- Reminder checklist -->
-                            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                <h3 style="color: #28a745; margin-bottom: 15px;">Tournament Checklist:</h3>
-                                <ul style="color: #333; line-height: 1.8;">
-                                    <li>Arrive 15 minutes early for check-in</li>
-                                    <li>Bring your confirmation code: <strong>{confirmation_code}</strong></li>
-                                    <li>Join our Discord for bracket updates</li>
-                                    {'<li>Bring £' + str(event_data["entry_fee"]) + ' entry fee</li>' if event_data.get('entry_fee', 0) > 0 else ''}
-                                    <li>Bring your A-game!</li>
-                                </ul>
-                            </div>
-                            
-                            <!-- Discord reminder -->
-                            <table border="0" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
-                                <tr>
-                                    <td align="center" style="background-color: #5865F2; border-radius: 6px;">
-                                        <a href="https://discord.gg/CuwQM7Zwuk" style="display: inline-block; padding: 12px 20px; color: white; text-decoration: none; font-weight: bold;">
-                                            Join Discord for Updates
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <p style="color: #666; margin-top: 20px;">
-                                Questions? Reply to this email or ask at the front desk.
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
-                    <tr>
-                        <td style="padding: 20px; background-color: #f8f8f8; text-align: center; border-radius: 0 0 8px 8px;">
-                            <p style="margin: 0; color: #999; font-size: 12px;">
-                                SideQuest Gaming Cafe, Canterbury<br>
-                                <a href="https://sidequest-newsletter-production.up.railway.app/cancel?code={confirmation_code}" style="color: #999;">Cancel Registration</a>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
-        """
-        
-        send_email = sib_api_v3_sdk.SendSmtpEmail(
-            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
-            to=[{"email": email, "name": player_name}],
-            subject=subject,
-            html_content=html_content,
-            text_content=text_content
-        )
-        
-        response = api_instance.send_transac_email(send_email)
-        log_activity(f"Reminder sent to {email} for {event_data['title']}", "info")
-        print(f"✅ Reminder email sent to {email}, Brevo response: {response}")
-        return True
-        
-    except Exception as e:
-        log_error(f"Failed to send reminder to {email}: {e}")
-        print(f"❌ Failed to send reminder to {email}: {e}")
-        return False
-
-def check_and_send_reminders():
-    """Check for tournaments tomorrow and send reminders"""
-    print(f"🔍 Checking for tournaments tomorrow at {datetime.now()}")
-    
-    try:
-        # Get tournaments happening tomorrow
-        tomorrow = datetime.now() + timedelta(days=1)
-        tomorrow_start = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
-        tomorrow_end = tomorrow.replace(hour=23, minute=59, second=59, microsecond=999999)
-        
-        print(f"📅 Looking for tournaments between {tomorrow_start} and {tomorrow_end}")
-        
-        query = """
-            SELECT e.*, r.subscriber_email, r.player_name, r.confirmation_code, r.id as registration_id
-            FROM events e
-            JOIN event_registrations r ON e.id = r.event_id
-            WHERE e.event_type = 'tournament'
-            AND e.date_time BETWEEN %s AND %s
-            AND r.attended = FALSE
-            AND r.cancelled_at IS NULL
-            AND (r.reminder_sent IS NULL OR r.reminder_sent = FALSE)
-        """
-        
-        conn = get_db_connection()
-        if not conn:
-            log_error("No database connection for reminder check")
-            print("❌ No database connection")
-            return
-            
-        cursor = conn.cursor()
-        cursor.execute(query, (tomorrow_start, tomorrow_end))
-        registrations = cursor.fetchall()
-        
-        print(f"📊 Found {len(registrations)} registrations needing reminders")
-        
-        # Debug: Show what we found
-        for reg in registrations:
-            reg_dict = dict(reg)
-            print(f"  - {reg_dict['player_name']} ({reg_dict['subscriber_email']}) for {reg_dict['title']}")
-            print(f"    Event time: {reg_dict['date_time']}")
-            print(f"    Reminder sent: {reg_dict.get('reminder_sent', 'NULL')}")
-        
-        reminder_count = 0
-        
-        for reg in registrations:
-            reg_dict = dict(reg)
-            
-            print(f"📧 Sending reminder to {reg_dict['subscriber_email']}...")
-            
-            # Send reminder email
-            success = send_tournament_reminder_email(
-                email=reg_dict['subscriber_email'],
-                player_name=reg_dict['player_name'],
-                event_data=reg_dict,
-                confirmation_code=reg_dict['confirmation_code']
-            )
-            
-            if success:
-                # Mark reminder as sent
-                cursor.execute(
-                    "UPDATE event_registrations SET reminder_sent = TRUE WHERE id = %s",
-                    (reg_dict['registration_id'],)
-                )
-                reminder_count += 1
-                print(f"✅ Marked reminder as sent for registration {reg_dict['registration_id']}")
-            else:
-                print(f"❌ Failed to send reminder for registration {reg_dict['registration_id']}")
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        message = f"Sent {reminder_count} tournament reminders for tomorrow"
-        print(f"📈 {message}")
-        
-        if reminder_count > 0:
-            log_activity(message, "success")
-        
-        return {"success": True, "sent": reminder_count, "found": len(registrations)}
-        
-    except Exception as e:
-        error_msg = f"Error checking reminders: {e}"
-        log_error(error_msg)
-        print(f"❌ {error_msg}")
-        if 'conn' in locals():
-            conn.close()
-        return {"success": False, "error": str(e)}
-
-# Schedule the reminder check to run daily at 6 PM
-scheduler.add_job(
-    func=check_and_send_reminders,
-    trigger=CronTrigger(hour=18, minute=0),  # 6:00 PM daily
-    id='tournament_reminders',
-    name='Send tournament reminders',
-    replace_existing=True
-)
-
-print("⏰ Scheduled tournament reminders for 6:00 PM daily")
-
-# Add column for tracking reminder status (run this once)
-def add_reminder_column():
-    """Add reminder_sent column to track sent reminders"""
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return False
-            
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute('ALTER TABLE event_registrations ADD COLUMN reminder_sent BOOLEAN DEFAULT FALSE;')
-            print("✅ Added reminder_sent column")
-        except Exception:
-            print("ℹ️ reminder_sent column already exists")
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return True
-        
-    except Exception as e:
-        print(f"Error adding reminder column: {e}")
-        return False
-
-# Manual test endpoint with better debugging
-@app.route('/api/test-reminders', methods=['POST'])
-@csrf_required
-def test_tournament_reminders():
-    """Test tournament reminder system"""
-    try:
-        result = check_and_send_reminders()
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-# Debug endpoint to check what tournaments exist
-@app.route('/api/debug-tournaments', methods=['GET'])
-@csrf_required
-def debug_tournaments():
-    """Debug: Show all upcoming tournaments"""
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return jsonify({"error": "No database connection"}), 500
-            
-        cursor = conn.cursor()
-        
-        # Get all tournaments in the next 3 days
-        today = datetime.now()
-        future = today + timedelta(days=3)
-        
-        query = """
-            SELECT e.id, e.title, e.date_time, e.event_type,
-                   COUNT(r.id) as registration_count,
-                   COUNT(CASE WHEN r.reminder_sent = TRUE THEN 1 END) as reminders_sent
-            FROM events e
-            LEFT JOIN event_registrations r ON e.id = r.event_id 
-                AND r.cancelled_at IS NULL
-            WHERE e.date_time BETWEEN %s AND %s
-            GROUP BY e.id, e.title, e.date_time, e.event_type
-            ORDER BY e.date_time
-        """
-        
-        cursor.execute(query, (today, future))
-        tournaments = cursor.fetchall()
-        
-        result = []
-        for t in tournaments:
-            t_dict = dict(t)
-            t_dict['date_time'] = t_dict['date_time'].isoformat() if t_dict['date_time'] else None
-            result.append(t_dict)
-        
-        cursor.close()
-        conn.close()
-        
-        return jsonify({"tournaments": result, "current_time": today.isoformat()})
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# Check scheduler status endpoint
-@app.route('/api/scheduler-status', methods=['GET'])
-@csrf_required  
-def scheduler_status():
-    """Check if scheduler is running and show jobs"""
-    try:
-        jobs = []
-        for job in scheduler.get_jobs():
-            jobs.append({
-                "id": job.id,
-                "name": job.name,
-                "next_run": job.next_run_time.isoformat() if job.next_run_time else None,
-                "trigger": str(job.trigger)
-            })
-        
-        return jsonify({
-            "running": scheduler.running,
-            "jobs": jobs,
-            "state": scheduler.state
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # =============================
 # Main

@@ -2089,12 +2089,12 @@ def send_reminder_email(event, attendee, reminder_type):
         event_time = event_datetime.strftime('%I:%M %p')
         
         if reminder_type == '24_hour':
-            subject = f"Tomorrow: {event['title']} - Final Reminder"
-            urgency = "Don't forget - your tournament is tomorrow!"
+            subject = f"Event Confirmation Required - {event['title']} Tomorrow"
+            urgency = "Tournament Check-in - Action Required"
             time_notice = "less than 24 hours"
         else:  # 2_hour
-            subject = f"Starting Soon: {event['title']} - Last Call"
-            urgency = "Your tournament starts in 2 hours!"
+            subject = f"Event Starting - {event['title']} Check-in Now"
+            urgency = "Tournament begins in 2 hours - Check-in required"
             time_notice = "just 2 hours"
 
         BASE_URL = "https://sidequest-newsletter-production.up.railway.app"
@@ -2171,9 +2171,41 @@ def send_reminder_email(event, attendee, reminder_type):
                                         </ul>
                                     </div>
                                     
+                                    <!-- Important Notice -->
+                                    <p style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; line-height: 24px; margin-bottom: 15px; font-weight: bold;">
+                                        IMPORTANT: Please arrive 15 minutes early for check-in. Your team is already confirmed and ready.
+                                    </p>
+                                    
                                     <p style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #333; line-height: 24px; margin-bottom: 25px;">
                                         We're excited to see you in {time_notice}!
                                     </p>
+                                </td>
+                            </tr>
+                            
+                            <!-- Discord Section -->
+                            <tr>
+                                <td style="padding: 20px 30px;">
+                                    <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #5865F2; border-radius: 8px;">
+                                        <tr>
+                                            <td align="center">
+                                                <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #ffffff; font-weight: bold;">
+                                                    Questions? Join Tournament Discord
+                                                </h3>
+                                                <table border="0" cellpadding="0" cellspacing="0">
+                                                    <tr>
+                                                        <td align="center" style="background-color: #ffffff; border-radius: 8px;">
+                                                            <a href="https://discord.gg/CuwQM7Zwuk" style="display: inline-block; padding: 12px 20px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #5865F2; text-decoration: none; font-weight: bold;">
+                                                                Join Discord Server
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                                <p style="margin: 15px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #ffffff;">
+                                                    Or email us: marketing@sidequestcanterbury.com
+                                                </p>
+                                            </td>
+                                        </tr>
+                                    </table>
                                 </td>
                             </tr>
                             
@@ -2238,8 +2270,17 @@ def send_reminder_email(event, attendee, reminder_type):
             sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
             to=[{"email": email, "name": player_name}],
             subject=subject,
-            html_content=html_content
+            html_content=html_content,
+            headers={
+                "X-Mailer": "SideQuest Canterbury Event System",
+                "Importance": "high",
+                "X-Priority": "1",
+                "X-Entity-Ref-ID": f"event-reminder-{event_id}-{confirmation_code}",
+                "List-Unsubscribe": f"<{BASE_URL}/cancel?code={confirmation_code}>",
+                "X-Auto-Response-Suppress": "OOF"
+            }
         )
+
         
         api_instance.send_transac_email(send_email)
         return True
@@ -7143,6 +7184,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

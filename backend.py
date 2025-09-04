@@ -2248,6 +2248,17 @@ def send_reminder_email(event, attendee, reminder_type):
         log_error(f"Failed to send reminder to {email}: {e}")
         return False
 
+@app.route('/api/debug/scheduler-jobs', methods=['GET'])
+def debug_scheduler_jobs():
+    jobs = []
+    for job in scheduler.get_jobs():
+        jobs.append({
+            'id': job.id,
+            'next_run': job.next_run_time.isoformat() if job.next_run_time else None,
+            'func': job.func.__name__
+        })
+    return jsonify({"jobs": jobs})
+
 @app.route('/subscribe', methods=['POST'])
 @csrf_required
 def add_subscriber():
@@ -7108,5 +7119,6 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 

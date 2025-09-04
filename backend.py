@@ -2259,6 +2259,14 @@ def debug_scheduler_jobs():
         })
     return jsonify({"jobs": jobs})
 
+
+@app.route('/api/debug/test-reminder/<int:event_id>', methods=['POST'])
+def test_reminder_manually(event_id):
+    result = send_event_reminder(event_id, '24_hour')
+    return jsonify({"success": result})
+
+
+
 @app.route('/subscribe', methods=['POST'])
 @csrf_required
 def add_subscriber():
@@ -7119,6 +7127,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

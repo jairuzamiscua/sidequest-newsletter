@@ -2090,11 +2090,11 @@ def send_reminder_email(event, attendee, reminder_type):
         
         if reminder_type == '24_hour':
             subject = f"Event Confirmation Required - {event['title']} Tomorrow"
-            urgency = "Tournament Check-in - Action Required"
+            urgency = "Tournament Reminder"  # Changed this
             time_notice = "less than 24 hours"
         else:  # 2_hour
             subject = f"Event Starting - {event['title']} Check-in Now"
-            urgency = "Tournament begins in 2 hours - Check-in required"
+            urgency = "Tournament begins in 2 hours"  # You might want to change this too
             time_notice = "just 2 hours"
 
         BASE_URL = "https://sidequest-newsletter-production.up.railway.app"
@@ -2173,8 +2173,7 @@ def send_reminder_email(event, attendee, reminder_type):
                                     
                                     <!-- Important Notice -->
                                     <p style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; line-height: 24px; margin-bottom: 15px; font-weight: bold;">
-                                        IMPORTANT: Please arrive 15 minutes early for check-in. Your team is already confirmed and ready.
-                                    </p>
+                                        IMPORTANT: Please arrive 15 minutes early for check-in. 
                                     
                                     <p style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #333; line-height: 24px; margin-bottom: 25px;">
                                         We're excited to see you in {time_notice}!
@@ -2201,7 +2200,7 @@ def send_reminder_email(event, attendee, reminder_type):
                                                     </tr>
                                                 </table>
                                                 <p style="margin: 15px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #ffffff;">
-                                                    Or email us: marketing@sidequestcanterbury.com
+                                                    Connect with other tournament players and get updates!
                                                 </p>
                                             </td>
                                         </tr>
@@ -7184,6 +7183,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

@@ -2266,6 +2266,29 @@ def test_reminder_manually(event_id):
     return jsonify({"success": result})
 
 
+@app.route('/api/debug/test-reminder/<int:event_id>', methods=['POST'])
+@csrf_required
+def test_reminder_manually(event_id):
+    """Manually trigger reminder email for testing"""
+    try:
+        reminder_type = request.json.get('type', '24_hour') if request.json else '24_hour'
+        result = send_event_reminder(event_id, reminder_type)
+        
+        if result:
+            return jsonify({
+                "success": True, 
+                "message": f"Test {reminder_type} reminder sent for event {event_id}"
+            })
+        else:
+            return jsonify({
+                "success": False, 
+                "error": "Failed to send reminder - check logs for details"
+            })
+            
+    except Exception as e:
+        log_error(f"Error testing reminder: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route('/subscribe', methods=['POST'])
 @csrf_required
@@ -7127,6 +7150,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

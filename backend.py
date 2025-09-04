@@ -973,9 +973,6 @@ def backup_database_schema():
         print(f"⚠️ Schema backup error: {e}")
         return True  # Don't fail initialization for backup issues
 
-# Add these config variables near the top
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest2024')  # Change this!
-
 def require_admin_auth(f):
     """Decorator to require admin authentication"""
     @wraps(f)
@@ -7183,6 +7180,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

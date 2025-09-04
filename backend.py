@@ -2275,7 +2275,7 @@ def send_reminder_email(event, attendee, reminder_type):
                 "X-Mailer": "SideQuest Canterbury Event System",
                 "Importance": "high",
                 "X-Priority": "1",
-                "X-Entity-Ref-ID": f"event-reminder-{event_id}-{confirmation_code}",
+                "X-Entity-Ref-ID": f"event-reminder-{event['id']}-{confirmation_code}",
                 "List-Unsubscribe": f"<{BASE_URL}/cancel?code={confirmation_code}>",
                 "X-Auto-Response-Suppress": "OOF"
             }
@@ -7184,6 +7184,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

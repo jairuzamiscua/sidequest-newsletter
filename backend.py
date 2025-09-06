@@ -973,6 +973,9 @@ def backup_database_schema():
         print(f"⚠️ Schema backup error: {e}")
         return True  # Don't fail initialization for backup issues
 
+# Add these config variables near the top
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'sidequest2024')  # Change this!
+
 def require_admin_auth(f):
     """Decorator to require admin authentication"""
     @wraps(f)
@@ -2087,11 +2090,11 @@ def send_reminder_email(event, attendee, reminder_type):
         
         if reminder_type == '24_hour':
             subject = f"Event Confirmation Required - {event['title']} Tomorrow"
-            urgency = "Tournament Reminder"  # Changed this
+            urgency = "Tournament Check-in - Action Required"
             time_notice = "less than 24 hours"
         else:  # 2_hour
             subject = f"Event Starting - {event['title']} Check-in Now"
-            urgency = "Tournament begins in 2 hours"  # You might want to change this too
+            urgency = "Tournament begins in 2 hours - Check-in required"
             time_notice = "just 2 hours"
 
         BASE_URL = "https://sidequest-newsletter-production.up.railway.app"
@@ -2170,7 +2173,8 @@ def send_reminder_email(event, attendee, reminder_type):
                                     
                                     <!-- Important Notice -->
                                     <p style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; line-height: 24px; margin-bottom: 15px; font-weight: bold;">
-                                        IMPORTANT: Please arrive 15 minutes early for check-in. 
+                                        IMPORTANT: Please arrive 15 minutes early for check-in. Your team is already confirmed and ready.
+                                    </p>
                                     
                                     <p style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #333; line-height: 24px; margin-bottom: 25px;">
                                         We're excited to see you in {time_notice}!
@@ -2197,7 +2201,7 @@ def send_reminder_email(event, attendee, reminder_type):
                                                     </tr>
                                                 </table>
                                                 <p style="margin: 15px 0 0 0; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #ffffff;">
-                                                    Connect with other tournament players and get updates!
+                                                    Or email us: marketing@sidequestcanterbury.com
                                                 </p>
                                             </td>
                                         </tr>
@@ -2271,7 +2275,7 @@ def send_reminder_email(event, attendee, reminder_type):
                 "X-Mailer": "SideQuest Canterbury Event System",
                 "Importance": "high",
                 "X-Priority": "1",
-                "X-Entity-Ref-ID": f"event-reminder-{event['id']}-{confirmation_code}",
+                "X-Entity-Ref-ID": f"event-reminder-{event_id}-{confirmation_code}",
                 "List-Unsubscribe": f"<{BASE_URL}/cancel?code={confirmation_code}>",
                 "X-Auto-Response-Suppress": "OOF"
             }
@@ -2481,11 +2485,240 @@ def add_gdpr_consent_column():
         print(f"Error adding GDPR consent columns: {e}")
         return False
 
+# Add these routes to your backend.py file
 
+@app.route('/unsubscribe', methods=['GET'])
+def unsubscribe_page():
+    """Show unsubscribe form"""
+    email = request.args.get('email', '')
+    
+    unsubscribe_html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unsubscribe - SideQuest Gaming</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }}
+        
+        .container {{
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 2px solid #ff6b35;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }}
+        
+        .logo {{
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 12px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: #1a1a1a;
+            font-size: 18px;
+        }}
+        
+        h1 {{
+            color: #ff6b35;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            font-weight: 800;
+        }}
+        
+        .form-group {{
+            margin-bottom: 20px;
+            text-align: left;
+        }}
+        
+        label {{
+            display: block;
+            margin-bottom: 8px;
+            color: #FFD700;
+            font-weight: 600;
+        }}
+        
+        input {{
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #444;
+            border-radius: 12px;
+            font-size: 16px;
+            background: #1a1a1a;
+            color: #ffffff;
+            transition: all 0.3s ease;
+        }}
+        
+        input:focus {{
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2);
+        }}
+        
+        .btn {{
+            width: 100%;
+            padding: 18px 25px;
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            border: none;
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }}
+        
+        .btn:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.4);
+        }}
+        
+        .message {{
+            margin-top: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }}
+        
+        .message.show {{ opacity: 1; }}
+        
+        .message.success {{
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+            color: #1a1a1a;
+        }}
+        
+        .message.error {{
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            color: #ffffff;
+        }}
+        
+        .back-link {{
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #444;
+        }}
+        
+        .back-link a {{
+            color: #FFD700;
+            text-decoration: none;
+            font-weight: 600;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">SQ</div>
+        <h1>Unsubscribe</h1>
+        
+        <p style="margin-bottom: 30px; color: #cccccc;">
+            We're sorry to see you go. Enter your email below to unsubscribe from our mailing list.
+        </p>
+        
+        <div id="message" class="message"></div>
+        
+        <form id="unsubscribeForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" value="{email}" required>
+            </div>
+            
+            <button type="submit" class="btn">Unsubscribe</button>
+        </form>
+        
+        <div class="back-link">
+            <a href="/">← Back to SideQuest</a>
+        </div>
+    </div>
+
+    <script>
+        // Get CSRF token first
+        async function getCSRFToken() {{
+            try {{
+                const response = await fetch('/api/csrf-token');
+                const data = await response.json();
+                return data.csrf_token;
+            }} catch (error) {{
+                console.error('Failed to get CSRF token:', error);
+                return null;
+            }}
+        }}
+
+        document.getElementById('unsubscribeForm').addEventListener('submit', async function(e) {{
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const messageDiv = document.getElementById('message');
+            
+            if (!email) {{
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = 'Please enter your email address';
+                return;
+            }}
+            
+            try {{
+                // Get CSRF token
+                const csrfToken = await getCSRFToken();
+                if (!csrfToken) {{
+                    throw new Error('Failed to get CSRF token');
+                }}
+
+                const response = await fetch('/unsubscribe', {{
+                    method: 'POST',
+                    headers: {{ 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }},
+                    body: JSON.stringify({{ email: email }})
+                }});
+                
+                const result = await response.json();
+                
+                if (result.success) {{
+                    messageDiv.className = 'message success show';
+                    messageDiv.innerHTML = '✅ You have been successfully unsubscribed.';
+                    document.getElementById('unsubscribeForm').reset();
+                }} else {{
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = '❌ ' + (result.error || 'Something went wrong');
+                }}
+            }} catch (error) {{
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = '❌ Network error. Please try again.';
+            }}
+        }});
+    </script>
+</body>
+</html>'''
+    
+    response = make_response(unsubscribe_html)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
+# Update your existing unsubscribe POST route
 @app.route('/unsubscribe', methods=['POST'])
 @csrf_required
 def remove_subscriber():
-    """🔥 ENHANCED: Remove subscriber from both database AND Brevo"""
+    """Remove subscriber from both database AND Brevo"""
     try:
         data = request.json or {}
         email = str(data.get('email', '')).strip().lower()
@@ -2493,32 +2726,37 @@ def remove_subscriber():
         if not email:
             return jsonify({"success": False, "error": "Email is required"}), 400
         
+        if not is_valid_email(email):
+            return jsonify({"success": False, "error": "Invalid email format"}), 400
+        
         # Check if exists
         existing_subscribers = get_all_subscribers()
         if not any(sub['email'] == email for sub in existing_subscribers):
-            return jsonify({"success": False, "error": "Email not found"}), 404
+            return jsonify({"success": False, "error": "Email not found in our records"}), 404
         
         # Remove from database
         if remove_subscriber_from_db(email):
-            # 🔥 KEY FIX: Remove from Brevo as well!
+            # Remove from Brevo as well
             brevo_result = remove_from_brevo_contact(email)
             
-            log_activity(f"Subscriber removed: {email}", "warning")
+            log_activity(f"Subscriber unsubscribed: {email}", "warning")
             
             return jsonify({
                 "success": True,
-                "message": "Subscriber removed successfully",
+                "message": "Successfully unsubscribed from all communications",
                 "email": email,
                 "brevo_removed": brevo_result.get("success", False),
                 "brevo_message": brevo_result.get("message", brevo_result.get("error", "")),
             })
         else:
-            return jsonify({"success": False, "error": "Failed to remove subscriber from database"}), 500
+            return jsonify({"success": False, "error": "Failed to unsubscribe. Please try again."}), 500
             
     except Exception as e:
         error_msg = f"Error removing subscriber: {str(e)}"
         log_error(error_msg)
-        return jsonify({"success": False, "error": error_msg}), 500
+        return jsonify({"success": False, "error": "An error occurred. Please try again."}), 500
+
+
 
 @app.route('/stats', methods=['GET'])
 def get_stats():
@@ -7180,9 +7418,6 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
-
-
-
 
 
 

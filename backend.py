@@ -8650,7 +8650,7 @@ def events_overview_page():
       gap: 30px; max-width: 600px; margin: 0 auto;
     }
     .stat-item { background: rgba(26,26,26,0.15); padding: 25px; border-radius: 15px; backdrop-filter: blur(10px); border: 1px solid rgba(26,26,26,0.2); }
-    .stat-number { font-size: 2.5rem; font-weight: 800; color: #FF6B35; }
+    .stat-number { font-size: 2.5rem; font-weight: 800; color: #1a1a1a; }
     .stat-label { font-size: 1rem; margin-top: 5px; opacity: 0.8; }
 
     .container { max-width: 1400px; margin: 0 auto; padding: 60px 20px; }
@@ -9167,6 +9167,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

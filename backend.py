@@ -7524,6 +7524,98 @@ def public_tournaments():
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
 
+@app.route('/birthday-booking')
+def birthday_booking_page():
+    """Birthday party booking page"""
+    birthday_html = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Party Bookings - SideQuest Canterbury</title>
+    <style>
+        /* Your CSS styles here */
+    </style>
+</head>
+<body>
+    <!-- Your HTML content here -->
+    
+    <script>
+        // Initialize CSRF manager
+        class CSRFManager {
+            // Same CSRF manager code from your signup page
+        }
+        
+        const csrfManager = new CSRFManager();
+        
+        // Form submission handler
+        document.getElementById('birthdayBookingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Get form data
+            const formData = new FormData(e.target);
+            const bookingData = {
+                birthday_person_name: formData.get('birthdayPersonName'),
+                contact_phone: formData.get('contactPhone'),
+                contact_email: formData.get('contactEmail'),
+                date_time: formData.get('partyDate') + 'T' + formData.get('partyTime'),
+                duration_hours: parseInt(formData.get('duration')),
+                package_type: formData.get('packageType'),
+                special_notes: formData.get('specialNotes'),
+                event_type: 'birthday'
+            };
+            
+            try {
+                // Get CSRF token
+                const csrfToken = await csrfManager.getToken();
+                
+                // Submit to your existing event creation endpoint
+                const response = await fetch('/api/events', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify(bookingData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show success message with deposit info
+                    showBookingConfirmation(result);
+                } else {
+                    alert('Booking failed: ' + result.error);
+                }
+            } catch (error) {
+                alert('Network error. Please try again.');
+            }
+        });
+        
+        function showBookingConfirmation(result) {
+            const confirmationHtml = `
+                <div style="background: #00ff88; color: #1a1a1a; padding: 30px; border-radius: 15px; text-align: center;">
+                    <h2>Booking Confirmed!</h2>
+                    <p>Event ID: ${result.event_id}</p>
+                    ${result.deposit_required ? 
+                        `<p><strong>Next Step:</strong> Please visit us in-store to pay the £20 deposit to secure your booking.</p>
+                         <p>Our team will contact you within 24 hours with deposit payment details.</p>` : 
+                        `<p>No deposit required - booking is confirmed!</p>`
+                    }
+                </div>
+            `;
+            
+            document.getElementById('bookingForm').innerHTML = confirmationHtml;
+        }
+    </script>
+</body>
+</html>'''
+    
+    response = make_response(birthday_html)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
+
 # =============================
 # Main
 # =============================
@@ -7573,6 +7665,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

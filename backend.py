@@ -7526,7 +7526,7 @@ def public_tournaments():
 
 @app.route('/birthday-booking')
 def birthday_booking_page():
-    """Birthday party booking page"""
+    """Public birthday party booking page"""
     birthday_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7534,80 +7534,1067 @@ def birthday_booking_page():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Birthday Party Bookings - SideQuest Canterbury</title>
     <style>
-        /* Your CSS styles here */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, #FF69B4 0%, #FF1493 100%);
+            padding: 60px 20px;
+            text-align: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(255,255,255,0.1)"/><circle cx="80" cy="40" r="3" fill="rgba(255,255,255,0.15)"/><circle cx="40" cy="80" r="2" fill="rgba(255,255,255,0.1)"/></svg>');
+            animation: float 20s infinite linear;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            100% { transform: translateY(-100px); }
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .hero-section h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 15px;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .hero-section .subtitle {
+            font-size: 1.3rem;
+            margin-bottom: 30px;
+            opacity: 0.95;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .hero-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .hero-feature {
+            background: rgba(255,255,255,0.15);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .hero-feature:hover {
+            transform: translateY(-5px);
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .hero-feature h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: #FFD700;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            color: #FFD700;
+            margin-bottom: 40px;
+            font-weight: 700;
+        }
+        
+        .packages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+        
+        .package-card {
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            border-radius: 20px;
+            padding: 35px;
+            border: 3px solid;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .package-card.console {
+            border-color: #FF69B4;
+        }
+        
+        .package-card.standard {
+            border-color: #FFD700;
+        }
+        
+        .package-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        .package-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--accent-color), transparent);
+        }
+        
+        .package-card.console {
+            --accent-color: #FF69B4;
+        }
+        
+        .package-card.standard {
+            --accent-color: #FFD700;
+        }
+        
+        .package-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        .package-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+        
+        .package-price {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+        
+        .package-duration {
+            color: #aaaaaa;
+            font-size: 1rem;
+        }
+        
+        .package-features {
+            list-style: none;
+            margin: 25px 0;
+        }
+        
+        .package-features li {
+            padding: 8px 0;
+            color: #cccccc;
+            position: relative;
+            padding-left: 25px;
+        }
+        
+        .package-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--accent-color);
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .package-highlight {
+            background: rgba(255, 105, 180, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #FF69B4;
+            margin: 20px 0;
+            font-weight: 600;
+            color: #FF69B4;
+        }
+        
+        .booking-form-container {
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            border-radius: 20px;
+            padding: 40px;
+            border: 2px solid #FFD700;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .form-header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+        
+        .form-title {
+            font-size: 2rem;
+            color: #FFD700;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .form-subtitle {
+            color: #aaaaaa;
+            font-size: 1.1rem;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #FFD700;
+            font-size: 1rem;
+        }
+        
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #444;
+            border-radius: 12px;
+            font-size: 16px;
+            background: #1a1a1a;
+            color: #ffffff;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2);
+            background: #2a2a2a;
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .package-selection {
+            display: grid;
+            gap: 20px;
+            margin: 25px 0;
+        }
+        
+        .package-option {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .package-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .package-option-card {
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .package-option input[type="radio"]:checked + .package-option-card {
+            border-color: #FF69B4;
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            box-shadow: 0 0 0 3px rgba(255, 105, 180, 0.2);
+        }
+        
+        .package-option-card:hover {
+            border-color: #FF69B4;
+            transform: translateY(-2px);
+        }
+        
+        .package-option-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .package-option-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #FF69B4;
+        }
+        
+        .package-option-price {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #FFD700;
+        }
+        
+        .package-option-features {
+            color: #cccccc;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        .pricing-summary {
+            background: #1a1a1a;
+            border: 2px solid #FFD700;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        
+        .pricing-summary h4 {
+            color: #FFD700;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .pricing-detail {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .pricing-detail:last-child {
+            border-bottom: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #FF69B4;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 20px 30px;
+            background: linear-gradient(135deg, #FF69B4 0%, #FF1493 100%);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 8px 25px rgba(255, 105, 180, 0.3);
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(255, 105, 180, 0.4);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .message {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .message.show { opacity: 1; }
+        
+        .message.success {
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+            color: #1a1a1a;
+            border: 2px solid #00ff88;
+        }
+        
+        .message.error {
+            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            color: #ffffff;
+            border: 2px solid #ff6b35;
+        }
+        
+        .process-steps {
+            background: #2a2a2a;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 40px 0;
+        }
+        
+        .process-steps h3 {
+            color: #FFD700;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 10px;
+        }
+        
+        .step-number {
+            background: #FF69B4;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            margin-right: 15px;
+        }
+        
+        .step-text {
+            color: #cccccc;
+            line-height: 1.4;
+        }
+        
+        .contact-info {
+            background: #2a2a2a;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .contact-info h4 {
+            color: #FFD700;
+            margin-bottom: 15px;
+        }
+        
+        .contact-details {
+            color: #cccccc;
+            line-height: 1.6;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-section h1 {
+                font-size: 2.5rem;
+            }
+            
+            .packages-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 20px 15px;
+            }
+        }
     </style>
 </head>
 <body>
-    <!-- Your HTML content here -->
-    
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1>Birthday Party Gaming!</h1>
+            <p class="subtitle">Create epic birthday memories at Canterbury's premier gaming destination</p>
+            
+            <div class="hero-features">
+                <div class="hero-feature">
+                    <h3>4 PS5 Consoles</h3>
+                    <p>Latest games and multiplayer fun</p>
+                </div>
+                <div class="hero-feature">
+                    <h3>2 Racing Rigs</h3>
+                    <p>Professional racing simulation</p>
+                </div>
+                <div class="hero-feature">
+                    <h3>VR Experience</h3>
+                    <p>Immersive virtual reality gaming</p>
+                </div>
+                <div class="hero-feature">
+                    <h3>Free Gift Bag</h3>
+                    <p>KitKat + lollipop for birthday child</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Package Options -->
+        <div class="packages-section">
+            <h2 class="section-title">Choose Your Birthday Package</h2>
+            
+            <div class="packages-grid">
+                <!-- Console Package -->
+                <div class="package-card console">
+                    <div class="package-header">
+                        <h3 class="package-title">Console Birthday Package</h3>
+                        <div class="package-price">£148</div>
+                        <div class="package-duration">First 2 hours</div>
+                    </div>
+                    
+                    <ul class="package-features">
+                        <li>Up to 12 players gaming simultaneously</li>
+                        <li>4 PS5 consoles with latest games</li>
+                        <li>2 professional racing simulation rigs</li>
+                        <li>Nintendo Switch party games</li>
+                        <li>VR gaming station access</li>
+                        <li>10% off all food and drinks</li>
+                        <li>50% off extra Knit Gift Bags</li>
+                        <li>FREE birthday decorations</li>
+                        <li>FREE birthday Knit Bag (KitKat + Lollipop)</li>
+                    </ul>
+                    
+                    <div class="package-highlight">
+                        £20 deposit required - pay in-store to secure booking
+                    </div>
+                </div>
+                
+                <!-- Standard Package -->
+                <div class="package-card standard">
+                    <div class="package-header">
+                        <h3 class="package-title">Standard Birthday Party</h3>
+                        <div class="package-price">Pay as you play</div>
+                        <div class="package-duration">Flexible duration</div>
+                    </div>
+                    
+                    <ul class="package-features">
+                        <li>Charged per game/equipment used</li>
+                        <li>Access to all gaming equipment</li>
+                        <li>Flexible group size</li>
+                        <li>Choose your own gaming experience</li>
+                        <li>FREE birthday decorations</li>
+                        <li>FREE birthday Knit Bag (KitKat + Lollipop)</li>
+                        <li>No advance payment required</li>
+                    </ul>
+                    
+                    <div class="package-highlight">
+                        Perfect for smaller groups or budget-conscious families
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Booking Process -->
+        <div class="process-steps">
+            <h3>How It Works</h3>
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-text">Fill out the booking form below with your party details</div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-text">Our team will contact you within 24 hours to confirm availability</div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-text">For Console Packages: Visit us in-store to pay £20 deposit and secure your booking</div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-text">Arrive 15 minutes early on party day for setup and decorations!</div>
+            </div>
+        </div>
+
+        <!-- Booking Form -->
+        <div class="booking-form-container">
+            <div class="form-header">
+                <h2 class="form-title">Book Your Birthday Party</h2>
+                <p class="form-subtitle">Complete the form below and we'll get back to you within 24 hours</p>
+            </div>
+
+            <form id="birthdayBookingForm">
+                <!-- Basic Details -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Birthday Child's Name *</label>
+                        <input type="text" class="form-input" name="birthdayPersonName" required placeholder="e.g., Emma">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Child's Age</label>
+                        <input type="number" class="form-input" name="childAge" min="5" max="18" placeholder="Age">
+                    </div>
+                </div>
+
+                <!-- Contact Information -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Your Name *</label>
+                        <input type="text" class="form-input" name="parentName" required placeholder="Parent/Guardian name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Phone *</label>
+                        <input type="tel" class="form-input" name="contactPhone" required placeholder="07xxx xxx xxx">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email Address *</label>
+                    <input type="email" class="form-input" name="contactEmail" required placeholder="your.email@example.com">
+                </div>
+
+                <!-- Party Details -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Preferred Date *</label>
+                        <input type="date" class="form-input" name="partyDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Time *</label>
+                        <select class="form-select" name="partyTime" required>
+                            <option value="">Select time</option>
+                            <option value="11:00">11:00 AM</option>
+                            <option value="12:00">12:00 PM</option>
+                            <option value="13:00">1:00 PM</option>
+                            <option value="14:00">2:00 PM</option>
+                            <option value="15:00">3:00 PM</option>
+                            <option value="16:00">4:00 PM</option>
+                            <option value="17:00">5:00 PM</option>
+                            <option value="18:00">6:00 PM</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Duration *</label>
+                        <select class="form-select" name="duration" required onchange="updatePricing()">
+                            <option value="2">2 hours (Standard)</option>
+                            <option value="3">3 hours (+£56)</option>
+                            <option value="4">4 hours (+£112)</option>
+                            <option value="5">5 hours (+£168)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Expected Guests</label>
+                        <input type="number" class="form-input" name="guestCount" min="1" max="20" placeholder="Number of children">
+                    </div>
+                </div>
+
+                <!-- Package Selection -->
+                <div class="form-group">
+                    <label class="form-label">Package Type *</label>
+                    <div class="package-selection">
+                        <label class="package-option">
+                            <input type="radio" name="packageType" value="console" checked onchange="updatePricing()">
+                            <div class="package-option-card">
+                                <div class="package-option-header">
+                                    <span class="package-option-title">Console Package</span>
+                                    <span class="package-option-price">£148 (2 hours)</span>
+                                </div>
+                                <div class="package-option-features">
+                                    Up to 12 players, all equipment included, 10% off food/drinks, decorations + gift bag
+                                </div>
+                            </div>
+                        </label>
+                        
+                        <label class="package-option">
+                            <input type="radio" name="packageType" value="standard" onchange="updatePricing()">
+                            <div class="package-option-card">
+                                <div class="package-option-header">
+                                    <span class="package-option-title">Standard Package</span>
+                                    <span class="package-option-price">Pay as you play</span>
+                                </div>
+                                <div class="package-option-features">
+                                    Flexible pricing, decorations + gift bag included, no deposit required
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Pricing Summary -->
+                <div id="pricingSummary" class="pricing-summary">
+                    <h4>Pricing Summary</h4>
+                    <div id="pricingDetails">
+                        <div class="pricing-detail">
+                            <span>Console Package (2 hours):</span>
+                            <span>£148</span>
+                        </div>
+                        <div class="pricing-detail">
+                            <span>Deposit Required:</span>
+                            <span>£20</span>
+                        </div>
+                        <div class="pricing-detail">
+                            <span><strong>Total Due on Day:</strong></span>
+                            <span><strong>£148</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Requests -->
+                <div class="form-group">
+                    <label class="form-label">Special Requests or Dietary Requirements</label>
+                    <textarea class="form-textarea" name="specialNotes" rows="4" placeholder="Any special requests, food allergies, or additional information..."></textarea>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    Book Birthday Party
+                </button>
+
+                <!-- Message Display -->
+                <div id="message" class="message"></div>
+            </form>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="contact-info">
+            <h4>Questions? Get in Touch!</h4>
+            <div class="contact-details">
+                <p><strong>Phone:</strong> 01227 915058</p>
+                <p><strong>Email:</strong> marketing@sidequestcanterbury.com</p>
+                <p><strong>Address:</strong> C10, The Riverside, 1 Sturry Rd, Canterbury CT1 1BU</p>
+                <p><strong>Opening Hours:</strong> Sunday 12-9pm • Monday 2-9pm • Friday 2-9pm • Saturday 12-9pm</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Initialize CSRF manager
         class CSRFManager {
-            // Same CSRF manager code from your signup page
+            constructor(apiBase = window.location.origin) {
+                this.apiBase = apiBase;
+                this.token = null;
+                this.tokenExpiry = null;
+            }
+
+            async getToken() {
+                if (this.token && this.isTokenValid()) {
+                    return this.token;
+                }
+                return await this.fetchNewToken();
+            }
+
+            async fetchNewToken() {
+                try {
+                    const response = await fetch(`${this.apiBase}/api/csrf-token`, {
+                        method: 'GET',
+                        credentials: 'include',
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    
+                    const data = await response.json();
+                    if (data.success && data.csrf_token) {
+                        this.token = data.csrf_token;
+                        this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000;
+                        return this.token;
+                    } else {
+                        throw new Error(data.error || 'Failed to get CSRF token');
+                    }
+                } catch (error) {
+                    console.error('CSRF token fetch failed:', error);
+                    throw error;
+                }
+            }
+
+            isTokenValid() {
+                return this.token && this.tokenExpiry && Date.now() < this.tokenExpiry;
+            }
         }
-        
+
         const csrfManager = new CSRFManager();
-        
+
+        // Set minimum date to tomorrow
+        document.addEventListener('DOMContentLoaded', function() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const dateInput = document.querySelector('input[name="partyDate"]');
+            if (dateInput) {
+                dateInput.min = tomorrow.toISOString().split('T')[0];
+            }
+            
+            updatePricing();
+        });
+
+        // Update pricing based on selections
+        function updatePricing() {
+            const duration = parseInt(document.querySelector('select[name="duration"]').value) || 2;
+            const packageType = document.querySelector('input[name="packageType"]:checked').value;
+            const pricingDetails = document.getElementById('pricingDetails');
+            
+            let html = '';
+            
+            if (packageType === 'console') {
+                const basePrice = 148;
+                const additionalHours = Math.max(0, duration - 2);
+                const additionalCost = additionalHours * 56;
+                const totalCost = basePrice + additionalCost;
+                
+                html = `
+                    <div class="pricing-detail">
+                        <span>Standard Package (${duration} hours):</span>
+                        <span>Pay as you play</span>
+                    </div>
+                    <div class="pricing-detail">
+                        <span>Deposit Required:</span>
+                        <span>None</span>
+                    </div>
+                    <div class="pricing-detail">
+                        <span><strong>Total Due on Day:</strong></span>
+                        <span><strong>Based on usage</strong></span>
+                    </div>
+                `;
+            }
+            
+            pricingDetails.innerHTML = html;
+        }
+
         // Form submission handler
-        document.getElementById('birthdayBookingForm').addEventListener('submit', async (e) => {
+        document.getElementById('birthdayBookingForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            
+            const messageDiv = document.getElementById('message');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            // Clear previous messages
+            messageDiv.className = 'message';
             
             // Get form data
             const formData = new FormData(e.target);
-            const bookingData = {
+            const data = {
                 birthday_person_name: formData.get('birthdayPersonName'),
+                child_age: formData.get('childAge'),
+                parent_name: formData.get('parentName'),
                 contact_phone: formData.get('contactPhone'),
                 contact_email: formData.get('contactEmail'),
-                date_time: formData.get('partyDate') + 'T' + formData.get('partyTime'),
+                party_date: formData.get('partyDate'),
+                party_time: formData.get('partyTime'),
                 duration_hours: parseInt(formData.get('duration')),
+                guest_count: formData.get('guestCount'),
                 package_type: formData.get('packageType'),
-                special_notes: formData.get('specialNotes'),
-                event_type: 'birthday'
+                special_notes: formData.get('specialNotes')
             };
+            
+            // Basic validation
+            if (!data.birthday_person_name || !data.parent_name || !data.contact_phone || 
+                !data.contact_email || !data.party_date || !data.party_time) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = 'Please fill in all required fields';
+                return;
+            }
+            
+            // Email validation
+            const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+            if (!emailRegex.test(data.contact_email)) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = 'Please enter a valid email address';
+                return;
+            }
+            
+            // Phone validation (basic UK format)
+            const phoneRegex = /^(\\+44|0)[0-9]{10}$/;
+            const cleanPhone = data.contact_phone.replace(/\\s+/g, '');
+            if (!phoneRegex.test(cleanPhone)) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = 'Please enter a valid UK phone number';
+                return;
+            }
+            
+            // Date validation (must be in the future)
+            const selectedDate = new Date(data.party_date);
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+            
+            if (selectedDate < tomorrow) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = 'Please select a date at least one day in advance';
+                return;
+            }
+            
+            // Update button state
+            submitBtn.innerHTML = 'Processing...';
+            submitBtn.disabled = true;
             
             try {
                 // Get CSRF token
                 const csrfToken = await csrfManager.getToken();
                 
-                // Submit to your existing event creation endpoint
+                // Combine date and time for backend
+                const dateTimeString = `${data.party_date}T${data.party_time}:00`;
+                
+                // Prepare data for backend
+                const birthdayData = {
+                    title: `${data.birthday_person_name}'s Birthday Party`,
+                    event_type: 'birthday',
+                    date_time: dateTimeString,
+                    capacity: data.package_type === 'console' ? 12 : parseInt(data.guest_count) || 0,
+                    birthday_person_name: data.birthday_person_name,
+                    contact_phone: data.contact_phone,
+                    contact_email: data.contact_email,
+                    package_type: data.package_type,
+                    duration_hours: data.duration_hours,
+                    special_notes: data.special_notes,
+                    description: `Birthday party for ${data.birthday_person_name} (${data.package_type} package, ${data.duration_hours} hours)${data.special_notes ? ` - ${data.special_notes}` : ''}`,
+                    status: 'published'
+                };
+                
+                // Submit to backend
                 const response = await fetch('/api/events', {
                     method: 'POST',
-                    credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': csrfToken
                     },
-                    body: JSON.stringify(bookingData)
+                    credentials: 'include',
+                    body: JSON.stringify(birthdayData)
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    // Show success message with deposit info
-                    showBookingConfirmation(result);
+                    messageDiv.className = 'message success show';
+                    let successMessage = `🎉 Birthday party booking received successfully!<br><br>
+                        <strong>What happens next:</strong><br>
+                        • Our team will contact you within 24 hours to confirm availability<br>`;
+                    
+                    if (data.package_type === 'console') {
+                        successMessage += `• You'll need to visit our store to pay the £20 deposit to secure your booking<br>`;
+                    }
+                    
+                    successMessage += `• We'll send you all the details and preparation instructions<br><br>
+                        <strong>Your Details:</strong><br>
+                        • Date: ${new Date(data.party_date).toLocaleDateString('en-GB')}<br>
+                        • Time: ${data.party_time}<br>
+                        • Package: ${data.package_type === 'console' ? 'Console Package' : 'Standard Package'}<br>
+                        • Duration: ${data.duration_hours} hours<br><br>
+                        Thank you for choosing SideQuest Canterbury!`;
+                    
+                    messageDiv.innerHTML = successMessage;
+                    
+                    // Reset form
+                    e.target.reset();
+                    updatePricing();
+                    
+                    // Update button
+                    submitBtn.innerHTML = '✅ Booking Received!';
+                    
+                    // Reset button after 5 seconds
+                    setTimeout(() => {
+                        submitBtn.innerHTML = 'Book Birthday Party';
+                        submitBtn.disabled = false;
+                    }, 5000);
+                    
                 } else {
-                    alert('Booking failed: ' + result.error);
+                    throw new Error(result.error || 'Booking failed');
                 }
+                
             } catch (error) {
-                alert('Network error. Please try again.');
+                console.error('Booking error:', error);
+                messageDiv.className = 'message error show';
+                
+                if (error.message.includes('CSRF')) {
+                    messageDiv.innerHTML = 'Security token expired. Please refresh the page and try again.';
+                } else {
+                    messageDiv.innerHTML = `Booking failed: ${error.message}. Please try again or contact us directly.`;
+                }
+                
+                // Reset button
+                submitBtn.innerHTML = 'Book Birthday Party';
+                submitBtn.disabled = false;
             }
         });
         
-        function showBookingConfirmation(result) {
-            const confirmationHtml = `
-                <div style="background: #00ff88; color: #1a1a1a; padding: 30px; border-radius: 15px; text-align: center;">
-                    <h2>Booking Confirmed!</h2>
-                    <p>Event ID: ${result.event_id}</p>
-                    ${result.deposit_required ? 
-                        `<p><strong>Next Step:</strong> Please visit us in-store to pay the £20 deposit to secure your booking.</p>
-                         <p>Our team will contact you within 24 hours with deposit payment details.</p>` : 
-                        `<p>No deposit required - booking is confirmed!</p>`
-                    }
-                </div>
-            `;
-            
-            document.getElementById('bookingForm').innerHTML = confirmationHtml;
+        // Auto-hide messages after 10 seconds
+        function autoHideMessage() {
+            const messageDiv = document.getElementById('message');
+            if (messageDiv.classList.contains('show')) {
+                setTimeout(() => {
+                    messageDiv.classList.remove('show');
+                }, 10000);
+            }
         }
+        
+        // Watch for message changes
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.target.classList.contains('show')) {
+                    autoHideMessage();
+                }
+            });
+        });
+        
+        observer.observe(document.getElementById('message'), {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+        
+        // Form field enhancements
+        document.querySelector('input[name="contactPhone"]').addEventListener('input', function(e) {
+            // Auto-format phone number
+            let value = e.target.value.replace(/\\D/g, '');
+            if (value.startsWith('44')) {
+                value = '+' + value;
+            } else if (value.startsWith('0')) {
+                // UK number starting with 0
+                value = value.replace(/(\\d{2})(\\d{4})(\\d{3})(\\d{3})/, '$1$2 $3 $4');
+            }
+            e.target.value = value;
+        });
+        
+        // Email field validation
+        document.querySelector('input[name="contactEmail"]').addEventListener('blur', function(e) {
+            const email = e.target.value;
+            const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+            
+            if (email && !emailRegex.test(email)) {
+                e.target.style.borderColor = '#ff6b35';
+            } else {
+                e.target.style.borderColor = '#444';
+            }
+        });
+        
+        // Date field - prevent past dates
+        document.querySelector('input[name="partyDate"]').addEventListener('change', function(e) {
+            const selectedDate = new Date(e.target.value);
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+            
+            if (selectedDate < tomorrow) {
+                e.target.style.borderColor = '#ff6b35';
+                e.target.setCustomValidity('Please select a date at least one day in advance');
+            } else {
+                e.target.style.borderColor = '#444';
+                e.target.setCustomValidity('');
+            }
+        });
     </script>
 </body>
 </html>'''
@@ -7615,6 +8602,7 @@ def birthday_booking_page():
     response = make_response(birthday_html)
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
+    
 
 # =============================
 # Main
@@ -7665,7 +8653,6 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
-
 
 
 

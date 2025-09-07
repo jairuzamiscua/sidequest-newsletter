@@ -8602,7 +8602,1065 @@ def birthday_booking_page():
     response = make_response(birthday_html)
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
+
+@app.route('/events')
+def events_overview_page():
+    """Combined events overview page with tournaments and birthday bookings"""
+    events_html = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events & Parties - SideQuest Canterbury</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            padding: 80px 20px;
+            text-align: center;
+            color: #1a1a1a;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(26,26,26,0.1)"/><circle cx="80" cy="40" r="3" fill="rgba(26,26,26,0.15)"/><circle cx="40" cy="80" r="2" fill="rgba(26,26,26,0.1)"/></svg>');
+            animation: float 20s infinite linear;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            100% { transform: translateY(-100px) rotate(360deg); }
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .hero-section h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .hero-section .subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .stat-item {
+            background: rgba(26,26,26,0.15);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(26,26,26,0.2);
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #FF6B35;
+        }
+        
+        .stat-label {
+            font-size: 1rem;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+        
+        .section-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 50px;
+            background: #2a2a2a;
+            border-radius: 15px;
+            padding: 8px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 50px;
+        }
+        
+        .tab-button {
+            flex: 1;
+            padding: 15px 25px;
+            background: transparent;
+            border: none;
+            color: #cccccc;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .tab-button.active {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+        
+        .tab-button:hover:not(.active) {
+            background: #3a3a3a;
+            color: #ffffff;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Tournament Section Styles */
+        .tournaments-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .tournaments-header h2 {
+            font-size: 3rem;
+            color: #FFD700;
+            margin-bottom: 20px;
+            font-weight: 800;
+        }
+        
+        .tournaments-header p {
+            font-size: 1.2rem;
+            color: #cccccc;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .tournaments-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .tournament-card {
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            border-radius: 20px;
+            padding: 30px;
+            border: 3px solid #FF6B35;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .tournament-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #FF6B35, #FFD700);
+        }
+        
+        .tournament-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(255, 107, 53, 0.3);
+            border-color: #FFD700;
+        }
+        
+        .tournament-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        
+        .tournament-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #FFD700;
+            margin-bottom: 5px;
+        }
+        
+        .tournament-game {
+            color: #FF6B35;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .tournament-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        
+        .status-upcoming {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .status-full {
+            background: #ff6b35;
+            color: white;
+        }
+        
+        .status-few-spots {
+            background: #FFD700;
+            color: #1a1a1a;
+        }
+        
+        .tournament-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .detail-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #cccccc;
+            font-size: 0.9rem;
+        }
+        
+        .tournament-register-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #FF6B35 0%, #ff4757 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 20px;
+        }
+        
+        .tournament-register-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
+        }
+        
+        .tournament-register-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Birthday Section Styles */
+        .birthday-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .birthday-header h2 {
+            font-size: 3rem;
+            color: #FF69B4;
+            margin-bottom: 20px;
+            font-weight: 800;
+        }
+        
+        .birthday-packages {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 40px;
+            margin-bottom: 50px;
+        }
+        
+        .birthday-package {
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            border-radius: 25px;
+            padding: 40px;
+            border: 3px solid;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .birthday-package.console {
+            border-color: #FF69B4;
+        }
+        
+        .birthday-package.standard {
+            border-color: #FFD700;
+        }
+        
+        .birthday-package::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background: linear-gradient(90deg, var(--accent-color), transparent);
+        }
+        
+        .birthday-package.console {
+            --accent-color: #FF69B4;
+        }
+        
+        .birthday-package.standard {
+            --accent-color: #FFD700;
+        }
+        
+        .birthday-package:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+        }
+        
+        .package-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .package-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+        
+        .package-price {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+        
+        .package-duration {
+            color: #aaaaaa;
+            font-size: 1.1rem;
+        }
+        
+        .package-features {
+            list-style: none;
+            margin: 30px 0;
+        }
+        
+        .package-features li {
+            padding: 10px 0;
+            color: #cccccc;
+            position: relative;
+            padding-left: 30px;
+            font-size: 1rem;
+        }
+        
+        .package-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--accent-color);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        
+        .package-highlight {
+            background: rgba(255, 105, 180, 0.15);
+            padding: 20px;
+            border-radius: 15px;
+            border-left: 5px solid #FF69B4;
+            margin: 25px 0;
+            font-weight: 600;
+            color: #FF69B4;
+            font-size: 1rem;
+        }
+        
+        .birthday-book-btn {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #FF69B4 0%, #FF1493 100%);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 25px;
+        }
+        
+        .birthday-book-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(255, 105, 180, 0.4);
+        }
+        
+        /* Calendar Section */
+        .calendar-section {
+            background: #2a2a2a;
+            border-radius: 20px;
+            padding: 40px;
+            margin: 50px 0;
+        }
+        
+        .calendar-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .calendar-header h3 {
+            font-size: 2rem;
+            color: #FFD700;
+            margin-bottom: 10px;
+        }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .calendar-event {
+            background: #1a1a1a;
+            border-radius: 15px;
+            padding: 20px;
+            border-left: 5px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .calendar-event.tournament {
+            border-color: #FF6B35;
+        }
+        
+        .calendar-event.birthday {
+            border-color: #FF69B4;
+        }
+        
+        .calendar-event:hover {
+            transform: translateX(5px);
+            background: #2a2a2a;
+        }
+        
+        .event-date {
+            font-size: 0.9rem;
+            color: #FFD700;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .event-title {
+            font-size: 1.1rem;
+            color: #ffffff;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .event-meta {
+            font-size: 0.8rem;
+            color: #aaaaaa;
+        }
+        
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 50px;
+        }
+        
+        .quick-action {
+            background: linear-gradient(135deg, #3a3a3a 0%, #4a4a4a 100%);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .quick-action:hover {
+            border-color: #FFD700;
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(255, 215, 0, 0.2);
+        }
+        
+        .quick-action h4 {
+            font-size: 1.3rem;
+            color: #FFD700;
+            margin-bottom: 15px;
+        }
+        
+        .quick-action p {
+            color: #cccccc;
+            margin-bottom: 20px;
+        }
+        
+        .quick-action-btn {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .quick-action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.3);
+        }
+        
+        /* Loading States */
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #aaaaaa;
+        }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #aaaaaa;
+            border-radius: 50%;
+            border-top-color: #FFD700;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .hero-section h1 {
+                font-size: 2.5rem;
+            }
+            
+            .tournaments-header h2,
+            .birthday-header h2 {
+                font-size: 2rem;
+            }
+            
+            .tournaments-grid,
+            .birthday-packages {
+                grid-template-columns: 1fr;
+            }
+            
+            .section-tabs {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .container {
+                padding: 40px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1>SideQuest Events</h1>
+            <p class="subtitle">Tournaments, Birthday Parties & Gaming Experiences in Canterbury</p>
+            
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <div class="stat-number" id="upcomingCount">-</div>
+                    <div class="stat-label">Upcoming Events</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="tournamentCount">-</div>
+                    <div class="stat-label">Active Tournaments</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="birthdayCount">-</div>
+                    <div class="stat-label">Parties This Month</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Section Tabs -->
+        <div class="section-tabs">
+            <button class="tab-button active" onclick="switchTab('tournaments')">Tournaments</button>
+            <button class="tab-button" onclick="switchTab('birthdays')">Birthday Parties</button>
+            <button class="tab-button" onclick="switchTab('calendar')">Event Calendar</button>
+        </div>
+
+        <!-- Tournaments Tab -->
+        <div id="tournaments-tab" class="tab-content active">
+            <div class="tournaments-header">
+                <h2>Gaming Tournaments</h2>
+                <p>Compete against the best players in Canterbury across multiple games and platforms</p>
+            </div>
+            
+            <div id="tournaments-grid" class="tournaments-grid">
+                <div class="loading">Loading tournaments...</div>
+            </div>
+        </div>
+
+        <!-- Birthday Parties Tab -->
+        <div id="birthdays-tab" class="tab-content">
+            <div class="birthday-header">
+                <h2>Birthday Party Packages</h2>
+                <p>Create unforgettable gaming celebrations for your special day</p>
+            </div>
+            
+            <div class="birthday-packages">
+                <!-- Console Package -->
+                <div class="birthday-package console">
+                    <div class="package-header">
+                        <h3 class="package-title">Console Birthday Package</h3>
+                        <div class="package-price">£148</div>
+                        <div class="package-duration">First 2 hours</div>
+                    </div>
+                    
+                    <ul class="package-features">
+                        <li>Up to 12 players gaming simultaneously</li>
+                        <li>4 PS5 consoles with latest games</li>
+                        <li>2 professional racing simulation rigs</li>
+                        <li>Nintendo Switch party games</li>
+                        <li>VR gaming station access</li>
+                        <li>10% off all food and drinks</li>
+                        <li>FREE birthday decorations</li>
+                        <li>FREE birthday gift bag</li>
+                    </ul>
+                    
+                    <div class="package-highlight">
+                        £20 deposit required - pay in-store to secure booking
+                    </div>
+                    
+                    <button class="birthday-book-btn" onclick="window.location.href='/birthday-booking'">
+                        Book Console Package
+                    </button>
+                </div>
+                
+                <!-- Standard Package -->
+                <div class="birthday-package standard">
+                    <div class="package-header">
+                        <h3 class="package-title">Standard Birthday Party</h3>
+                        <div class="package-price">Pay as you play</div>
+                        <div class="package-duration">Flexible duration</div>
+                    </div>
+                    
+                    <ul class="package-features">
+                        <li>Charged per game/equipment used</li>
+                        <li>Access to all gaming equipment</li>
+                        <li>Flexible group size</li>
+                        <li>Choose your own gaming experience</li>
+                        <li>FREE birthday decorations</li>
+                        <li>FREE birthday gift bag</li>
+                        <li>No advance payment required</li>
+                    </ul>
+                    
+                    <div class="package-highlight">
+                        Perfect for smaller groups or budget-conscious families
+                    </div>
+                    
+                    <button class="birthday-book-btn" onclick="window.location.href='/birthday-booking'">
+                        Book Standard Package
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar Tab -->
+        <div id="calendar-tab" class="tab-content">
+            <div class="calendar-section">
+                <div class="calendar-header">
+                    <h3>Upcoming Events Calendar</h3>
+                    <p>See all tournaments, parties, and special events at a glance</p>
+                </div>
+                
+                <div id="calendar-grid" class="calendar-grid">
+                    <div class="loading">Loading calendar...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <div class="quick-action" onclick="window.location.href='/signup'">
+                <h4>Join Our Community</h4>
+                <p>Get notified about new tournaments and special events</p>
+                <button class="quick-action-btn">Subscribe to Updates</button>
+            </div>
+            
+            <div class="quick-action" onclick="window.open('https://discord.gg/CuwQM7Zwuk', '_blank')">
+                <h4>Discord Community</h4>
+                <p>Connect with other gamers and get real-time updates</p>
+                <button class="quick-action-btn">Join Discord</button>
+            </div>
+            
+            <div class="quick-action" onclick="window.location.href='tel:01227915058'">
+                <h4>Need Help?</h4>
+                <p>Call us for questions about events or bookings</p>
+                <button class="quick-action-btn">01227 915058</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching functionality
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab and mark button as active
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load content based on tab
+            if (tabName === 'tournaments') {
+                loadTournaments();
+            } else if (tabName === 'calendar') {
+                loadCalendar();
+            }
+        }
+
+        // Load tournaments
+        async function loadTournaments() {
+            const grid = document.getElementById('tournaments-grid');
+            
+            try {
+                const response = await fetch('/api/events?type=tournament&upcoming=true');
+                const data = await response.json();
+                
+                if (data.success && data.events.length > 0) {
+                    grid.innerHTML = data.events.map(event => {
+                        const date = new Date(event.date_time);
+                        const spotsLeft = event.capacity > 0 ? event.capacity - event.registration_count : null;
+                        
+                        let statusClass = 'status-upcoming';
+                        let statusText = 'Open Registration';
+                        
+                        if (spotsLeft !== null) {
+                            if (spotsLeft === 0) {
+                                statusClass = 'status-full';
+                                statusText = 'Full';
+                            } else if (spotsLeft <= 3) {
+                                statusClass = 'status-few-spots';
+                                statusText = `${spotsLeft} Spots Left`;
+                            }
+                        }
+                        
+                        return `
+                            <div class="tournament-card">
+                                <div class="tournament-header">
+                                    <div>
+                                        <div class="tournament-title">${event.title}</div>
+                                        <div class="tournament-game">${event.game_title || 'Game TBD'}</div>
+                                    </div>
+                                    <div class="tournament-status ${statusClass}">${statusText}</div>
+                                </div>
+                                
+                                <div class="tournament-details">
+                                    <div class="detail-item">
+                                        <span>📅</span> ${date.toLocaleDateString('en-GB')}
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>🕒</span> ${date.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>👥</span> ${event.registration_count}${event.capacity > 0 ? `/${event.capacity}` : ''} players
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>💰</span> ${event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE'}
+                                    </div>
+                                </div>
+                                
+                                ${event.description ? `<p style="color: #aaa; margin: 15px 0; font-size: 0.9rem;">${event.description}</p>` : ''}
+                                
+                                <button class="tournament-register-btn" 
+                                        onclick="window.open('/signup/event/${event.id}', '_blank')"
+                                        ${spotsLeft === 0 ? 'disabled' : ''}>
+                                    ${spotsLeft === 0 ? 'Tournament Full' : 'Register Now'}
+                                </button>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    grid.innerHTML = `
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: #aaa;">
+                            <h3 style="color: #FFD700; margin-bottom: 15px;">No upcoming tournaments</h3>
+                            <p>Check back soon for new tournament announcements!</p>
+                            <button style="margin-top: 20px; padding: 12px 25px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #1a1a1a; border: none; border-radius: 10px; font-weight: 600; cursor: pointer;" 
+                                    onclick="window.location.href='/signup'">
+                                Get Notified of New Tournaments
+                            </button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #ff6b35;">
+                        <h3>Error loading tournaments</h3>
+                        <p>Please try refreshing the page</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Load calendar events
+        async function loadCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            
+            try {
+                const response = await fetch('/api/events?upcoming=true');
+                const data = await response.json();
+                
+                if (data.success && data.events.length > 0) {
+                    // Sort events by date
+                    const sortedEvents = data.events.sort((a, b) => new Date(a.date_time) - new Date(b.date_time));
+                    
+                    grid.innerHTML = sortedEvents.map(event => {
+                        const date = new Date(event.date_time);
+                        const eventClass = event.event_type === 'birthday' ? 'birthday' : 'tournament';
+                        
+                        return `
+                            <div class="calendar-event ${eventClass}">
+                                <div class="event-date">
+                                    ${date.toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' })} at ${date.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}
+                                </div>
+                                <div class="event-title">${event.title}</div>
+                                <div class="event-meta">
+                                    ${event.event_type === 'birthday' ? '🎂 Birthday Party' : '🏆 Tournament'} • 
+                                    ${event.registration_count || 0} registered
+                                    ${event.capacity > 0 ? ` / ${event.capacity} max` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    grid.innerHTML = `
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #aaa;">
+                            <h3 style="color: #FFD700; margin-bottom: 10px;">No upcoming events</h3>
+                            <p>Check back soon for new events and tournaments!</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #ff6b35;">
+                        <h3>Error loading calendar</h3>
+                        <p>Please try refreshing the page</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Load statistics for hero section
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/events?upcoming=true');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const events = data.events;
+                    const tournaments = events.filter(e => e.event_type === 'tournament');
+                    const birthdays = events.filter(e => e.event_type === 'birthday');
+                    
+                    // Update counters with animation
+                    animateCounter('upcomingCount', events.length);
+                    animateCounter('tournamentCount', tournaments.length);
+                    animateCounter('birthdayCount', birthdays.length);
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                // Set fallback values
+                document.getElementById('upcomingCount').textContent = '?';
+                document.getElementById('tournamentCount').textContent = '?';
+                document.getElementById('birthdayCount').textContent = '?';
+            }
+        }
+
+        // Animate counter numbers
+        function animateCounter(id, target) {
+            const element = document.getElementById(id);
+            const duration = 1000; // 1 second
+            const steps = 30;
+            const increment = target / steps;
+            let current = 0;
+            
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    element.textContent = target;
+                    clearInterval(timer);
+                } else {
+                    element.textContent = Math.floor(current);
+                }
+            }, duration / steps);
+        }
+
+        // Auto-refresh functionality
+        function setupAutoRefresh() {
+            // Refresh tournaments every 5 minutes
+            setInterval(() => {
+                if (document.getElementById('tournaments-tab').classList.contains('active')) {
+                    loadTournaments();
+                }
+            }, 5 * 60 * 1000);
+            
+            // Refresh calendar every 10 minutes
+            setInterval(() => {
+                if (document.getElementById('calendar-tab').classList.contains('active')) {
+                    loadCalendar();
+                }
+            }, 10 * 60 * 1000);
+            
+            // Refresh stats every 2 minutes
+            setInterval(loadStats, 2 * 60 * 1000);
+        }
+
+        // Handle keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '1') switchTab('tournaments');
+            if (e.key === '2') switchTab('birthdays');
+            if (e.key === '3') switchTab('calendar');
+        });
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            loadTournaments();
+            setupAutoRefresh();
+            
+            // Add smooth scroll behavior
+            document.documentElement.style.scrollBehavior = 'smooth';
+            
+            // Add loading states
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+            
+            const observer = new IntersectionObserver(function(entries) {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, observerOptions);
+            
+            // Observe elements for scroll animations
+            document.querySelectorAll('.tournament-card, .birthday-package, .quick-action').forEach(el => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(20px)';
+                el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                observer.observe(el);
+            });
+        });
+
+        // Add error handling for network requests
+        function handleNetworkError(error, fallbackMessage) {
+            console.error('Network error:', error);
+            return `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #ff6b35;">
+                    <h3>Connection Error</h3>
+                    <p>${fallbackMessage}</p>
+                    <button onclick="location.reload()" style="margin-top: 15px; padding: 10px 20px; background: #FFD700; color: #1a1a1a; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                        Retry
+                    </button>
+                </div>
+            `;
+        }
+
+        // Add social sharing functionality
+        function shareEvent(eventId, eventTitle) {
+            if (navigator.share) {
+                navigator.share({
+                    title: eventTitle,
+                    text: `Check out this gaming event at SideQuest Canterbury: ${eventTitle}`,
+                    url: `${window.location.origin}/signup/event/${eventId}`
+                });
+            } else {
+                // Fallback: copy to clipboard
+                const url = `${window.location.origin}/signup/event/${eventId}`;
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('Event link copied to clipboard!');
+                });
+            }
+        }
+
+        // Add accessibility improvements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add keyboard navigation hints
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach((button, index) => {
+                button.setAttribute('aria-label', `Tab ${index + 1}: ${button.textContent}`);
+                button.setAttribute('role', 'tab');
+            });
+            
+            // Add ARIA labels to action buttons
+            document.querySelectorAll('.tournament-register-btn').forEach(btn => {
+                btn.setAttribute('aria-label', 'Register for tournament');
+            });
+            
+            document.querySelectorAll('.birthday-book-btn').forEach(btn => {
+                btn.setAttribute('aria-label', 'Book birthday party package');
+            });
+        });
+    </script>
+</body>
+</html>'''
     
+    response = make_response(events_html)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 # =============================
 # Main

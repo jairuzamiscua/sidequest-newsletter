@@ -8888,7 +8888,7 @@ def events_overview_page():
         <button class="quick-action-btn">Subscribe to Updates</button>
       </div>
       <div class="quick-action" onclick="window.open('https://discord.gg/CuwQM7Zwuk', '_blank')">
-        <h4>Discord Community</h4>
+        <h4>Tournament Discord</h4>
         <p>Connect with other gamers and get real-time updates</p>
         <button class="quick-action-btn">Join Discord</button>
       </div>
@@ -9167,6 +9167,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

@@ -8781,7 +8781,7 @@ def events_overview_page():
   <!-- Hero -->
   <div class="hero-section">
     <div class="hero-content">
-      <h1>SideQuest Events</h1>
+      <h1>SideQuest Canterbury</h1>
       <p class="subtitle">Tournaments, Birthday Parties & Gaming Experiences in Canterbury</p>
       <div class="hero-stats">
         <div class="stat-item">
@@ -9167,6 +9167,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

@@ -7367,7 +7367,162 @@ def calculate_capacity_utilization(event_data):
     except Exception:
         return 0
 
+@app.route('/tournaments')
+def public_tournaments():
+    """Public tournaments listing page"""
+    tournaments_html = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SideQuest Canterbury - Upcoming Tournaments</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            border-radius: 15px;
+        }
+        .tournament-card {
+            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 2px solid #FFD700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .tournament-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(255, 215, 0, 0.3);
+        }
+        .tournament-title {
+            font-size: 1.5rem;
+            color: #FFD700;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        .tournament-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .detail-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #cccccc;
+        }
+        .register-btn {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a1a1a;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 15px;
+        }
+        .register-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 SideQuest Canterbury</h1>
+            <p>Upcoming Gaming Tournaments</p>
+        </div>
+        
+        <div id="tournaments-list">
+            <div style="text-align: center; padding: 50px; color: #aaa;">
+                Loading tournaments...
+            </div>
+        </div>
+    </div>
 
+    <script>
+        async function loadTournaments() {
+            try {
+                const response = await fetch('/api/events?type=tournament&upcoming=true');
+                const data = await response.json();
+                
+                const container = document.getElementById('tournaments-list');
+                
+                if (data.success && data.events.length > 0) {
+                    container.innerHTML = data.events.map(event => {
+                        const date = new Date(event.date_time);
+                        const spots = event.capacity > 0 ? 
+                            `${event.registration_count}/${event.capacity} spots` : 
+                            `${event.registration_count} registered`;
+                        
+                        return `
+                            <div class="tournament-card" onclick="window.open('/signup/event/${event.id}', '_blank')">
+                                <div class="tournament-title">${event.title}</div>
+                                <div class="tournament-details">
+                                    <div class="detail-item">
+                                        <span>🎮</span> ${event.game_title || 'TBD'}
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>📅</span> ${date.toLocaleDateString('en-GB')}
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>🕒</span> ${date.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>👥</span> ${spots}
+                                    </div>
+                                    <div class="detail-item">
+                                        <span>💰</span> ${event.entry_fee > 0 ? '£' + event.entry_fee : 'FREE'}
+                                    </div>
+                                </div>
+                                ${event.description ? `<p style="color: #aaa; margin: 10px 0;">${event.description}</p>` : ''}
+                                <button class="register-btn">Click to Register</button>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 50px; color: #aaa;">
+                            <h3>No tournaments scheduled</h3>
+                            <p>Check back soon for upcoming events!</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('tournaments-list').innerHTML = `
+                    <div style="text-align: center; padding: 50px; color: #ff6b35;">
+                        Error loading tournaments. Please try again later.
+                    </div>
+                `;
+            }
+        }
+        
+        loadTournaments();
+    </script>
+</body>
+</html>'''
+    
+    response = make_response(tournaments_html)
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 # =============================
 # Main

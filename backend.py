@@ -9209,7 +9209,7 @@ def events_overview_page():
             <div class="hero-stats">
                 <div class="stat-item">
                     <div class="stat-number" id="upcomingCount">-</div>
-                    <div class="stat-label">Upcoming Events</div>
+                    <div class="stat-label">Public Events</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number" id="tournamentCount">-</div>
@@ -9217,7 +9217,7 @@ def events_overview_page():
                 </div>
                 <div class="stat-item">
                     <div class="stat-number" id="birthdayCount">-</div>
-                    <div class="stat-label">Parties This Month</div>
+                    <div class="stat-label">Birthday Bookings</div>
                 </div>
             </div>
         </div>

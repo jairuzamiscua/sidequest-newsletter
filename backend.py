@@ -3386,162 +3386,138 @@ signup_html = '''<!DOCTYPE html>
     </div>
     
     <script>
-        // Cursor functionality
-        (function(){
-            const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-follower');
-            if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
-            document.addEventListener('mousemove',e=>{mx=e.clientX; my=e.clientY; c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
-            (function follow(){fx+=(mx-fx)*.12; fy+=(my-fy)*.12; f.style.transform=`translate(${fx-20}px,${fy-20}px)`; requestAnimationFrame(follow);})();
-            document.querySelectorAll('a,button,.form-input').forEach(el=>{
-                el.addEventListener('mouseenter',()=>c.classList.add('active'));
-                el.addEventListener('mouseleave',()=>c.classList.remove('active'));
-            });
-        })();
-
-        // CSRF Manager (keep your existing implementation)
-        class CSRFManager {
-            constructor(apiBase = 'https://sidequest-newsletter-production.up.railway.app') {
-                this.apiBase = apiBase;
-                this.token = null;
-                this.tokenExpiry = null;
-            }
-            async getToken() {
-                if (this.token && this.isTokenValid()) return this.token;
-                return await this.fetchNewToken();
-            }
-            async fetchNewToken() {
-                try {
-                    const response = await fetch(`${this.apiBase}/api/csrf-token`, {
-                        method: 'GET',
-                        credentials: 'include',
-                        headers: { 'Accept': 'application/json' }
-                    });
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    const data = await response.json();
-                    if (data.success && data.csrf_token) {
-                        this.token = data.csrf_token;
-                        this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000;
-                        return this.token;
-                    } else {
-                        throw new Error(data.error || 'Failed to get CSRF token');
-                    }
-                } catch (error) {
-                    console.error('CSRF token fetch failed:', error);
-                    throw error;
-                }
-            }
-            isTokenValid() {
-                return this.token && this.tokenExpiry && Date.now() < this.tokenExpiry;
-            }
-        }
-
-        const csrfManager = new CSRFManager();
-
-        // Form submission (keep your existing form submission logic but update the design feedback)
-        document.getElementById('signupForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const firstName = document.getElementById('firstName').value.trim();
-            const lastName = document.getElementById('lastName').value.trim();
-            const email = document.getElementById('email').value.trim();
-            const gamingHandle = document.getElementById('gamingHandle').value.trim();
-            const gdprConsent = document.getElementById('gdprConsent').checked;
-            const messageDiv = document.getElementById('message');
-            const submitButton = document.getElementById('submitBtn');
-            
-            if (!firstName || !lastName || !email) {
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = 'Please fill in all required fields';
-                return;
-            }
-            
-            if (!gdprConsent) {
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = 'Please accept our privacy policy to continue';
-                return;
-            }
-            
-            if (firstName.length < 2 || lastName.length < 2) {
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = 'Names must be at least 2 characters long';
-                return;
-            }
-            
-            submitButton.innerHTML = 'Joining Quest...';
-            submitButton.disabled = true;
-            
-            try {
-                const csrfToken = await csrfManager.getToken();
-                
-                const response = await fetch('/subscribe', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: JSON.stringify({ 
-                        firstName, 
-                        lastName, 
-                        email, 
-                        gamingHandle: gamingHandle || null,
-                        gdprConsent: gdprConsent,
-                        source: 'signup_page_gdpr' 
-                    })
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cursor functionality
+            (function(){
+                const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-follower');
+                if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
+                document.addEventListener('mousemove',e=>{mx=e.clientX; my=e.clientY; c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
+                (function follow(){fx+=(mx-fx)*.12; fy+=(my-fy)*.12; f.style.transform=`translate(${fx-20}px,${fy-20}px)`; requestAnimationFrame(follow);})();
+                document.querySelectorAll('a,button,.form-input').forEach(el=>{
+                    el.addEventListener('mouseenter',()=>c.classList.add('active'));
+                    el.addEventListener('mouseleave',()=>c.classList.remove('active'));
                 });
-                
-                if (response.status === 403) {
-                    const errorData = await response.json().catch(() => ({}));
-                    if (errorData.code === 'CSRF_TOKEN_INVALID' || errorData.code === 'CSRF_TOKEN_MISSING') {
-                        console.log('CSRF token expired, refreshing...');
-                        csrfManager.token = null;
-                        const newToken = await csrfManager.getToken();
-                        
-                        const retryResponse = await fetch('/subscribe', {
-                            method: 'POST',
+            })();
+
+            // CSRF Manager
+            class CSRFManager {
+                constructor(apiBase = window.location.origin) {
+                    this.apiBase = apiBase;
+                    this.token = null;
+                    this.tokenExpiry = null;
+                }
+                async getToken() {
+                    if (this.token && this.isTokenValid()) return this.token;
+                    return await this.fetchNewToken();
+                }
+                async fetchNewToken() {
+                    try {
+                        const response = await fetch(`${this.apiBase}/api/csrf-token`, {
+                            method: 'GET',
                             credentials: 'include',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': newToken
-                            },
-                            body: JSON.stringify({ 
-                                firstName, lastName, email, 
-                                gamingHandle: gamingHandle || null,
-                                gdprConsent, source: 'signup_page_gdpr' 
-                            })
+                            headers: { 'Accept': 'application/json' }
                         });
-                        
-                        const result = await retryResponse.json();
-                        handleSignupResponse(result, firstName);
-                        return;
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        const data = await response.json();
+                        if (data.success && data.csrf_token) {
+                            this.token = data.csrf_token;
+                            this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000;
+                            return this.token;
+                        } else {
+                            throw new Error(data.error || 'Failed to get CSRF token');
+                        }
+                    } catch (error) {
+                        console.error('CSRF token fetch failed:', error);
+                        throw error;
                     }
                 }
-                
-                const result = await response.json();
-                handleSignupResponse(result, firstName);
-                
-            } catch (error) {
-                console.error('Network error:', error);
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = 'Network error. Please check your connection and try again.';
-            } finally {
-                submitButton.innerHTML = 'Level Up Your Inbox';
-                submitButton.disabled = false;
+                isTokenValid() {
+                    return this.token && this.tokenExpiry && Date.now() < this.tokenExpiry;
+                }
             }
-        });
 
-        function handleSignupResponse(result, firstName) {
-            const messageDiv = document.getElementById('message');
-            
-            if (result.success) {
-                messageDiv.className = 'message success show';
-                messageDiv.innerHTML = `Welcome to the quest, ${firstName}! Check your email for confirmation.`;
-                document.getElementById('signupForm').reset();
-            } else {
-                messageDiv.className = 'message error show';
-                messageDiv.innerHTML = result.error || 'Something went wrong. Please try again.';
+            const csrfManager = new CSRFManager();
+
+            // Helper function - MOVED UP
+            function handleSignupResponse(result, firstName) {
+                const messageDiv = document.getElementById('message');
+                
+                if (result.success) {
+                    messageDiv.className = 'message success show';
+                    messageDiv.innerHTML = `Welcome to the quest, ${firstName}! Check your email for confirmation.`;
+                    document.getElementById('signupForm').reset();
+                } else {
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = result.error || 'Something went wrong. Please try again.';
+                }
             }
-        }
+
+            // Form submission handler
+            document.getElementById('signupForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const firstName = document.getElementById('firstName').value.trim();
+                const lastName = document.getElementById('lastName').value.trim();
+                const email = document.getElementById('email').value.trim();
+                const gamingHandle = document.getElementById('gamingHandle').value.trim();
+                const gdprConsent = document.getElementById('gdprConsent').checked;
+                const messageDiv = document.getElementById('message');
+                const submitButton = document.getElementById('submitBtn');
+                
+                if (!firstName || !lastName || !email) {
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = 'Please fill in all required fields';
+                    return;
+                }
+                
+                if (!gdprConsent) {
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = 'Please accept our privacy policy to continue';
+                    return;
+                }
+                
+                if (firstName.length < 2 || lastName.length < 2) {
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = 'Names must be at least 2 characters long';
+                    return;
+                }
+                
+                submitButton.innerHTML = 'Joining Quest...';
+                submitButton.disabled = true;
+                
+                try {
+                    const csrfToken = await csrfManager.getToken();
+                    
+                    const response = await fetch('/subscribe', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({ 
+                            firstName, 
+                            lastName, 
+                            email, 
+                            gamingHandle: gamingHandle || null,
+                            gdprConsent: gdprConsent,
+                            source: 'signup_page_gdpr' 
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    handleSignupResponse(result, firstName);
+                    
+                } catch (error) {
+                    console.error('Network error:', error);
+                    messageDiv.className = 'message error show';
+                    messageDiv.innerHTML = 'Network error. Please check your connection and try again.';
+                } finally {
+                    submitButton.innerHTML = 'Level Up Your Inbox';
+                    submitButton.disabled = false;
+                }
+            });
+        });
     </script>
 </body>
 </html>'''

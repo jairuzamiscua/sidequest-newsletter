@@ -8677,18 +8677,24 @@ def events_overview_page():
     .tournament-action:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(255,215,0,.28)}
     .tournament-action:disabled{opacity:.55;cursor:not-allowed;transform:none}
 
-    /* Calendar (new desktop layout) */
-    .calendar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px}
-    .calendar-event{display:grid;grid-template-columns:140px 1fr;background:var(--dark-secondary);border:1px solid var(--card-border);border-radius:16px;overflow:hidden;transition:transform .2s ease, border-color .2s ease}
+    /* Calendar - Mobile First Design */
+    .calendar-grid{display:grid;grid-template-columns:1fr;gap:20px;max-width:800px;margin:0 auto}
+    .calendar-event{background:var(--dark-secondary);border:1px solid var(--card-border);border-radius:16px;padding:24px;transition:transform .2s ease, border-color .2s ease;cursor:pointer}
     .calendar-event:hover{transform:translateY(-3px);border-color:rgba(255,215,0,.25)}
-    .date-badge{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--primary),var(--accent));color:#141414;flex-direction:column;padding:22px}
-    .date-badge .month{font-size:.85rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;opacity:.9}
-    .date-badge .day{font-size:2.8rem;line-height:1;font-weight:900}
-    .event-info{padding:20px 24px}
-    .event-name{font-size:1.2rem;font-weight:800;margin-bottom:6px}
-    .event-sub{color:var(--text-muted);margin-bottom:14px}
-    .event-row{display:flex;flex-wrap:wrap;gap:16px;color:var(--text-muted)}
-    .event-row .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--card-border);border-radius:999px;background:rgba(255,255,255,.02);font-weight:600}
+
+    .event-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+    .event-name{font-size:1.3rem;font-weight:800;color:var(--text);margin:0}
+    .event-date{background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;padding:8px 16px;border-radius:20px;font-weight:700;font-size:0.9rem;white-space:nowrap}
+
+    .event-meta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+    .meta-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:rgba(255,255,255,.03);border:1px solid var(--card-border);border-radius:20px;font-size:0.85rem;color:var(--text-muted);font-weight:600}
+
+    .event-description{color:var(--text-muted);font-size:0.95rem;line-height:1.4;margin-bottom:16px}
+    .event-actions{display:flex;gap:12px;flex-wrap:wrap}
+    .event-btn{padding:10px 18px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:8px;font-weight:700;cursor:pointer;text-decoration:none;font-size:0.9rem;transition:transform .2s ease}
+    .event-btn:hover{transform:translateY(-1px)}
+    .event-btn.secondary{background:var(--dark);color:var(--text);border:1px solid var(--card-border)}
+
 
     /* Quick actions */
     .quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;margin-top:70px}
@@ -8980,30 +8986,26 @@ def events_overview_page():
             const cap = (ev.capacity || 0) > 0 ? ev.capacity : null;
 
             return `
-              <article class="calendar-event">
-                <div class="date-badge" aria-hidden="true">
-                  <div class="month">${m}</div>
-                  <div class="day">${d}</div>
-                </div>
-                <div class="event-info">
-                  <div class="event-name">${escapeHTML(ev.title)}</div>
-                  <div class="event-sub">${escapeHTML(ev.event_type === 'tournament' ? 'Tournament' : 'Gaming Event')}</div>
-                  <div class="event-row">
-                    <span class="chip" title="Date">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</span>
-                    <span class="chip" title="Time">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
-                    <span class="chip" title="Players">${ICONS.users} ${reg}${cap?`/${cap}`:''}</span>
-                    <span class="chip" title="Entry fee">${ICONS.fee} ${ev.entry_fee>0?('£'+ev.entry_fee):'FREE'}</span>
-                    <span class="chip" title="Type">${ICONS.type} ${escapeHTML(ev.event_type)}</span>
-                  </div>
-                  ${ev.description ? `<p style="color:var(--text-muted);margin-top:12px">${escapeHTML(ev.description)}</p>` : ''}
-                  <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap">
-                    <a href="/signup/event/${ev.id}" style="text-decoration:none">
-                      <button class="tournament-action" type="button">View Details</button>
-                    </a>
-                    <div style="height:44px;min-width:140px;border-radius:10px;overflow:hidden;border:1px solid var(--card-border);background:url('${banner}') center/cover no-repeat"></div>
-                  </div>
-                </div>
-              </article>`;
+                <article class="calendar-event" onclick="window.location.href='/signup/event/${ev.id}'">
+                    <div class="event-header">
+                    <h3 class="event-name">${escapeHTML(ev.title)}</h3>
+                    <div class="event-date">${dt.toLocaleDateString('en-GB',{month:'short',day:'numeric'})}</div>
+                    </div>
+                    
+                    <div class="event-meta">
+                    <span class="meta-chip">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+                    <span class="meta-chip">${ICONS.users} ${reg}${cap?`/${cap}`:''}</span>
+                    <span class="meta-chip">${ICONS.fee} ${ev.entry_fee>0?('£'+ev.entry_fee):'FREE'}</span>
+                    <span class="meta-chip">${ICONS.type} ${escapeHTML(ev.event_type)}</span>
+                    </div>
+                    
+                    ${ev.description ? `<p class="event-description">${escapeHTML(ev.description)}</p>` : ''}
+                    
+                    <div class="event-actions">
+                    <a href="/signup/event/${ev.id}" class="event-btn">Register Now</a>
+                    <button class="event-btn secondary" onclick="event.stopPropagation();navigator.share({title:'${escapeHTML(ev.title)}',url:window.location.origin+'/signup/event/${ev.id}'}).catch(()=>{})">Share</button>
+                    </div>
+                </article>`;
           }).join('');
         }else{
           grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.');

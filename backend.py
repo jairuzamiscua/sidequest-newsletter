@@ -9039,6 +9039,56 @@ def events_overview_page():
   </main>
 
   <script>
+    /* ---------------- Opening Reveal Animation ---------------- */
+    let revealComplete = false;
+    
+    function startRevealSequence(){
+      const overlay = document.getElementById('revealOverlay');
+      const pageContent = document.getElementById('pageContent');
+      
+      // Start hiding overlay after logo animation
+      setTimeout(()=>{
+        overlay.classList.add('hide');
+        pageContent.classList.add('revealed');
+        revealComplete = true;
+        
+        // Trigger page element animations
+        setTimeout(()=>{
+          document.querySelectorAll('.reveal-element').forEach((el,i)=>{
+            setTimeout(()=>el.classList.add('animate'),i*100);
+          });
+          
+          // Animate stats with delay
+          setTimeout(()=>{
+            document.querySelectorAll('.stat').forEach((el,i)=>{
+              setTimeout(()=>el.classList.add('animate'),i*100);
+            });
+            // Start stats counting after stats animate in
+            setTimeout(loadStats,400);
+          },600);
+        },500);
+      },3800); // Total reveal time: logo(2s) + tagline(1s) + loader(1.5s) + buffer(0.3s)
+    }
+
+    // Skip animation on click/key during reveal
+    document.addEventListener('click',()=>{
+      if(!revealComplete) skipReveal();
+    });
+    document.addEventListener('keydown',(e)=>{
+      if(!revealComplete && (e.key===' '||e.key==='Enter'||e.key==='Escape')) skipReveal();
+    });
+    
+    function skipReveal(){
+      if(revealComplete) return;
+      revealComplete = true;
+      const overlay = document.getElementById('revealOverlay');
+      const pageContent = document.getElementById('pageContent');
+      overlay.style.display = 'none';
+      pageContent.classList.add('revealed');
+      document.querySelectorAll('.reveal-element,.stat').forEach(el=>el.classList.add('animate'));
+      loadStats();
+    }
+
     /* ---------------- Icons (inline SVG) ---------------- */
     const ICONS = {
       date:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M8 2v4M16 2v4M3 10h18" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',

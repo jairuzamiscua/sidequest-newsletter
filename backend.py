@@ -8769,12 +8769,12 @@ def birthday_booking_page():
     return response
         
 
+
 @app.route('/events', methods=['GET'])
 def events_overview_page():
     """Public events overview page – tournaments, birthdays, and a public calendar"""
     events_html = '''<!DOCTYPE html>
 <html lang="en">
-<head>
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
@@ -8789,6 +8789,7 @@ def events_overview_page():
       --text:#ffffff;
       --muted:#9a9a9a;
       --border:rgba(255,255,255,.06);
+      --special:#8B5FBF;
     }
     body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;cursor:none}
 
@@ -8820,7 +8821,7 @@ def events_overview_page():
     .hero-content{position:relative;z-index:10;text-align:center;padding:0 20px}
     .title{font-size:clamp(3rem,9vw,7rem);font-weight:900;letter-spacing:-.03em;line-height:.9;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
     .subtitle{color:var(--muted);max-width:760px;margin:0 auto}
-    .stats{display:flex;gap:42px;justify-content:center;margin-top:42px}
+    .stats{display:flex;gap:42px;justify-content:center;margin-top:42px;flex-wrap:wrap}
     .stat{text-align:center}
     .stat .num{font-size:2.6rem;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
     .stat .lbl{font-size:.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:8px}
@@ -8842,6 +8843,9 @@ def events_overview_page():
     .tab:focus-visible{outline:3px solid var(--primary)}
     .panel{display:none}
     .panel.active{display:block}
+
+    /* Special pill styles */
+    .special{background:rgba(139,95,191,.18);color:#b68dd8}
 
     /* Sections */
     .section-head{text-align:center;margin-bottom:44px}
@@ -8900,6 +8904,7 @@ def events_overview_page():
       .grid{grid-template-columns:1fr}
       .cal-item{grid-template-columns:1fr}
       .date{flex-direction:row;gap:10px;justify-content:flex-start}
+      .stats{gap:20px}
     }
   </style>
 </head>
@@ -8913,11 +8918,12 @@ def events_overview_page():
     </div>
     <div class="hero-content">
       <h1 class="title">LEVEL UP YOUR GAME</h1>
-      <p class="subtitle">Elite tournaments, relaxed game nights, unforgettable birthdays — all in one sleek hub.</p>
+      <p class="subtitle">Elite tournaments, relaxed game nights, unforgettable birthdays & special events — all in one sleek hub.</p>
       <div class="stats" role="group" aria-label="Live counters">
         <div class="stat"><div class="num" id="upcomingCount">0</div><div class="lbl">Public Events</div></div>
         <div class="stat"><div class="num" id="tournamentCount">0</div><div class="lbl">Tournaments</div></div>
         <div class="stat"><div class="num" id="gamesNightCount">0</div><div class="lbl">Games Nights</div></div>
+        <div class="stat"><div class="num" id="specialEventCount">0</div><div class="lbl">Special Events</div></div>
       </div>
     </div>
     <div class="scroll" aria-hidden="true"></div>
@@ -8929,6 +8935,7 @@ def events_overview_page():
     <div class="tabs" role="tablist" aria-label="Events navigation">
       <button class="tab" role="tab" aria-selected="true" id="tab-tournaments" aria-controls="panel-tournaments">Tournaments</button>
       <button class="tab" role="tab" aria-selected="false" id="tab-games" aria-controls="panel-games">Games Nights</button>
+      <button class="tab" role="tab" aria-selected="false" id="tab-special" aria-controls="panel-special">Special Events</button>
       <button class="tab" role="tab" aria-selected="false" id="tab-birthdays" aria-controls="panel-birthdays">Birthday Parties</button>
       <button class="tab" role="tab" aria-selected="false" id="tab-calendar" aria-controls="panel-calendar">Calendar</button>
     </div>
@@ -8952,6 +8959,17 @@ def events_overview_page():
       </div>
       <div id="games-grid" class="grid">
         <div class="loading"><div class="spin"></div>Loading games nights…</div>
+      </div>
+    </section>
+
+    <!-- Special Events -->
+    <section id="panel-special" class="panel" role="tabpanel" aria-labelledby="tab-special">
+      <div class="section-head">
+        <h2 class="section-title">Special Events</h2>
+        <p class="section-sub">Unique experiences, themed nights, and exclusive gatherings. Don't miss out.</p>
+      </div>
+      <div id="special-grid" class="grid">
+        <div class="loading"><div class="spin"></div>Loading special events…</div>
       </div>
     </section>
 
@@ -8996,7 +9014,7 @@ def events_overview_page():
     <section id="panel-calendar" class="panel" role="tabpanel" aria-labelledby="tab-calendar">
       <div class="section-head">
         <h2 class="section-title">Public Event Calendar</h2>
-        <p class="section-sub">Upcoming tournaments & game nights. Birthdays hidden for privacy.</p>
+        <p class="section-sub">Upcoming tournaments, game nights & special events. Birthdays hidden for privacy.</p>
       </div>
       <div id="cal-grid" class="cal-grid">
         <div class="loading"><div class="spin"></div>Loading calendar…</div>
@@ -9015,7 +9033,7 @@ def events_overview_page():
         </div>
         <div class="q-card" onclick="location.href='tel:012279915058'">
           <div class="q-title">Need Help?</div>
-          <div class="q-text">Questions about events or bookings? We’re here for you.</div>
+          <div class="q-text">Questions about events or bookings? We're here for you.</div>
           <button class="q-btn">01227 915058</button>
         </div>
       </div>
@@ -9032,7 +9050,8 @@ def events_overview_page():
       list:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
       check:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m20 6-11 11L4 12" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
       clock:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#9a9a9a" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
-      tag:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.59 13.41 12 22l-8-8 8-8 8.59 7.41Z" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      tag:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.59 13.41 12 22l-8-8 8-8 8.59 7.41Z" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      star:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     };
 
     /* ---------------- Local-first game banners ---------------- */
@@ -9052,8 +9071,13 @@ def events_overview_page():
       'street fighter 6':'/static/games/sf6.jpg',
       'ea fc 24':'/static/games/eafc.jpg',
       'ea fc 25':'/static/games/eafc25.jpg',
-      'generic':'/static/games/generic.jpg',
-      'f1':'/static/games/f1.jpg'
+      'f1':'/static/games/f1.jpg',
+      'special':'/static/games/special-event.jpg',
+      'themed':'/static/games/themed-night.jpg',
+      'community':'/static/games/community.jpg',
+      'cosplay':'/static/games/cosplay.jpg',
+      'retro':'/static/games/retro.jpg',
+      'generic':'/static/games/generic.jpg'
     };
     function bannerFor(title){
       if(!title) return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
@@ -9068,6 +9092,7 @@ def events_overview_page():
     const panels = {
       tournaments: document.getElementById('panel-tournaments'),
       games: document.getElementById('panel-games'),
+      special: document.getElementById('panel-special'),
       birthdays: document.getElementById('panel-birthdays'),
       calendar: document.getElementById('panel-calendar')
     };
@@ -9088,6 +9113,7 @@ def events_overview_page():
       panels[id].classList.add('active');
       if(id==='tournaments') loadTournaments();
       if(id==='games') loadGamesNights();
+      if(id==='special') loadSpecialEvents();
       if(id==='calendar') loadCalendar();
     }
 
@@ -9100,15 +9126,47 @@ def events_overview_page():
           const publics = j.events.filter(e=>e.event_type!=='birthday');
           const tourns  = publics.filter(e=>e.event_type==='tournament');
           const games   = publics.filter(e=>e.event_type==='games_night' || /games?\s*night/i.test(e.title||''));
+          const special = publics.filter(e=>e.event_type==='special');
           animate('#upcomingCount', publics.length);
           animate('#tournamentCount', tourns.length);
           animate('#gamesNightCount', games.length);
+          animate('#specialEventCount', special.length);
         }
       }catch(e){ console.warn('stats err', e); }
     }
     function animate(sel, target){
       const el=document.querySelector(sel); const dur=900, steps=24, inc=(+target)/steps; let cur=0;
       const t=setInterval(()=>{cur+=inc; if(cur>=target){el.textContent=target;clearInterval(t)} else {el.textContent=Math.floor(cur)}}, dur/steps);
+    }
+
+    /* ---------------- Special Events loader ---------------- */
+    async function loadSpecialEvents(){
+      const grid = document.getElementById('special-grid');
+      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading special events…</div>';
+      try{
+        const r = await fetch('/api/events?type=special&upcoming=true',{credentials:'same-origin'});
+        const j = await r.json();
+        if(j.success && j.events.length){
+          grid.innerHTML = j.events.map(ev=>{
+            const dt=new Date(ev.date_time), reg=ev.registration_count||0, cap=(ev.capacity||0)>0?ev.capacity:null;
+            const spots = cap?Math.max(cap-reg,0):null;
+            let pill='special', text='Join Event';
+            if(spots!==null){ 
+              if(spots===0){pill='warn'; text='Full'} 
+              else if(spots<=3){pill='soon'; text=spots+' Spots Left'} 
+              else {pill='special'; text='Available'}
+            }
+            const banner=bannerFor(ev.game_title||ev.title||'special');
+            return cardHTML({banner, pillText:text, pillClass:pill, name:ev.title, sub:ev.game_title||'Special Event',
+              dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
+          }).join('');
+          lazyMountBanners();
+        }else{
+          grid.innerHTML = emptyState('No upcoming special events','New special events will be announced soon.');
+        }
+      }catch(e){
+        grid.innerHTML = networkError('Couldn\\'t load special events. Please refresh.');
+      }
     }
 
     /* ---------------- Tournaments loader ---------------- */
@@ -9145,7 +9203,7 @@ def events_overview_page():
         // Primary: explicit type
         let r = await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'});
         let j = await r.json();
-        // Fallback: filter by title if API doesn’t support type
+        // Fallback: filter by title if API doesn't support type
         let events = (j.success ? j.events : []).filter(Boolean);
         if(!events.length){
           const all = await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
@@ -9204,7 +9262,7 @@ def events_overview_page():
             const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
             const cap = (ev.capacity||0)>0?ev.capacity:null;
             const reg = ev.registration_count||0;
-            const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : 'Event');
+            const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : (ev.event_type==='special' ? 'Special Event' : 'Event'));
             return `
               <article class="cal-item">
                 <div class="date" aria-hidden="true"><div class="m">${m}</div><div class="d">${d}</div></div>
@@ -9227,7 +9285,7 @@ def events_overview_page():
           }).join('');
           lazyMountBanners();
         }else{
-          grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments and game nights.');
+          grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments, game nights & special events.');
         }
       }catch(e){
         grid.innerHTML = networkError('Couldn\\'t load calendar. Please refresh.');
@@ -9293,7 +9351,11 @@ def events_overview_page():
       loadStats();
       loadTournaments();
       // Gentle auto-refresh
-      setInterval(()=>{ if(document.getElementById('panel-tournaments').classList.contains('active')) loadTournaments(); }, 5*60*1000);
+      setInterval(()=>{ 
+        const active = document.querySelector('.panel.active');
+        if(active && active.id === 'panel-tournaments') loadTournaments();
+        if(active && active.id === 'panel-special') loadSpecialEvents();
+      }, 5*60*1000);
       setInterval(loadStats, 2*60*1000);
     });
   </script>
@@ -9352,7 +9414,6 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
-
 
 
 

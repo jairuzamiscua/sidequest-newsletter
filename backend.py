@@ -7587,7 +7587,7 @@ def birthday_booking_page():
     .hero-title span{display:block;font-size:.35em;letter-spacing:.2em;font-weight:400;-webkit-text-fill-color:var(--text-muted);margin-bottom:10px;text-transform:uppercase}
     .hero-subtitle{font-size:clamp(1rem,2vw,1.3rem);color:var(--text-muted);margin:0 auto 40px;max-width:600px}
 
-    .hero-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;max-width:800px;margin:0 auto}
+    .hero-features{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;max-width:800px;margin:0 auto}
     .hero-feature{background:rgba(255,105,180,0.1);padding:20px;border-radius:15px;backdrop-filter:blur(10px);border:1px solid rgba(255,105,180,0.2);transition:all 0.3s ease}
     .hero-feature:hover{transform:translateY(-5px);background:rgba(255,105,180,0.15)}
     .hero-feature h3{font-size:1rem;margin-bottom:8px;color:var(--birthday);font-weight:700}
@@ -7684,13 +7684,18 @@ def birthday_booking_page():
     .contact-item strong{color:var(--text);display:block;margin-bottom:5px}
 
     @media (max-width:768px){
-      .hero-title{font-size:2.5rem}
-      .packages-grid,.form-grid{grid-template-columns:1fr}
-      .cursor,.cursor-follower{display:none}
-      body{cursor:auto}
-      .hero{min-height:70vh}
-      .package-card{margin-bottom:20px}
+        .hero-title{font-size:2.5rem}
+        .packages-grid,.form-grid{grid-template-columns:1fr}
+        .cursor,.cursor-follower{display:none}
+        body{cursor:auto}
+        .hero{min-height:70vh}
+        .package-card{margin-bottom:20px}
+        .hero-features{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:15px}
+        .hero-feature{padding:25px 20px;text-align:center}
+        .hero-feature h3{font-size:1.1rem;margin-bottom:10px}
+        .hero-feature p{font-size:0.95rem;line-height:1.4}
     }
+    
   </style>
 </head>
 <body>

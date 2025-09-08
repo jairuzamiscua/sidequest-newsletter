@@ -3217,135 +3217,198 @@ def admin_dashboard():
 
 @app.route('/signup')
 def signup_page():
-    signup_html = '''<!DOCTYPE html>
+signup_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
-   <meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Join SideQuest Newsletter</title>
+    <title>Join SideQuest Newsletter - Canterbury Gaming</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #ffffff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .container { background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); padding: 50px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); border: 2px solid #444; max-width: 600px; width: 100%; text-align: center; position: relative; overflow: hidden; }
-        .container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%); }
-        .logo { width: 60px; height: 60px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border-radius: 12px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #1a1a1a; font-size: 18px; letter-spacing: -1px; box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3); }
-        h1 { font-size: 2.5rem; margin-bottom: 15px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 800; }
-        .subtitle { font-size: 1.2rem; margin-bottom: 30px; color: #cccccc; font-weight: 500; line-height: 1.5; }
-        .form-container { margin: 30px 0; text-align: left; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; color: #FFD700; font-weight: 600; font-size: 14px; }
-        input[type="text"], input[type="email"] { width: 100%; padding: 16px 20px; border: 2px solid #444; border-radius: 12px; font-size: 16px; background: #1a1a1a; color: #ffffff; transition: all 0.3s ease; font-weight: 500; }
-        input[type="text"]:focus, input[type="email"]:focus { outline: none; border-color: #FFD700; box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); background: #2a2a2a; }
-        .submit-btn { width: 100%; padding: 18px 25px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); border: none; border-radius: 12px; color: #1a1a1a; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3); }
-        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4); }
-        .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-        .message { margin-top: 20px; padding: 15px 20px; border-radius: 10px; font-weight: 500; opacity: 0; transition: all 0.3s ease; }
-        .message.show { opacity: 1; }
-        .message.success { background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); color: #1a1a1a; border: 2px solid #00ff88; }
-        .message.error { background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%); color: #ffffff; border: 2px solid #ff6b35; }
-        .features { margin-top: 40px; text-align: left; }
-        .features h3 { color: #FFD700; font-size: 1.1rem; margin-bottom: 15px; font-weight: 600; }
-        .feature-list { list-style: none; padding: 0; }
-        .feature-list li { padding: 8px 0; color: #cccccc; position: relative; padding-left: 25px; font-size: 14px; }
-        .feature-list li::before { content: '⚡'; position: absolute; left: 0; color: #FFD700; font-weight: bold; }
-        .footer-links { margin-top: 30px; padding-top: 20px; border-top: 1px solid #444; font-size: 12px; color: #888; text-align: center; }
-        .footer-links a { color: #FFD700; text-decoration: none; margin: 0 10px; transition: color 0.3s ease; }
-        .optional { color: #aaa; font-size: 12px; margin-left: 5px; }
+
+        :root {
+            --primary: #FFD700;
+            --accent: #FF6B35;
+            --dark: #0a0a0a;
+            --dark-secondary: #141414;
+            --text: #ffffff;
+            --text-muted: #9a9a9a;
+            --card-border: rgba(255,255,255,0.06);
+            --success: #74d38a;
+            --error: #ff9a78;
+        }
+
+        body {
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+            cursor: none;
+        }
+
+        /* Custom Cursor */
+        .cursor{width:20px;height:20px;border:2px solid var(--primary);border-radius:50%;position:fixed;pointer-events:none;transition:all .1s ease;z-index:9999;mix-blend-mode:difference}
+        .cursor-follower{width:40px;height:40px;background:rgba(255,215,0,.1);border-radius:50%;position:fixed;pointer-events:none;transition:all .3s ease;z-index:9998}
+        .cursor.active{transform:scale(.5);background:var(--primary)}
+
+        /* Noise overlay */
+        body::before{content:'';position:fixed;inset:0;background:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.03"/%3E%3C/svg%3E');pointer-events:none;z-index:1}
+
+        .container{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center, rgba(255,215,0,.05) 0%, transparent 70%);padding:20px}
         
-        /* GDPR Consent Styling */
-        .gdpr-consent { background: #2a2a2a; border: 2px solid #444; border-radius: 12px; padding: 20px; margin: 25px 0; }
-        .consent-checkbox { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 15px; }
-        .consent-checkbox input[type="checkbox"] { margin-top: 2px; transform: scale(1.2); accent-color: #FFD700; }
-        .consent-text { font-size: 0.9rem; line-height: 1.5; color: #cccccc; }
-        .consent-text a { color: #FFD700; text-decoration: underline; }
-        .gdpr-title { color: #FFD700; font-weight: 700; font-size: 1rem; margin-bottom: 15px; }
+        .floating-shapes{position:absolute;inset:0}
+        .shape{position:absolute;border:1px solid rgba(255,215,0,0.2);animation:float 20s infinite ease-in-out}
+        .shape:nth-child(1){width:300px;height:300px;top:10%;left:10%;border-radius:30% 70% 70% 30%/30% 30% 70% 70%}
+        .shape:nth-child(2){width:200px;height:200px;top:60%;right:10%;border-radius:63% 37% 54% 46%/55% 48% 52% 45%}
+        .shape:nth-child(3){width:150px;height:150px;bottom:10%;left:30%;border-radius:40% 60% 60% 40%/60% 30% 70% 40%}
+        @keyframes float{0%,100%{transform:translate(0,0) rotate(0) scale(1)}33%{transform:translate(30px,-30px) rotate(120deg) scale(1.1)}66%{transform:translate(-20px,20px) rotate(240deg) scale(.9)}}
+
+        .signup-card{background:var(--dark-secondary);border-radius:20px;padding:50px;border:1px solid var(--card-border);position:relative;z-index:10;max-width:600px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+        
+        .logo{width:60px;height:60px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:12px;margin:0 auto 30px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#1a1a1a;font-size:18px}
+        
+        .signup-title{font-size:clamp(2rem,4vw,2.8rem);font-weight:900;letter-spacing:-.02em;margin-bottom:15px;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center}
+        .signup-subtitle{font-size:1.1rem;color:var(--text-muted);margin-bottom:40px;text-align:center;max-width:500px;margin-left:auto;margin-right:auto}
+
+        .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:25px}
+        .form-group{margin-bottom:25px}
+        .form-label{display:block;margin-bottom:8px;color:var(--primary);font-weight:600;font-size:1rem}
+        .form-input{width:100%;padding:16px 20px;border:1px solid var(--card-border);border-radius:12px;font-size:16px;background:var(--dark);color:var(--text);transition:all 0.3s ease;font-weight:500}
+        .form-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(255,215,0,0.1);background:rgba(255,255,255,0.02)}
+        .form-input.optional{border-color:rgba(255,255,255,0.03)}
+
+        .gdpr-section{background:var(--dark);border:2px solid var(--card-border);border-radius:15px;padding:25px;margin:25px 0}
+        .gdpr-title{color:var(--primary);font-weight:700;font-size:1.1rem;margin-bottom:15px}
+        .gdpr-checkbox{display:flex;align-items:flex-start;gap:12px}
+        .gdpr-checkbox input[type="checkbox"]{margin-top:2px;transform:scale(1.2);accent-color:var(--primary)}
+        .gdpr-text{font-size:0.95rem;line-height:1.5;color:var(--text-muted)}
+        .gdpr-text a{color:var(--primary);text-decoration:underline}
+        .gdpr-text ul{margin:10px 0;padding-left:20px}
+
+        .submit-btn{width:100%;padding:18px 25px;background:linear-gradient(135deg,var(--primary),var(--accent));border:none;border-radius:12px;color:#1a1a1a;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s ease;text-transform:uppercase;letter-spacing:1px;box-shadow:0 6px 20px rgba(255,215,0,0.3)}
+        .submit-btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(255,215,0,0.4)}
+        .submit-btn:disabled{opacity:0.7;cursor:not-allowed;transform:none}
+
+        .message{margin-top:20px;padding:15px 20px;border-radius:10px;font-weight:500;opacity:0;transition:all 0.3s ease}
+        .message.show{opacity:1}
+        .message.success{background:rgba(116,211,138,0.15);color:var(--success);border:1px solid rgba(116,211,138,0.3)}
+        .message.error{background:rgba(255,154,120,0.15);color:var(--error);border:1px solid rgba(255,154,120,0.3)}
+
+        .features{margin-top:30px;text-align:left}
+        .features h3{color:var(--primary);font-size:1.1rem;margin-bottom:15px;font-weight:600}
+        .feature-list{list-style:none;padding:0}
+        .feature-list li{padding:8px 0;color:var(--text-muted);position:relative;padding-left:25px;font-size:14px}
+        .feature-list li::before{content:'⚡';position:absolute;left:0;color:var(--primary);font-weight:bold}
+
+        .footer-links{margin-top:30px;padding-top:20px;border-top:1px solid var(--card-border);font-size:12px;color:var(--text-muted);text-align:center}
+        .footer-links a{color:var(--primary);text-decoration:none;margin:0 10px}
+
+        @media (max-width:768px){
+            .signup-card{padding:40px 30px;margin:10px}
+            .form-grid{grid-template-columns:1fr}
+            .cursor,.cursor-follower{display:none}
+            body{cursor:auto}
+        }
     </style>
 </head>
 <body>
+    <div class="cursor"></div><div class="cursor-follower"></div>
+    
     <div class="container">
-        <div class="logo">SQ</div>
-        <h1>Join the Quest</h1>
-        <p class="subtitle">Get exclusive gaming updates, events, and special offers delivered straight to your inbox!</p>
+        <div class="floating-shapes"><div class="shape"></div><div class="shape"></div><div class="shape"></div></div>
         
-        <form class="form-container" id="signupForm">
-            <div class="form-row">
+        <div class="signup-card">
+            <div class="logo">SQ</div>
+            <h1 class="signup-title">Join the Quest</h1>
+            <p class="signup-subtitle">Get exclusive gaming updates, events, and special offers delivered straight to your inbox!</p>
+            
+            <form id="signupForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="firstName">First Name *</label>
+                        <input type="text" class="form-input" id="firstName" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="lastName">Last Name *</label>
+                        <input type="text" class="form-input" id="lastName" name="lastName" required>
+                    </div>
+                </div>
+                
                 <div class="form-group">
-                    <label for="firstName">First Name *</label>
-                    <input type="text" id="firstName" name="firstName" required>
+                    <label class="form-label" for="email">Email Address *</label>
+                    <input type="email" class="form-input" id="email" name="email" required>
                 </div>
+                
                 <div class="form-group">
-                    <label for="lastName">Last Name *</label>
-                    <input type="text" id="lastName" name="lastName" required>
+                    <label class="form-label" for="gamingHandle">Gaming Handle <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+                    <input type="text" class="form-input optional" id="gamingHandle" name="gamingHandle" placeholder="Your gamer tag">
                 </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="email">Email Address *</label>
-                <input type="email" id="email" name="email" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="gamingHandle">Gaming Handle <span class="optional">(optional)</span></label>
-                <input type="text" id="gamingHandle" name="gamingHandle" placeholder="Your gamer tag">
-            </div>
-            
-            <!-- GDPR Consent Section -->
-            <div class="gdpr-consent">
-                <div class="gdpr-title">Data Protection & Privacy</div>
-                <div class="consent-checkbox">
-                    <input type="checkbox" id="gdprConsent" name="gdprConsent" required>
-                    <label for="gdprConsent" class="consent-text">
-                        I consent to SideQuest Gaming storing and processing my personal data to send me gaming event updates, newsletters, and promotional communications. I understand that:
-                        <ul style="margin: 10px 0; padding-left: 20px;">
-                            <li>My data will be stored securely and used only for gaming-related communications</li>
-                            <li>I can withdraw consent and unsubscribe at any time</li>
-                            <li>I can request deletion of my data at any time</li>
-                        </ul>
-                        I have read and agree to the <a href="/privacy" target="_blank">Privacy Policy</a>.
-                    </label>
+                
+                <div class="gdpr-section">
+                    <div class="gdpr-title">Data Protection & Privacy</div>
+                    <div class="gdpr-checkbox">
+                        <input type="checkbox" id="gdprConsent" name="gdprConsent" required>
+                        <label for="gdprConsent" class="gdpr-text">
+                            I consent to SideQuest Gaming storing and processing my personal data to send me gaming event updates, newsletters, and promotional communications. I understand that:
+                            <ul>
+                                <li>My data will be stored securely and used only for gaming-related communications</li>
+                                <li>I can withdraw consent and unsubscribe at any time</li>
+                                <li>I can request deletion of my data at any time</li>
+                            </ul>
+                            I have read and agree to the <a href="/privacy" target="_blank">Privacy Policy</a>.
+                        </label>
+                    </div>
                 </div>
+                
+                <button type="submit" class="submit-btn" id="submitBtn">Level Up Your Inbox</button>
+                
+                <div id="message" class="message"></div>
+            </form>
+            
+            <div class="features">
+                <h3>What You'll Get:</h3>
+                <ul class="feature-list">
+                    <li>Early access to gaming events & tournaments</li>
+                    <li>Exclusive member discounts & offers</li>
+                    <li>Community night invitations</li>
+                    <li>New location openings & updates</li>
+                    <li>Gaming tips & industry news</li>
+                </ul>
             </div>
             
-            <button type="submit" class="submit-btn" id="submitBtn">Level Up Your Inbox</button>
-        </form>
-        
-        <div id="message" class="message"></div>
-        
-        <div class="features">
-            <h3>What You'll Get:</h3>
-            <ul class="feature-list">
-                <li>Early access to gaming events & tournaments</li>
-                <li>Exclusive member discounts & offers</li>
-                <li>Community night invitations</li>
-                <li>New location openings & updates</li>
-                <li>Gaming tips & industry news</li>
-            </ul>
-        </div>
-        
-        <div class="footer-links">
-            <a href="https://sidequesthub.com">SideQuest Hub</a> • 
-            <a href="/privacy">Privacy Policy</a> •
-            <a href="mailto:marketing@sidequestcanterbury">Contact Us</a>
+            <div class="footer-links">
+                <a href="https://sidequesthub.com">SideQuest Hub</a> • 
+                <a href="/privacy">Privacy Policy</a> •
+                <a href="mailto:marketing@sidequestcanterbury.com">Contact Us</a>
+            </div>
         </div>
     </div>
     
     <script>
-   // Initialize CSRF manager for signup page
+        // Cursor functionality
+        (function(){
+            const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-follower');
+            if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
+            document.addEventListener('mousemove',e=>{mx=e.clientX; my=e.clientY; c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
+            (function follow(){fx+=(mx-fx)*.12; fy+=(my-fy)*.12; f.style.transform=`translate(${fx-20}px,${fy-20}px)`; requestAnimationFrame(follow);})();
+            document.querySelectorAll('a,button,.form-input').forEach(el=>{
+                el.addEventListener('mouseenter',()=>c.classList.add('active'));
+                el.addEventListener('mouseleave',()=>c.classList.remove('active'));
+            });
+        })();
+
+        // CSRF Manager (keep your existing implementation)
         class CSRFManager {
             constructor(apiBase = 'https://sidequest-newsletter-production.up.railway.app') {
                 this.apiBase = apiBase;
                 this.token = null;
                 this.tokenExpiry = null;
             }
-
             async getToken() {
-                if (this.token && this.isTokenValid()) {
-                    return this.token;
-                }
+                if (this.token && this.isTokenValid()) return this.token;
                 return await this.fetchNewToken();
             }
-
             async fetchNewToken() {
                 try {
                     const response = await fetch(`${this.apiBase}/api/csrf-token`, {
@@ -3353,9 +3416,7 @@ def signup_page():
                         credentials: 'include',
                         headers: { 'Accept': 'application/json' }
                     });
-
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    
                     const data = await response.json();
                     if (data.success && data.csrf_token) {
                         this.token = data.csrf_token;
@@ -3369,7 +3430,6 @@ def signup_page():
                     throw error;
                 }
             }
-
             isTokenValid() {
                 return this.token && this.tokenExpiry && Date.now() < this.tokenExpiry;
             }
@@ -3377,7 +3437,7 @@ def signup_page():
 
         const csrfManager = new CSRFManager();
 
-        // Enhanced signup form handler with CSRF
+        // Form submission (keep your existing form submission logic but update the design feedback)
         document.getElementById('signupForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -3389,7 +3449,6 @@ def signup_page():
             const messageDiv = document.getElementById('message');
             const submitButton = document.getElementById('submitBtn');
             
-            // Client-side validation
             if (!firstName || !lastName || !email) {
                 messageDiv.className = 'message error show';
                 messageDiv.innerHTML = 'Please fill in all required fields';
@@ -3412,16 +3471,14 @@ def signup_page():
             submitButton.disabled = true;
             
             try {
-                // Get CSRF token
                 const csrfToken = await csrfManager.getToken();
                 
-                // Make secure API call with CSRF token
                 const response = await fetch('/subscribe', {
                     method: 'POST',
-                    credentials: 'include', // Important for session cookies
+                    credentials: 'include',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken // Add CSRF token header
+                        'X-CSRFToken': csrfToken
                     },
                     body: JSON.stringify({ 
                         firstName, 
@@ -3433,15 +3490,13 @@ def signup_page():
                     })
                 });
                 
-                // Handle CSRF token expiry
                 if (response.status === 403) {
                     const errorData = await response.json().catch(() => ({}));
                     if (errorData.code === 'CSRF_TOKEN_INVALID' || errorData.code === 'CSRF_TOKEN_MISSING') {
                         console.log('CSRF token expired, refreshing...');
-                        csrfManager.token = null; // Clear old token
+                        csrfManager.token = null;
                         const newToken = await csrfManager.getToken();
                         
-                        // Retry with new token
                         const retryResponse = await fetch('/subscribe', {
                             method: 'POST',
                             credentials: 'include',
@@ -3480,7 +3535,7 @@ def signup_page():
             
             if (result.success) {
                 messageDiv.className = 'message success show';
-                messageDiv.innerHTML = `🎉 Welcome to the quest, ${firstName}! Check your email for confirmation.`;
+                messageDiv.innerHTML = `Welcome to the quest, ${firstName}! Check your email for confirmation.`;
                 document.getElementById('signupForm').reset();
             } else {
                 messageDiv.className = 'message error show';
@@ -7695,7 +7750,7 @@ def birthday_booking_page():
         .hero-feature h3{font-size:1.1rem;margin-bottom:10px}
         .hero-feature p{font-size:0.95rem;line-height:1.4}
     }
-    
+
   </style>
 </head>
 <body>

@@ -8791,9 +8791,57 @@ def events_overview_page():
     }
     body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;cursor:none}
 
+    /* Opening reveal animation */
+    .reveal-overlay{position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1s ease,visibility 1s ease}
+    .reveal-overlay.hide{opacity:0;visibility:hidden}
+    .reveal-logo{width:400px;height:auto;opacity:0;transform:scale(0.8);animation:logoReveal 2s ease-out forwards}
+    .reveal-tagline{font-size:1.2rem;color:var(--muted);margin-top:20px;opacity:0;animation:fadeInUp 1s ease-out 1.5s forwards}
+    .reveal-loader{margin-top:30px;width:200px;height:2px;background:rgba(255,255,255,.1);border-radius:1px;overflow:hidden;opacity:0;animation:fadeIn 0.5s ease 2s forwards}
+    .reveal-progress{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));width:0;animation:loadProgress 1.5s ease-out 2.2s forwards}
+
+    @keyframes logoReveal{
+      0%{opacity:0;transform:scale(0.8) translateY(30px)}
+      50%{opacity:1;transform:scale(1.05) translateY(-10px)}
+      100%{opacity:1;transform:scale(1) translateY(0)}
+    }
+    @keyframes fadeInUp{
+      from{opacity:0;transform:translateY(20px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    @keyframes fadeIn{
+      from{opacity:0}
+      to{opacity:1}
+    }
+    @keyframes loadProgress{
+      from{width:0}
+      to{width:100%}
+    }
+
+    /* Page content initially hidden */
+    .page-content{opacity:0;transform:translateY(30px);transition:all 1s ease}
+    .page-content.revealed{opacity:1;transform:translateY(0)}
+
+    /* Staggered reveal animations for page elements */
+    .reveal-element{opacity:0;transform:translateY(30px);transition:all 0.8s ease}
+    .reveal-element.animate{opacity:1;transform:translateY(0)}
+    .reveal-element:nth-child(1){transition-delay:0.1s}
+    .reveal-element:nth-child(2){transition-delay:0.2s}
+    .reveal-element:nth-child(3){transition-delay:0.3s}
+    .reveal-element:nth-child(4){transition-delay:0.4s}
+
+    /* Enhanced stats animation */
+    .stat{opacity:0;transform:translateY(30px);transition:all 0.6s ease}
+    .stat.animate{opacity:1;transform:translateY(0)}
+    .stat:nth-child(1){transition-delay:0.2s}
+    .stat:nth-child(2){transition-delay:0.3s}
+    .stat:nth-child(3){transition-delay:0.4s}
+    .stat:nth-child(4){transition-delay:0.5s}
+
     /* Reduced motion respect */
     @media (prefers-reduced-motion: reduce){
       *{animation:none!important;transition:none!important}
+      .reveal-overlay{display:none}
+      .page-content,.reveal-element,.stat{opacity:1!important;transform:none!important}
     }
 
     /* Cursor */
@@ -8853,8 +8901,10 @@ def events_overview_page():
 
     /* Cards */
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px}
-    .card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease}
+    .card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease;position:relative}
+    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--primary),transparent);opacity:0;transition:opacity .3s ease}
     .card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
+    .card:hover::before{opacity:1}
     .banner{position:relative;height:210px;background:#111 center/cover no-repeat}
     .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 60%)}
     .body{padding:22px}
@@ -8866,27 +8916,46 @@ def events_overview_page():
     .sub{color:#ff8d6a;font-weight:700;margin-bottom:16px}
     .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px;margin-bottom:18px}
     .meta-item{display:flex;align-items:center;gap:8px;color:var(--muted);white-space:nowrap}
-    .btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}
-    .btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(255,215,0,.28)}
-    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:all .2s ease;font-size:.9rem;position:relative;overflow:hidden}
+    .btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transition:left .6s ease}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,215,0,.3)}
+    .btn:hover::before{left:100%}
+    .btn:active{transform:translateY(0);box-shadow:0 4px 12px rgba(255,215,0,.2)}
+    .btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+    .btn:disabled:hover{box-shadow:none}
+    .btn:disabled::before{display:none}
 
-    /* Calendar */
-    .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px}
-    .cal-item{display:grid;grid-template-columns:140px 1fr;background:var(--dark-2);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:transform .2s ease,border-color .2s ease}
-    .cal-item:hover{transform:translateY(-3px);border-color:rgba(255,215,0,.25)}
-    .date{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--primary),var(--accent));color:#141414;flex-direction:column;padding:22px}
-    .date .m{font-size:.85rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;opacity:.9}
-    .date .d{font-size:2.6rem;line-height:1;font-weight:900}
-    .info{padding:20px 24px}
-    .info .title{font-size:1.2rem;font-weight:800;margin-bottom:6px;-webkit-text-fill-color:initial;background:none}
-    .chips{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0}
-    .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.02);font-weight:600;color:var(--muted)}
-    .thumb{height:44px;min-width:140px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#111 center/cover no-repeat}
+    /* Calendar - Vertical card layout like Special Events */
+    .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px}
+    .cal-item{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease;position:relative}
+    .cal-item::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--primary),transparent);opacity:0;transition:opacity .3s ease}
+    .cal-item:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
+    .cal-item:hover::before{opacity:1}
+    
+    .cal-banner{position:relative;height:210px;background:#111 center/cover no-repeat}
+    .cal-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 60%)}
+    .cal-date-overlay{position:absolute;top:16px;left:16px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;padding:12px 16px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:70px;z-index:2}
+    .cal-date-overlay .month{font-size:.7rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;opacity:.9;line-height:1}
+    .cal-date-overlay .day{font-size:1.8rem;line-height:.9;font-weight:900;margin-top:2px}
+    
+    .cal-body{padding:22px}
+    .cal-type-pill{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.75rem;font-weight:900;letter-spacing:.06em;margin-bottom:12px}
+    .cal-type-pill.tournament{background:rgba(255,215,0,.18);color:#ffd86a}
+    .cal-type-pill.games_night{background:rgba(255,215,0,.18);color:#ffd86a}
+    .cal-type-pill.special{background:rgba(139,95,191,.18);color:#b68dd8}
+    .cal-title{font-size:1.45rem;font-weight:850;margin-bottom:6px;line-height:1.2}
+    .cal-subtitle{color:#ff8d6a;font-weight:700;margin-bottom:16px}
+    .cal-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px;margin-bottom:18px}
+    .cal-meta-item{display:flex;align-items:center;gap:8px;color:var(--muted);white-space:nowrap}
+    .cal-description{color:var(--muted);margin-bottom:18px;font-size:.95rem;line-height:1.4}
+    .cal-btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:all .2s ease;font-size:.9rem;position:relative;overflow:hidden;text-decoration:none;display:flex;align-items:center;justify-content:center}
+    .cal-btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transition:left .6s ease}
+    .cal-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,215,0,.3)}
+    .cal-btn:hover::before{left:100%}
 
     /* Loading / helpers */
     .loading{grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)}
     .spin{width:48px;height:48px;border:3px solid rgba(255,215,0,.12);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
-    @keyframes spin{100%{transform:rotate(360deg)}}
 
     /* Quick actions */
     .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;margin-top:64px}
@@ -8894,149 +8963,179 @@ def events_overview_page():
     .q-card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.3);box-shadow:0 20px 40px rgba(255,215,0,.08)}
     .q-title{font-size:1.1rem;font-weight:900;color:var(--primary);margin-bottom:10px}
     .q-text{color:var(--muted);margin-bottom:18px}
-    .q-btn{padding:12px 24px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:10px;font-weight:900;cursor:pointer}
+    .q-btn{padding:12px 24px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em;transition:all .2s ease;position:relative;overflow:hidden}
+    .q-btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);transition:left .6s ease}
+    .q-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(255,215,0,.25)}
+    .q-btn:hover::before{left:100%}
 
     @media (max-width:768px){
       body{cursor:auto}
       .cursor,.cursor-f{display:none}
-      .grid{grid-template-columns:1fr}
-      .cal-item{grid-template-columns:1fr}
-      .date{flex-direction:row;gap:10px;justify-content:flex-start}
-      .stats{gap:20px}
+      .grid{grid-template-columns:1fr;gap:16px}
+      .stats{gap:16px;flex-wrap:wrap}
+      .stat .num{font-size:2.2rem}
+      .hero-content{padding:0 16px}
+      .wrap{padding:60px 16px}
+      .tabs{gap:6px;padding:0 8px}
+      .tab{padding:10px 16px;font-size:.8rem}
+      .section-head{margin-bottom:32px}
+      .quick{gap:16px}
+      .q-card{padding:24px}
+      .cal-grid{grid-template-columns:1fr;gap:16px}
+      .cal-banner{height:180px}
+      .cal-date-overlay{top:12px;left:12px;padding:10px 12px;min-width:60px}
+      .cal-date-overlay .month{font-size:.65rem}
+      .cal-date-overlay .day{font-size:1.5rem}
+      .cal-body{padding:18px}
+      .cal-title{font-size:1.25rem}
+      .cal-meta{grid-template-columns:1fr;gap:8px}
+      .cal-meta-item{font-size:.85rem}
     }
   </style>
 </head>
 <body>
-  <div class="cursor"></div><div class="cursor-f"></div>
-
-  <!-- Hero -->
-  <section class="hero" aria-label="Events hero">
-    <div class="hero-bg">
-      <div class="floating-shapes"><div class="shape"></div><div class="shape"></div><div class="shape"></div></div>
+  <!-- Opening Reveal Overlay -->
+  <div class="reveal-overlay" id="revealOverlay">
+    <img src="/static/brand/sidequest-logo.png" alt="SideQuest" class="reveal-logo" />
+    <div class="reveal-tagline">Canterbury's Premier Gaming Hub</div>
+    <div class="reveal-loader">
+      <div class="reveal-progress"></div>
     </div>
-    <div class="hero-content">
-      <h1 class="title">LEVEL UP YOUR GAME</h1>
-      <p class="subtitle">Elite tournaments, relaxed game nights, unforgettable birthdays & special events — all in one sleek hub.</p>
-      <div class="stats" role="group" aria-label="Live counters">
-        <div class="stat"><div class="num" id="upcomingCount">0</div><div class="lbl">Public Events</div></div>
-        <div class="stat"><div class="num" id="tournamentCount">0</div><div class="lbl">Tournaments</div></div>
-        <div class="stat"><div class="num" id="gamesNightCount">0</div><div class="lbl">Games Nights</div></div>
-        <div class="stat"><div class="num" id="specialEventCount">0</div><div class="lbl">Special Events</div></div>
-      </div>
-    </div>
-    <div class="scroll" aria-hidden="true"></div>
-  </section>
+  </div>
 
-  <!-- Main -->
-  <main class="wrap">
-    <!-- Tabs -->
-    <div class="tabs" role="tablist" aria-label="Events navigation">
-      <button class="tab" role="tab" aria-selected="true" id="tab-tournaments" aria-controls="panel-tournaments">Tournaments</button>
-      <button class="tab" role="tab" aria-selected="false" id="tab-games" aria-controls="panel-games">Games Nights</button>
-      <button class="tab" role="tab" aria-selected="false" id="tab-special" aria-controls="panel-special">Special Events</button>
-      <button class="tab" role="tab" aria-selected="false" id="tab-birthdays" aria-controls="panel-birthdays">Birthday Parties</button>
-      <button class="tab" role="tab" aria-selected="false" id="tab-calendar" aria-controls="panel-calendar">Calendar</button>
-    </div>
+  <!-- Page Content -->
+  <div class="page-content" id="pageContent">
+    <div class="cursor"></div><div class="cursor-f"></div>
 
-    <!-- Tournaments -->
-    <section id="panel-tournaments" class="panel active" role="tabpanel" aria-labelledby="tab-tournaments">
-      <div class="section-head">
-        <h2 class="section-title">Tournament Arena</h2>
-        <p class="section-sub">Compete in polished, high-stakes brackets. Real prizes. Pro vibes.</p>
+    <!-- Hero -->
+    <section class="hero reveal-element" aria-label="Events hero">
+      <div class="hero-bg">
+        <div class="floating-shapes"><div class="shape"></div><div class="shape"></div><div class="shape"></div></div>
       </div>
-      <div id="tournaments-grid" class="grid">
-        <div class="loading"><div class="spin"></div>Loading tournaments…</div>
+      <div class="hero-content">
+        <h1 class="title reveal-element">LEVEL UP YOUR GAME</h1>
+        <p class="subtitle reveal-element">Elite tournaments, relaxed game nights, unforgettable birthdays & special events — all in one sleek hub.</p>
+        <div class="stats reveal-element" role="group" aria-label="Live counters">
+          <div class="stat"><div class="num" id="upcomingCount">0</div><div class="lbl">Public Events</div></div>
+          <div class="stat"><div class="num" id="tournamentCount">0</div><div class="lbl">Tournaments</div></div>
+          <div class="stat"><div class="num" id="gamesNightCount">0</div><div class="lbl">Games Nights</div></div>
+          <div class="stat"><div class="num" id="specialEventCount">0</div><div class="lbl">Special Events</div></div>
+        </div>
       </div>
+      <div class="scroll" aria-hidden="true"></div>
     </section>
 
-    <!-- Games Nights -->
-    <section id="panel-games" class="panel" role="tabpanel" aria-labelledby="tab-games">
-      <div class="section-head">
-        <h2 class="section-title">Games Night</h2>
-        <p class="section-sub">Casual sessions, open tables, great atmosphere. Bring friends or meet new ones.</p>
+    <!-- Main -->
+    <main class="wrap reveal-element">
+      <!-- Tabs -->
+      <div class="tabs reveal-element" role="tablist" aria-label="Events navigation">
+        <button class="tab" role="tab" aria-selected="true" id="tab-tournaments" aria-controls="panel-tournaments">Tournaments</button>
+        <button class="tab" role="tab" aria-selected="false" id="tab-games" aria-controls="panel-games">Games Nights</button>
+        <button class="tab" role="tab" aria-selected="false" id="tab-special" aria-controls="panel-special">Special Events</button>
+        <button class="tab" role="tab" aria-selected="false" id="tab-birthdays" aria-controls="panel-birthdays">Birthday Parties</button>
+        <button class="tab" role="tab" aria-selected="false" id="tab-calendar" aria-controls="panel-calendar">Calendar</button>
       </div>
-      <div id="games-grid" class="grid">
-        <div class="loading"><div class="spin"></div>Loading games nights…</div>
-      </div>
-    </section>
 
-    <!-- Special Events -->
-    <section id="panel-special" class="panel" role="tabpanel" aria-labelledby="tab-special">
-      <div class="section-head">
-        <h2 class="section-title">Special Events</h2>
-        <p class="section-sub">Unique experiences, themed nights, and exclusive gatherings. Don't miss out.</p>
-      </div>
-      <div id="special-grid" class="grid">
-        <div class="loading"><div class="spin"></div>Loading special events…</div>
-      </div>
-    </section>
+      <!-- Tournaments -->
+      <section id="panel-tournaments" class="panel active" role="tabpanel" aria-labelledby="tab-tournaments">
+        <div class="section-head">
+          <h2 class="section-title">Tournament Arena</h2>
+          <p class="section-sub">Compete in polished, high-stakes brackets. Real prizes. Pro vibes.</p>
+        </div>
+        <div id="tournaments-grid" class="grid">
+          <div class="loading"><div class="spin"></div>Loading tournaments…</div>
+        </div>
+      </section>
 
-    <!-- Birthdays -->
-    <section id="panel-birthdays" class="panel" role="tabpanel" aria-labelledby="tab-birthdays">
-      <div class="section-head">
-        <h2 class="section-title">Birthday Experiences</h2>
-        <p class="section-sub">Two packages. Same premium energy. Pick your playstyle.</p>
-      </div>
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
-        <article class="card">
-          <div class="banner lazy-banner" data-src="/static/games/party-consoles.jpg"></div>
-          <div class="body">
-            <span class="pill ok">Available</span>
-            <div class="name">Console Ultimate</div>
-            <div class="sub">Premium birthday session</div>
-            <div class="meta">
-              <div class="meta-item" title="Players"><span class="i users"></span>Up to 12 players</div>
-              <div class="meta-item" title="Perks"><span class="i check"></span>Decorations + gift pack</div>
+      <!-- Games Nights -->
+      <section id="panel-games" class="panel" role="tabpanel" aria-labelledby="tab-games">
+        <div class="section-head">
+          <h2 class="section-title">Games Night</h2>
+          <p class="section-sub">Casual sessions, open tables, great atmosphere. Bring friends or meet new ones.</p>
+        </div>
+        <div id="games-grid" class="grid">
+          <div class="loading"><div class="spin"></div>Loading games nights…</div>
+        </div>
+      </section>
+
+      <!-- Special Events -->
+      <section id="panel-special" class="panel" role="tabpanel" aria-labelledby="tab-special">
+        <div class="section-head">
+          <h2 class="section-title">Special Events</h2>
+          <p class="section-sub">Unique experiences, themed nights, and exclusive gatherings. Don't miss out.</p>
+        </div>
+        <div id="special-grid" class="grid">
+          <div class="loading"><div class="spin"></div>Loading special events…</div>
+        </div>
+      </section>
+
+      <!-- Birthdays -->
+      <section id="panel-birthdays" class="panel" role="tabpanel" aria-labelledby="tab-birthdays">
+        <div class="section-head">
+          <h2 class="section-title">Birthday Experiences</h2>
+          <p class="section-sub">Two packages. Same premium energy. Pick your playstyle.</p>
+        </div>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
+          <article class="card">
+            <div class="banner lazy-banner" data-src="/static/games/party-consoles.jpg"></div>
+            <div class="body">
+              <span class="pill ok">Available</span>
+              <div class="name">Console Ultimate</div>
+              <div class="sub">Premium birthday session</div>
+              <div class="meta">
+                <div class="meta-item" title="Players"><span class="i users"></span>Up to 12 players</div>
+                <div class="meta-item" title="Perks"><span class="i check"></span>Decorations + gift pack</div>
+              </div>
+              <button class="btn" onclick="location.href='/birthday-booking'">Reserve Package</button>
             </div>
-            <button class="btn" onclick="location.href='/birthday-booking'">Reserve Package</button>
-          </div>
-        </article>
+          </article>
 
-        <article class="card">
-          <div class="banner lazy-banner" data-src="/static/games/flex-gaming.jpg"></div>
-          <div class="body">
-            <span class="pill ok">Available</span>
-            <div class="name">Flex Gaming</div>
-            <div class="sub">Pay &amp; Play access</div>
-            <div class="meta">
-              <div class="meta-item"><span class="i clock"></span>Flexible time</div>
-              <div class="meta-item"><span class="i list"></span>Custom lineup</div>
+          <article class="card">
+            <div class="banner lazy-banner" data-src="/static/games/flex-gaming.jpg"></div>
+            <div class="body">
+              <span class="pill ok">Available</span>
+              <div class="name">Flex Gaming</div>
+              <div class="sub">Pay &amp; Play access</div>
+              <div class="meta">
+                <div class="meta-item"><span class="i clock"></span>Flexible time</div>
+                <div class="meta-item"><span class="i list"></span>Custom lineup</div>
+              </div>
+              <button class="btn" onclick="location.href='/birthday-booking'">Book Now</button>
             </div>
-            <button class="btn" onclick="location.href='/birthday-booking'">Book Now</button>
+          </article>
+        </div>
+      </section>
+
+      <!-- Calendar -->
+      <section id="panel-calendar" class="panel" role="tabpanel" aria-labelledby="tab-calendar">
+        <div class="section-head">
+          <h2 class="section-title">Public Event Calendar</h2>
+          <p class="section-sub">Upcoming tournaments, game nights & special events. Birthdays hidden for privacy.</p>
+        </div>
+        <div id="cal-grid" class="cal-grid">
+          <div class="loading"><div class="spin"></div>Loading calendar…</div>
+        </div>
+
+        <div class="quick">
+          <div class="q-card" onclick="location.href='/signup'">
+            <div class="q-title">Join Our Community</div>
+            <div class="q-text">Get notified about new tournaments and game nights.</div>
+            <button class="q-btn">Subscribe to Updates</button>
           </div>
-        </article>
-      </div>
-    </section>
-
-    <!-- Calendar -->
-    <section id="panel-calendar" class="panel" role="tabpanel" aria-labelledby="tab-calendar">
-      <div class="section-head">
-        <h2 class="section-title">Public Event Calendar</h2>
-        <p class="section-sub">Upcoming tournaments, game nights & special events. Birthdays hidden for privacy.</p>
-      </div>
-      <div id="cal-grid" class="cal-grid">
-        <div class="loading"><div class="spin"></div>Loading calendar…</div>
-      </div>
-
-      <div class="quick">
-        <div class="q-card" onclick="location.href='/signup'">
-          <div class="q-title">Join Our Community</div>
-          <div class="q-text">Get notified about new tournaments and game nights.</div>
-          <button class="q-btn">Subscribe to Updates</button>
+          <div class="q-card" onclick="window.open('https://discord.gg/CuwQM7Zwuk','_blank')">
+            <div class="q-title">Tournament Discord</div>
+            <div class="q-text">Connect with players, teams, and admins in real time.</div>
+            <button class="q-btn">Open Discord</button>
+          </div>
+          <div class="q-card" onclick="location.href='tel:012279915058'">
+            <div class="q-title">Need Help?</div>
+            <div class="q-text">Questions about events or bookings? We're here for you.</div>
+            <button class="q-btn">01227 915058</button>
+          </div>
         </div>
-        <div class="q-card" onclick="window.open('https://discord.gg/CuwQM7Zwuk','_blank')">
-          <div class="q-title">Tournament Discord</div>
-          <div class="q-text">Connect with players, teams, and admins in real time.</div>
-          <button class="q-btn">Open Discord</button>
-        </div>
-        <div class="q-card" onclick="location.href='tel:012279915058'">
-          <div class="q-title">Need Help?</div>
-          <div class="q-text">Questions about events or bookings? We're here for you.</div>
-          <button class="q-btn">01227 915058</button>
-        </div>
-      </div>
-    </section>
-  </main>
+      </section>
+    </main>
+  </div>
 
   <script>
     /* ---------------- Opening Reveal Animation ---------------- */
@@ -9045,6 +9144,11 @@ def events_overview_page():
     function startRevealSequence(){
       const overlay = document.getElementById('revealOverlay');
       const pageContent = document.getElementById('pageContent');
+      
+      if(!overlay || !pageContent) {
+        console.log('Reveal elements not found, skipping animation');
+        return;
+      }
       
       // Start hiding overlay after logo animation
       setTimeout(()=>{
@@ -9312,23 +9416,27 @@ def events_overview_page():
             const cap = (ev.capacity||0)>0?ev.capacity:null;
             const reg = ev.registration_count||0;
             const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : (ev.event_type==='special' ? 'Special Event' : 'Event'));
+            const typClass = ev.event_type==='tournament' ? 'tournament' : (ev.event_type==='games_night' ? 'games_night' : (ev.event_type==='special' ? 'special' : 'tournament'));
             return `
               <article class="cal-item">
-                <div class="date" aria-hidden="true"><div class="m">${m}</div><div class="d">${d}</div></div>
-                <div class="info">
-                  <div class="title">${escapeHTML(ev.title)}</div>
-                  <div class="chips">
-                    <span class="chip">${ICONS.tag} ${escapeHTML(typ)}</span>
-                    <span class="chip">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</span>
-                    <span class="chip">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
-                    <span class="chip">${ICONS.users} ${reg}${cap?`/${cap}`:''}</span>
-                    <span class="chip">${ICONS.fee} ${fee}</span>
+                <div class="cal-banner lazy-banner" data-src="${banner}">
+                  <div class="cal-date-overlay">
+                    <span class="month">${m}</span>
+                    <span class="day">${d}</span>
                   </div>
-                  ${ev.description ? `<p style="color:var(--muted);margin-top:12px">${escapeHTML(ev.description)}</p>` : ''}
-                  <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                    <a href="/signup/event/${ev.id}" style="text-decoration:none"><button class="btn">View Details</button></a>
-                    <div class="thumb lazy-banner" data-src="${banner}"></div>
+                </div>
+                <div class="cal-body">
+                  <span class="cal-type-pill ${typClass}">${escapeHTML(typ)}</span>
+                  <div class="cal-title">${escapeHTML(ev.title)}</div>
+                  <div class="cal-subtitle">${escapeHTML(ev.game_title || 'Event')}</div>
+                  <div class="cal-meta">
+                    <div class="cal-meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                    <div class="cal-meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                    <div class="cal-meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
+                    <div class="cal-meta-item">${ICONS.fee} ${fee}</div>
                   </div>
+                  ${ev.description ? `<div class="cal-description">${escapeHTML(ev.description)}</div>` : ''}
+                  <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
                 </div>
               </article>`;
           }).join('');

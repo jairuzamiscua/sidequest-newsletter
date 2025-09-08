@@ -4199,11 +4199,26 @@ def event_signup_page(event_id):
     <div class="page-loader" id="pageLoader">
         <div class="loader-content">
             <div class="gaming-loader">
-                <div class="game-icon">🎮</div>
-                <div class="loading-dots">
-                    <div class="dot"></div>
-                    <div class="dot"></div>
-                    <div class="dot"></div>
+                <div class="controller-container">
+                    <div class="controller">
+                        <div class="controller-buttons">
+                            <div class="btn"></div>
+                            <div class="btn"></div>
+                            <div class="btn"></div>
+                            <div class="btn"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="energy-rings">
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                </div>
+                <div class="particles">
+                    <div class="particle"></div>
+                    <div class="particle"></div>
+                    <div class="particle"></div>
+                    <div class="particle"></div>
                 </div>
             </div>
             <p class="loader-text">Connecting to server...</p>

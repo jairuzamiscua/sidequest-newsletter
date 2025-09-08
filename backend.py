@@ -8769,7 +8769,6 @@ def birthday_booking_page():
     return response
         
 
-
 @app.route('/events', methods=['GET'])
 def events_overview_page():
     """Public events overview page – tournaments, birthdays, and a public calendar"""
@@ -9275,9 +9274,9 @@ def events_overview_page():
                     <span class="chip">${ICONS.users} ${reg}${cap?`/${cap}`:''}</span>
                     <span class="chip">${ICONS.fee} ${fee}</span>
                   </div>
-                  ${ev.description ? `<p style="color:var(--muted);margin-top:12px">${escapeHTML(ev.description)}</p>` : ''}
-                  <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                    <a href="/signup/event/${ev.id}" style="text-decoration:none"><button class="btn">View Details</button></a>
+                  ${ev.description ? `<p style="color:var(--muted);margin-top:12px;font-size:.9rem;line-height:1.4">${escapeHTML(ev.description)}</p>` : ''}
+                  <div class="cal-actions">
+                    <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
                     <div class="thumb lazy-banner" data-src="${banner}"></div>
                   </div>
                 </div>

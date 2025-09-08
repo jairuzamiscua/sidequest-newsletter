@@ -9053,6 +9053,7 @@ def events_overview_page():
       'ea fc 24':'/static/games/eafc.jpg',
       'ea fc 25':'/static/games/eafc25.jpg',
       'generic':'/static/games/generic.jpg'
+      'f1':'/static/games/f1.jpg'
     };
     function bannerFor(title){
       if(!title) return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
@@ -9351,6 +9352,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

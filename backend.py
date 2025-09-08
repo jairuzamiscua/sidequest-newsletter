@@ -8970,7 +8970,7 @@ def events_overview_page():
 
     @media (max-width:768px){
       body{cursor:auto}
-      .cursor,.cursor-f{display:none}
+      .cursor,.cursor-f{display:none!important}
       .grid{grid-template-columns:1fr;gap:16px}
       .stats{gap:16px;flex-wrap:wrap}
       .stat .num{font-size:2.2rem}
@@ -8990,6 +8990,12 @@ def events_overview_page():
       .cal-title{font-size:1.25rem}
       .cal-meta{grid-template-columns:1fr;gap:8px}
       .cal-meta-item{font-size:.85rem}
+    }
+
+    /* Disable custom cursor on problematic browsers */
+    @supports not (mix-blend-mode: difference) {
+      body{cursor:auto!important}
+      .cursor,.cursor-f{display:none!important}
     }
   </style>
 </head>

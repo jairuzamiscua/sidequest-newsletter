@@ -3777,7 +3777,7 @@ def event_signup_page(event_id):
         # Check if event is full
         is_full = event['capacity'] > 0 and event['registration_count'] >= event['capacity']
         
-        # Generate the HTML for event-specific signup
+        # Generate the HTML for event-specific signup with new styling
         event_signup_html = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3786,164 +3786,276 @@ def event_signup_page(event_id):
     <title>Register for {event['title']} - SideQuest</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{ 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); 
-            color: #ffffff; 
-            min-height: 100vh; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            padding: 20px; 
+
+        :root {{
+            --primary: #FFD700;
+            --accent: #FF6B35;
+            --dark: #0a0a0a;
+            --dark-secondary: #141414;
+            --text: #ffffff;
+            --text-muted: #9a9a9a;
+            --card-border: rgba(255,255,255,0.06);
+            --success: #74d38a;
+            --error: #ff9a78;
         }}
-        
-        .container {{ 
-            background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%); 
-            padding: 40px; 
-            border-radius: 20px; 
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5); 
-            border: 2px solid #FFD700; 
-            max-width: 600px; 
-            width: 100%; 
-            text-align: center; 
-            position: relative; 
-            overflow: hidden; 
+
+        body {{
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--dark);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
         }}
-        
-        .container::before {{ 
-            content: ''; 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            right: 0; 
-            height: 6px; 
-            background: linear-gradient(90deg, #FFD700 0%, #FFA500 100%); 
+
+        /* Loading Animation */
+        .page-loader {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
         }}
-        
-        .logo {{ 
-            width: 60px; 
-            height: 60px; 
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
-            border-radius: 12px; 
-            margin: 0 auto 20px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-weight: 900; 
-            color: #1a1a1a; 
-            font-size: 18px; 
+
+        .page-loader.hidden {{
+            opacity: 0;
+            visibility: hidden;
         }}
-        
+
+        .loader-content {{
+            text-align: center;
+            animation: pulse 2s ease-in-out infinite;
+        }}
+
+        .loader-logo {{
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 20px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: #1a1a1a;
+            font-size: 24px;
+            animation: rotate 3s linear infinite;
+        }}
+
+        .loader-text {{
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-top: 10px;
+        }}
+
+        @keyframes pulse {{
+            0%, 100% {{ transform: scale(1); }}
+            50% {{ transform: scale(1.05); }}
+        }}
+
+        @keyframes rotate {{
+            0% {{ transform: rotate(0deg); }}
+            100% {{ transform: rotate(360deg); }}
+        }}
+
+        /* Main Content */
+        .main-container {{
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }}
+
+        .main-container.loaded {{
+            opacity: 1;
+            transform: translateY(0);
+        }}
+
+        .hero-section {{
+            background: linear-gradient(135deg, var(--dark) 0%, var(--dark-secondary) 100%);
+            padding: 80px 20px 40px;
+            position: relative;
+            overflow: hidden;
+        }}
+
+        .hero-bg {{
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, rgba(255,215,0,.03) 0%, transparent 70%);
+        }}
+
+        .hero-content {{
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+            text-align: center;
+        }}
+
         .event-badge {{
             display: inline-block;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 0.85rem;
             font-weight: 700;
             text-transform: uppercase;
             margin-bottom: 20px;
+            letter-spacing: 0.1em;
+            animation: slideDown 0.6s ease 0.2s both;
         }}
-        
-        .badge-tournament {{ background: #FF6B35; color: white; }}
+
+        .badge-tournament {{ background: var(--accent); color: white; }}
         .badge-game_night {{ background: #4ECDC4; color: #1a1a1a; }}
         .badge-special {{ background: #8B5CF6; color: white; }}
         .badge-birthday {{ background: #FF69B4; color: white; }}
-        
-        h1 {{ 
-            font-size: 2rem; 
-            margin-bottom: 10px; 
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
-            -webkit-background-clip: text; 
-            -webkit-text-fill-color: transparent; 
-            background-clip: text; 
-            font-weight: 800; 
+
+        .event-title {{
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: slideUp 0.8s ease 0.4s both;
         }}
-        
-        .event-details {{ 
-            background: #1a1a1a; 
-            border-radius: 15px; 
-            padding: 25px; 
-            margin: 25px 0; 
-            text-align: left; 
+
+        .event-subtitle {{
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            animation: slideUp 0.8s ease 0.6s both;
         }}
-        
-        .detail-row {{ 
-            display: flex; 
-            justify-content: space-between; 
-            margin-bottom: 12px; 
-            padding-bottom: 8px; 
-            border-bottom: 1px solid #444; 
+
+        .event-details-card {{
+            background: var(--dark-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 0 auto 40px;
+            max-width: 600px;
+            animation: scaleIn 0.6s ease 0.8s both;
         }}
-        
-        .detail-row:last-child {{ border-bottom: none; margin-bottom: 0; }}
-        
-        .detail-label {{ 
-            color: #FFD700; 
-            font-weight: 600; 
+
+        .details-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
         }}
-        
-        .detail-value {{ 
-            color: #ffffff; 
-            font-weight: 500; 
+
+        .detail-item {{
+            text-align: center;
+            padding: 15px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.02);
         }}
-        
-        .form-container {{ 
-            margin: 30px 0; 
-            text-align: left; 
+
+        .detail-icon {{
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            display: block;
         }}
-        
-        .form-row {{ 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 15px; 
-            margin-bottom: 20px; 
+
+        .detail-label {{
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 4px;
         }}
-        
-        .form-group {{ 
-            margin-bottom: 20px; 
+
+        .detail-value {{
+            color: var(--text);
+            font-weight: 700;
+            font-size: 1.1rem;
         }}
-        
-        label {{ 
-            display: block; 
-            margin-bottom: 8px; 
-            color: #FFD700; 
-            font-weight: 600; 
-            font-size: 14px; 
+
+        /* Form Section */
+        .form-section {{
+            padding: 60px 20px;
+            background: var(--dark);
         }}
-        
-        input[type="text"], input[type="email"] {{ 
-            width: 100%; 
-            padding: 16px 20px; 
-            border: 2px solid #444; 
-            border-radius: 12px; 
-            font-size: 16px; 
-            background: #1a1a1a; 
-            color: #ffffff; 
-            transition: all 0.3s ease; 
-            font-weight: 500; 
+
+        .form-container {{
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--dark-secondary);
+            border-radius: 20px;
+            padding: 40px;
+            border: 1px solid var(--card-border);
+            animation: slideUp 0.8s ease 1s both;
         }}
-        
-        input[type="text"]:focus, input[type="email"]:focus {{ 
-            outline: none; 
-            border-color: #FFD700; 
-            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2); 
-            background: #2a2a2a; 
+
+        .form-header {{
+            text-align: center;
+            margin-bottom: 30px;
         }}
-        
-        /* GDPR Consent Styling */
-        .gdpr-consent {{
-            background: #2a2a2a;
-            border: 2px solid #444;
+
+        .form-title {{
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }}
+
+        .form-description {{
+            color: var(--text-muted);
+        }}
+
+        .form-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }}
+
+        .form-group {{
+            margin-bottom: 20px;
+        }}
+
+        .form-label {{
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }}
+
+        .form-input {{
+            width: 100%;
+            padding: 16px 20px;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            font-size: 16px;
+            background: var(--dark);
+            color: var(--text);
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }}
+
+        .form-input:focus {{
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+            background: rgba(255, 255, 255, 0.02);
+        }}
+
+        .consent-section {{
+            background: var(--dark);
+            border: 1px solid var(--card-border);
             border-radius: 12px;
             padding: 20px;
             margin: 20px 0;
         }}
 
-        .gdpr-title {{
-            color: #FFD700;
+        .consent-title {{
+            color: var(--primary);
             font-weight: 700;
             font-size: 1rem;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }}
 
         .consent-checkbox {{
@@ -3955,165 +4067,270 @@ def event_signup_page(event_id):
         .consent-checkbox input[type="checkbox"] {{
             margin-top: 2px;
             transform: scale(1.2);
-            accent-color: #FFD700;
+            accent-color: var(--primary);
         }}
 
         .consent-text {{
             font-size: 0.9rem;
             line-height: 1.5;
-            color: #cccccc;
-            font-weight: normal;
+            color: var(--text-muted);
         }}
-        
-        .submit-btn {{ 
-            width: 100%; 
-            padding: 18px 25px; 
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
-            border: none; 
-            border-radius: 12px; 
-            color: #1a1a1a; 
-            font-size: 16px; 
-            font-weight: 700; 
-            cursor: pointer; 
-            transition: all 0.3s ease; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3); 
+
+        .submit-btn {{
+            width: 100%;
+            padding: 18px 30px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border: none;
+            border-radius: 12px;
+            color: #1a1a1a;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
         }}
-        
-        .submit-btn:hover {{ 
-            transform: translateY(-2px); 
-            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4); 
+
+        .submit-btn:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(255, 215, 0, 0.4);
         }}
-        
-        .submit-btn:disabled {{ 
-            opacity: 0.7; 
-            cursor: not-allowed; 
-            transform: none; 
+
+        .submit-btn:disabled {{
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
         }}
-        
-        .message {{ 
-            margin-top: 20px; 
-            padding: 15px 20px; 
-            border-radius: 10px; 
-            font-weight: 500; 
-            opacity: 0; 
-            transition: all 0.3s ease; 
+
+        .message {{
+            margin-top: 20px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s ease;
         }}
-        
+
         .message.show {{ opacity: 1; }}
-        
-        .message.success {{ 
-            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%); 
-            color: #1a1a1a; 
-            border: 2px solid #00ff88; 
+
+        .message.success {{
+            background: rgba(116, 211, 138, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(116, 211, 138, 0.3);
         }}
-        
-        .message.error {{ 
-            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%); 
-            color: #ffffff; 
-            border: 2px solid #ff6b35; 
+
+        .message.error {{
+            background: rgba(255, 154, 120, 0.15);
+            color: var(--error);
+            border: 1px solid rgba(255, 154, 120, 0.3);
         }}
-        
+
+        /* Animations */
+        @keyframes slideDown {{
+            from {{
+                opacity: 0;
+                transform: translateY(-20px);
+            }}
+            to {{
+                opacity: 1;
+                transform: translateY(0);
+            }}
+        }}
+
+        @keyframes slideUp {{
+            from {{
+                opacity: 0;
+                transform: translateY(20px);
+            }}
+            to {{
+                opacity: 1;
+                transform: translateY(0);
+            }}
+        }}
+
+        @keyframes scaleIn {{
+            from {{
+                opacity: 0;
+                transform: scale(0.95);
+            }}
+            to {{
+                opacity: 1;
+                transform: scale(1);
+            }}
+        }}
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {{
+            .hero-section {{ padding: 60px 15px 30px; }}
+            .form-container {{ padding: 30px 20px; margin: 0 15px; }}
+            .form-grid {{ grid-template-columns: 1fr; }}
+            .details-grid {{ grid-template-columns: 1fr; }}
+            .event-details-card {{ padding: 20px; }}
+        }}
+
+        /* Waiting list styling */
         .capacity-warning {{
-            background: linear-gradient(135deg, #ff6b35 0%, #ff4757 100%);
+            background: linear-gradient(135deg, var(--accent), #ff4757);
             color: white;
             padding: 20px;
             border-radius: 12px;
             margin-bottom: 20px;
             text-align: center;
             font-weight: 600;
+            animation: slideUp 0.6s ease 1.2s both;
         }}
-        
+
         .spots-remaining {{
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            background: linear-gradient(135deg, var(--primary), var(--accent));
             color: #1a1a1a;
-            padding: 10px 20px;
-            border-radius: 20px;
+            padding: 12px 24px;
+            border-radius: 25px;
             font-weight: 700;
             font-size: 0.9rem;
             display: inline-block;
             margin-bottom: 20px;
+            animation: slideDown 0.6s ease 1s both;
         }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo">SQ</div>
-        
-        <span class="event-badge badge-{event['event_type']}">{event['event_type'].replace('_', ' ').upper()}</span>
-        
-        <h1>{event['title']}</h1>
-        
-        {f'<div class="spots-remaining">⚡ Only {event["spots_available"]} spots left!</div>' if event['capacity'] > 0 and event['spots_available'] <= 5 and event['spots_available'] > 0 else ''}
-        
-        {'<div class="capacity-warning">❌ This event is currently full. You can still register for the waiting list.</div>' if is_full else ''}
-        
-        <div class="event-details">
-            <div class="detail-row">
-                <span class="detail-label">📅 Date</span>
-                <span class="detail-value">{formatted_date}</span>
+    <!-- Loading Animation -->
+    <div class="page-loader" id="pageLoader">
+        <div class="loader-content">
+            <div class="gaming-loader">
+                <div class="controller-container">
+                    <div class="controller">
+                        <div class="controller-buttons">
+                            <div class="btn"></div>
+                            <div class="btn"></div>
+                            <div class="btn"></div>
+                            <div class="btn"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="energy-rings">
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                    <div class="ring"></div>
+                </div>
+                <div class="particles">
+                    <div class="particle"></div>
+                    <div class="particle"></div>
+                    <div class="particle"></div>
+                    <div class="particle"></div>
+                </div>
             </div>
-            <div class="detail-row">
-                <span class="detail-label">🕒 Time</span>
-                <span class="detail-value">{formatted_time}</span>
-            </div>
-            {f'<div class="detail-row"><span class="detail-label">🎮 Game</span><span class="detail-value">{event["game_title"]}</span></div>' if event.get('game_title') else ''}
-            <div class="detail-row">
-                <span class="detail-label">👥 Capacity</span>
-                <span class="detail-value">{f"{event['registration_count']}/{event['capacity']}" if event['capacity'] > 0 else f"{event['registration_count']} registered"}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">💰 Entry Fee</span>
-                <span class="detail-value">{"£{:.2f}".format(event['entry_fee']) if event['entry_fee'] > 0 else 'FREE'}</span>
-            </div>
-            {f'<div class="detail-row"><span class="detail-label">📝 Description</span><span class="detail-value">{event["description"]}</span></div>' if event.get('description') else ''}
+            <p class="loader-text">Connecting to server...</p>
         </div>
-        
-        <form class="form-container" id="registrationForm">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="firstName">First Name *</label>
-                    <input type="text" id="firstName" name="firstName" required>
-                </div>
-                <div class="form-group">
-                    <label for="lastName">Last Name *</label>
-                    <input type="text" id="lastName" name="lastName" required>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="email">Email Address *</label>
-                <input type="email" id="email" name="email" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="playerName">Player/Gamer Name</label>
-                <input type="text" id="playerName" name="playerName" placeholder="Your gaming handle or preferred name">
-            </div>
-            
-            <!-- GDPR Consent Section -->
-            <div class="gdpr-consent">
-                <div class="gdpr-title">Newsletter Subscription (Optional)</div>
-                <div class="consent-checkbox">
-                    <input type="checkbox" id="emailConsent" name="emailConsent">
-                    <label for="emailConsent" class="consent-text">
-                        I want to receive gaming event updates, newsletters, and promotional communications from SideQuest Gaming. 
-                        I understand I can unsubscribe at any time.
-                        <br><small>Note: This is separate from your event registration and is optional.</small>
-                    </label>
-                </div>
-            </div>
-            
-            <button type="submit" class="submit-btn" id="submitBtn">
-                {'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}
-            </button>
-        </form>
-        
-        <div id="message" class="message"></div>
     </div>
-    
+
+    <!-- Main Content -->
+    <div class="main-container" id="mainContainer">
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-bg"></div>
+            <div class="hero-content">
+                <span class="event-badge badge-{event['event_type']}">{event['event_type'].replace('_', ' ').upper()}</span>
+                
+                <h1 class="event-title">{event['title']}</h1>
+                <p class="event-subtitle">Register now to secure your spot at this gaming event</p>
+                
+                {f'<div class="spots-remaining">⚡ Only {event["spots_available"]} spots left!</div>' if event.get('capacity', 0) > 0 and event.get('spots_available', 0) <= 5 and event.get('spots_available', 0) > 0 else ''}
+                
+                {'<div class="capacity-warning">❌ This event is currently full. You can still register for the waiting list.</div>' if event.get('capacity', 0) > 0 and event.get('registration_count', 0) >= event.get('capacity', 0) else ''}
+                
+                <div class="event-details-card">
+                    <div class="details-grid">
+                        <div class="detail-item">
+                            <span class="detail-icon">📅</span>
+                            <div class="detail-label">Date</div>
+                            <div class="detail-value">{formatted_date}</div>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-icon">🕒</span>
+                            <div class="detail-label">Time</div>
+                            <div class="detail-value">{formatted_time}</div>
+                        </div>
+                        {f'<div class="detail-item"><span class="detail-icon">🎮</span><div class="detail-label">Game</div><div class="detail-value">{event["game_title"]}</div></div>' if event.get('game_title') else ''}
+                        <div class="detail-item">
+                            <span class="detail-icon">👥</span>
+                            <div class="detail-label">Capacity</div>
+                            <div class="detail-value">{f"{event['registration_count']}/{event['capacity']}" if event.get('capacity', 0) > 0 else f"{event.get('registration_count', 0)} registered"}</div>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-icon">💰</span>
+                            <div class="detail-label">Entry</div>
+                            <div class="detail-value">{"£{:.2f}".format(event.get('entry_fee', 0)) if event.get('entry_fee', 0) > 0 else 'FREE'}</div>
+                        </div>
+                        {f'<div class="detail-item"><span class="detail-icon">📝</span><div class="detail-label">Description</div><div class="detail-value">{event["description"]}</div></div>' if event.get('description') else ''}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Registration Form -->
+        <section class="form-section">
+            <div class="form-container">
+                <div class="form-header">
+                    <h2 class="form-title">Complete Your Registration</h2>
+                    <p class="form-description">Fill in your details below to register for this event</p>
+                </div>
+
+                <form id="registrationForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="firstName">First Name *</label>
+                            <input type="text" class="form-input" id="firstName" name="firstName" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="lastName">Last Name *</label>
+                            <input type="text" class="form-input" id="lastName" name="lastName" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="email">Email Address *</label>
+                        <input type="email" class="form-input" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="playerName">Player/Gamer Name</label>
+                        <input type="text" class="form-input" id="playerName" name="playerName" placeholder="Your gaming handle or preferred name">
+                    </div>
+                    
+                    <div class="consent-section">
+                        <div class="consent-title">Newsletter Subscription (Optional)</div>
+                        <div class="consent-checkbox">
+                            <input type="checkbox" id="emailConsent" name="emailConsent">
+                            <label for="emailConsent" class="consent-text">
+                                I want to receive gaming event updates, newsletters, and promotional communications from SideQuest Gaming. 
+                                I understand I can unsubscribe at any time.
+                                <br><small>Note: This is separate from your event registration and is optional.</small>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="submitBtn">
+                        {'🎯 Join Waiting List' if is_full else '🎮 Register for Event'}
+                    </button>
+                    
+                    <div id="message" class="message"></div>
+                </form>
+            </div>
+        </section>
+    </div>
+
     <script>
+        // Page loading animation
+        window.addEventListener('load', function() {{
+            setTimeout(() => {{
+                document.getElementById('pageLoader').classList.add('hidden');
+                document.getElementById('mainContainer').classList.add('loaded');
+            }}, 1200); // Show loader for 1.2 seconds
+        }});
+
+        // Form submission logic
         document.getElementById('registrationForm').addEventListener('submit', async (e) => {{
             console.log('🔍 Form submission started');
             e.preventDefault();
@@ -4122,7 +4339,7 @@ def event_signup_page(event_id):
             const lastName = document.getElementById('lastName').value.trim();
             const email = document.getElementById('email').value.trim();
             const playerName = document.getElementById('playerName').value.trim() || `${{firstName}} ${{lastName}}`;
-            const emailConsent = document.getElementById('emailConsent').checked; // Add consent checkbox
+            const emailConsent = document.getElementById('emailConsent').checked;
             
             console.log('🔍 Form data collected:', {{ firstName, lastName, email, playerName, emailConsent }});
             
@@ -4150,7 +4367,7 @@ def event_signup_page(event_id):
                     player_name: playerName,
                     first_name: firstName,
                     last_name: lastName,
-                    email_consent: emailConsent  // Include consent in request
+                    email_consent: emailConsent
                 }};
                 console.log('🔍 Request data:', requestData);
                 

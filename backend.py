@@ -8609,7 +8609,7 @@ def events_overview_page():
     events_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+ <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Gaming Tournaments & Events - SideQuest Canterbury</title>
   <style>
@@ -8621,12 +8621,12 @@ def events_overview_page():
       --dark: #0a0a0a;
       --dark-secondary: #141414;
       --text: #ffffff;
-      --text-muted: #888888;
-      --glow: #FFD700;
+      --text-muted: #9a9a9a;
+      --card-border: rgba(255,255,255,0.06);
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--dark);
       color: var(--text);
       line-height: 1.6;
@@ -8635,572 +8635,454 @@ def events_overview_page():
     }
 
     /* Custom Cursor */
-    .cursor {
-      width: 20px; height: 20px;
-      border: 2px solid var(--primary);
-      border-radius: 50%;
-      position: fixed;
-      pointer-events: none;
-      transition: all 0.1s ease;
-      z-index: 9999;
-      mix-blend-mode: difference;
+    .cursor{width:20px;height:20px;border:2px solid var(--primary);border-radius:50%;position:fixed;pointer-events:none;transition:all .1s ease;z-index:9999;mix-blend-mode:difference}
+    .cursor-follower{width:40px;height:40px;background:rgba(255,215,0,.1);border-radius:50%;position:fixed;pointer-events:none;transition:all .3s ease;z-index:9998}
+    .cursor.active{transform:scale(.5);background:var(--primary)}
+
+    /* Noise overlay */
+    body::before{content:'';position:fixed;inset:0;background:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.03"/%3E%3C/svg%3E');pointer-events:none;z-index:1}
+
+    /* Hero */
+    .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center, rgba(255,215,0,.05) 0%, transparent 70%)}
+    .hero-bg{position:absolute;inset:0;overflow:hidden}
+    .hero-bg::before{content:'';position:absolute;width:200%;height:200%;top:-50%;left:-50%;background:conic-gradient(from 0deg at 50% 50%, var(--primary) 0deg, transparent 60deg, transparent 300deg, var(--accent) 360deg);animation:spin 30s linear infinite;opacity:.1}
+    @keyframes spin{100%{transform:rotate(360deg)}}
+    .floating-shapes{position:absolute;inset:0}
+    .shape{position:absolute;border:1px solid rgba(255,215,0,0.2);animation:float 20s infinite ease-in-out}
+    .shape:nth-child(1){width:300px;height:300px;top:10%;left:10%;border-radius:30% 70% 70% 30%/30% 30% 70% 70%}
+    .shape:nth-child(2){width:200px;height:200px;top:60%;right:10%;border-radius:63% 37% 54% 46%/55% 48% 52% 45%}
+    .shape:nth-child(3){width:150px;height:150px;bottom:10%;left:30%;border-radius:40% 60% 60% 40%/60% 30% 70% 40%}
+    @keyframes float{0%,100%{transform:translate(0,0) rotate(0) scale(1)}33%{transform:translate(30px,-30px) rotate(120deg) scale(1.1)}66%{transform:translate(-20px,20px) rotate(240deg) scale(.9)}}
+
+    .hero-content{position:relative;z-index:10;text-align:center;padding:0 20px;animation:fadeIn 1.2s ease-out}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+    .hero-title{font-size:clamp(3rem,10vw,7rem);font-weight:900;letter-spacing:-.03em;line-height:.9;margin-bottom:20px;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .hero-title span{display:block;font-size:.3em;letter-spacing:.3em;font-weight:400;-webkit-text-fill-color:var(--text-muted);margin-bottom:10px;text-transform:uppercase}
+    .hero-subtitle{font-size:clamp(1rem,2vw,1.3rem);color:var(--text-muted);margin:0 auto 50px;max-width:700px}
+
+    .hero-stats{display:flex;gap:50px;justify-content:center;margin-top:50px}
+    .stat{text-align:center}
+    .stat-number{font-size:3rem;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .stat-label{font-size:.9rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;margin-top:10px}
+
+    .scroll-indicator{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);animation:bounce 2s infinite}
+    .scroll-indicator::before{content:'';display:block;width:20px;height:30px;border:2px solid var(--primary);border-radius:15px}
+    .scroll-indicator::after{content:'';display:block;width:4px;height:8px;background:var(--primary);border-radius:2px;position:absolute;top:8px;left:50%;transform:translateX(-50%);animation:scroll 2s infinite}
+    @keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(10px)}}
+    @keyframes scroll{0%{opacity:0;transform:translateX(-50%) translateY(0)}50%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
+
+    /* Main */
+    .main-content{position:relative;z-index:10;padding:100px 0}
+    .container{max-width:1400px;margin:0 auto;padding:0 20px}
+
+    /* Tabs */
+    .tab-nav{display:flex;justify-content:center;margin-bottom:70px;position:relative}
+    .tab-nav::before{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:600px;height:1px;background:linear-gradient(90deg,transparent,var(--text-muted),transparent);opacity:.2}
+    .tab-btn{background:none;border:none;color:var(--text-muted);font-size:1.05rem;font-weight:700;padding:15px 30px;cursor:pointer;position:relative;transition:all .25s ease;text-transform:uppercase;letter-spacing:.05em}
+    .tab-btn::before{content:'';position:absolute;bottom:-2px;left:50%;transform:translateX(-50%) scaleX(0);width:100%;height:3px;background:linear-gradient(90deg,var(--primary),var(--accent));transition:transform .25s ease}
+    .tab-btn.active{color:var(--primary)}
+    .tab-btn.active::before{transform:translateX(-50%) scaleX(1)}
+    .tab-btn:hover{color:#fff}
+    .tab-content{display:none;animation:tabIn .5s ease}
+    .tab-content.active{display:block}
+    @keyframes tabIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+    /* Section headers */
+    .section-header{text-align:center;margin-bottom:50px}
+    .section-title{font-size:clamp(2.4rem,5vw,3.6rem);font-weight:900;letter-spacing:-.02em;margin-bottom:15px;display:inline-block;position:relative}
+    .section-title::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:60px;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:2px}
+    .section-desc{font-size:1.05rem;color:var(--text-muted);max-width:700px;margin:0 auto}
+
+    /* Tournament grid */
+    .tournaments-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:28px;margin-bottom:40px}
+    .tournament-card{background:var(--dark-secondary);border-radius:18px;overflow:hidden;border:1px solid var(--card-border);transition:all .35s cubic-bezier(.4,0,.2,1);position:relative}
+    .tournament-card:hover{transform:translateY(-8px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
+    .tournament-image{height:200px;background:#111 center/cover no-repeat;position:relative;overflow:hidden}
+    .tournament-image::after{content:'';position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,.45), transparent 60%)}
+    .tournament-body{padding:26px}
+    .tournament-status{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+    .status-open{background:rgba(76,175,80,.18);color:#74d38a}
+    .status-full{background:rgba(255,107,53,.18);color:#ff9a78}
+    .status-soon{background:rgba(255,215,0,.18);color:#ffd86a}
+    .tournament-name{font-size:1.45rem;font-weight:850;margin-bottom:6px}
+    .tournament-game{color:#ff8d6a;font-weight:700;margin-bottom:16px}
+
+    .tournament-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px;margin-bottom:22px}
+    .meta-item{display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:.95rem;white-space:nowrap}
+    .tournament-action{width:100%;padding:16px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-size:1rem;font-weight:900;cursor:pointer;transition:all .25s ease;text-transform:uppercase;letter-spacing:.05em}
+    .tournament-action:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(255,215,0,.28)}
+    .tournament-action:disabled{opacity:.55;cursor:not-allowed;transform:none}
+
+    /* Calendar (new desktop layout) */
+    .calendar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px}
+    .calendar-event{display:grid;grid-template-columns:140px 1fr;background:var(--dark-secondary);border:1px solid var(--card-border);border-radius:16px;overflow:hidden;transition:transform .2s ease, border-color .2s ease}
+    .calendar-event:hover{transform:translateY(-3px);border-color:rgba(255,215,0,.25)}
+    .date-badge{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--primary),var(--accent));color:#141414;flex-direction:column;padding:22px}
+    .date-badge .month{font-size:.85rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;opacity:.9}
+    .date-badge .day{font-size:2.8rem;line-height:1;font-weight:900}
+    .event-info{padding:20px 24px}
+    .event-name{font-size:1.2rem;font-weight:800;margin-bottom:6px}
+    .event-sub{color:var(--text-muted);margin-bottom:14px}
+    .event-row{display:flex;flex-wrap:wrap;gap:16px;color:var(--text-muted)}
+    .event-row .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--card-border);border-radius:999px;background:rgba(255,255,255,.02);font-weight:600}
+
+    /* Quick actions */
+    .quick-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;margin-top:70px}
+    .action-card{background:var(--dark-secondary);border-radius:18px;padding:36px;text-align:center;border:1px solid var(--card-border);transition:all .3s ease;cursor:pointer;position:relative;overflow:hidden}
+    .action-card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.3);box-shadow:0 20px 40px rgba(255,215,0,.08)}
+    .action-title{font-size:1.15rem;font-weight:800;color:var(--primary);margin-bottom:10px}
+    .action-desc{color:var(--text-muted);margin-bottom:18px}
+    .action-btn{padding:12px 24px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:10px;font-weight:900;cursor:pointer}
+    .action-btn:hover{transform:translateY(-1px)}
+
+    .loading{text-align:center;padding:60px;color:var(--text-muted)}
+    .loading-spinner{width:48px;height:48px;border:3px solid rgba(255,215,0,.12);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
+    @keyframes spin{100%{transform:rotate(360deg)}}
+
+    @media (max-width:768px){
+      .hero-title{font-size:3rem}
+      .tournaments-grid{grid-template-columns:1fr}
+      .calendar-event{grid-template-columns:1fr}
+      .date-badge{flex-direction:row;gap:10px;justify-content:flex-start}
+      .cursor,.cursor-follower{display:none}
+      body{cursor:auto}
     }
-    .cursor-follower {
-      width: 40px; height: 40px;
-      background: rgba(255, 215, 0, 0.1);
-      border-radius: 50%;
-      position: fixed;
-      pointer-events: none;
-      transition: all 0.3s ease;
-      z-index: 9998;
-    }
-    .cursor.active { transform: scale(0.5); background: var(--primary); }
-
-    /* Noise Texture Overlay */
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" /%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noise)" opacity="0.03"/%3E%3C/svg%3E');
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    /* Hero Section */
-    .hero {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-      background: radial-gradient(ellipse at center, rgba(255,215,0,0.05) 0%, transparent 70%);
-    }
-
-    .hero-bg {
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-    }
-
-    .hero-bg::before {
-      content: '';
-      position: absolute;
-      width: 200%;
-      height: 200%;
-      top: -50%;
-      left: -50%;
-      background: conic-gradient(from 0deg at 50% 50%, var(--primary) 0deg, transparent 60deg, transparent 300deg, var(--accent) 360deg);
-      animation: rotate 30s linear infinite;
-      opacity: 0.1;
-    }
-
-    @keyframes rotate { 100% { transform: rotate(360deg); } }
-
-    .floating-shapes { position: absolute; inset: 0; }
-    .shape { position: absolute; border: 1px solid rgba(255,215,0,0.2); animation: float 20s infinite ease-in-out; }
-    .shape:nth-child(1) { width: 300px; height: 300px; top: 10%; left: 10%; animation-delay: 0s; border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
-    .shape:nth-child(2) { width: 200px; height: 200px; top: 60%; right: 10%; animation-delay: 5s; border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%; }
-    .shape:nth-child(3) { width: 150px; height: 150px; bottom: 10%; left: 30%; animation-delay: 10s; border-radius: 40% 60% 60% 40% / 60% 30% 70% 40%; }
-
-    @keyframes float {
-      0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-      33% { transform: translate(30px, -30px) rotate(120deg) scale(1.1); }
-      66% { transform: translate(-20px, 20px) rotate(240deg) scale(0.9); }
-    }
-
-    .hero-content { position: relative; z-index: 10; text-align: center; padding: 0 20px; animation: heroFadeIn 1.5s ease-out; }
-    @keyframes heroFadeIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-
-    .hero-title {
-      font-size: clamp(3rem, 10vw, 7rem);
-      font-weight: 900;
-      letter-spacing: -0.03em;
-      line-height: 0.9;
-      margin-bottom: 20px;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-      position: relative;
-    }
-    .hero-title span { display: block; font-size: 0.3em; letter-spacing: 0.3em; font-weight: 400; -webkit-text-fill-color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; }
-    .hero-subtitle { font-size: clamp(1rem, 2vw, 1.3rem); color: var(--text-muted); margin-bottom: 50px; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.6; }
-
-    .hero-stats { display: flex; gap: 50px; justify-content: center; margin-top: 60px; }
-    .stat { text-align: center; }
-    .stat-number {
-      font-size: 3rem; font-weight: 900;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-      display: block; line-height: 1;
-    }
-    .stat-label { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 10px; }
-
-    /* Scroll Indicator */
-    .scroll-indicator { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); animation: bounce 2s infinite; }
-    .scroll-indicator::before { content: ''; display: block; width: 20px; height: 30px; border: 2px solid var(--primary); border-radius: 15px; position: relative; }
-    .scroll-indicator::after { content: ''; display: block; width: 4px; height: 8px; background: var(--primary); border-radius: 2px; position: absolute; top: 8px; left: 50%; transform: translateX(-50%); animation: scroll 2s infinite; }
-    @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(10px); } }
-    @keyframes scroll { 0% { opacity: 0; transform: translateX(-50%) translateY(0); } 50% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(10px); } }
-
-    /* Main Content */
-    .main-content { position: relative; z-index: 10; padding: 100px 0; }
-    .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
-
-    /* Tab Navigation */
-    .tab-nav { display: flex; justify-content: center; margin-bottom: 80px; position: relative; }
-    .tab-nav::before {
-      content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-      width: 100%; max-width: 600px; height: 1px;
-      background: linear-gradient(90deg, transparent, var(--text-muted), transparent); opacity: 0.2;
-    }
-    .tab-btn { background: none; border: none; color: var(--text-muted); font-size: 1.1rem; font-weight: 600; padding: 15px 30px; cursor: pointer; position: relative; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
-    .tab-btn::before {
-      content: ''; position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%) scaleX(0);
-      width: 100%; height: 3px; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: transform 0.3s ease;
-    }
-    .tab-btn.active { color: var(--primary); }
-    .tab-btn.active::before { transform: translateX(-50%) scaleX(1); }
-    .tab-btn:hover { color: var(--text); }
-
-    /* Tab Content */
-    .tab-content { display: none; animation: tabFadeIn 0.6s ease; }
-    .tab-content.active { display: block; }
-    @keyframes tabFadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* Section Headers */
-    .section-header { text-align: center; margin-bottom: 80px; }
-    .section-title {
-      font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 900; letter-spacing: -0.02em; margin-bottom: 20px; position: relative; display: inline-block;
-    }
-    .section-title::after {
-      content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);
-      width: 60px; height: 4px; background: linear-gradient(90deg, var(--primary), var(--accent)); border-radius: 2px;
-    }
-    .section-desc { font-size: 1.1rem; color: var(--text-muted); max-width: 600px; margin: 0 auto; }
-
-    /* Tournament Cards */
-    .tournaments-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; margin-bottom: 60px; }
-    .tournament-card { background: var(--dark-secondary); border-radius: 20px; overflow: hidden; position: relative; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid rgba(255,255,255,0.05); }
-    .tournament-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--primary), var(--accent)); transform: scaleX(0); transition: transform 0.4s ease; }
-    .tournament-card:hover { transform: translateY(-10px); border-color: rgba(255,215,0,0.2); box-shadow: 0 20px 40px rgba(255,215,0,0.1); }
-    .tournament-card:hover::before { transform: scaleX(1); }
-    .tournament-image { height: 200px; background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,107,53,0.1)); position: relative; overflow: hidden; }
-    .tournament-image::before { content: '🎮'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4rem; opacity: 0.2; }
-    .tournament-body { padding: 30px; }
-
-    .tournament-status { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 15px; }
-    .status-open { background: rgba(76,175,80,0.2); color: #4CAF50; }
-    .status-full { background: rgba(255,107,53,0.2); color: var(--accent); }
-    .status-soon { background: rgba(255,215,0,0.2); color: var(--primary); }
-
-    .tournament-name { font-size: 1.5rem; font-weight: 800; margin-bottom: 10px; color: var(--text); }
-    .tournament-game { color: var(--accent); font-weight: 600; margin-bottom: 20px; }
-
-    .tournament-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }
-    .meta-item { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.9rem; }
-    .meta-item span:first-child { font-size: 1.2rem; }
-
-    .tournament-action {
-      width: 100%; padding: 18px; background: linear-gradient(135deg, var(--primary), var(--accent)); color: var(--dark);
-      border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease;
-      text-transform: uppercase; letter-spacing: 0.05em; position: relative; overflow: hidden;
-    }
-    .tournament-action::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.3); border-radius: 50%; transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
-    .tournament-action:hover::before { width: 300px; height: 300px; }
-    .tournament-action:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,215,0,0.3); }
-    .tournament-action:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    /* Birthday Packages */
-    .packages-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 40px; margin-top: 60px; }
-    .package-card { background: var(--dark-secondary); border-radius: 20px; padding: 40px; position: relative; border: 1px solid rgba(255,255,255,0.05); transition: all 0.4s ease; overflow: hidden; }
-    .package-card::before { content: ''; position: absolute; top: -100%; left: -100%; width: 300%; height: 300%; background: radial-gradient(circle, var(--glow-color, var(--primary)) 0%, transparent 70%); opacity: 0; transition: opacity 0.4s ease; pointer-events: none; }
-    .package-card:hover::before { opacity: 0.05; }
-    .package-card:hover { transform: translateY(-10px); border-color: var(--glow-color, var(--primary)); box-shadow: 0 20px 40px rgba(255,215,0,0.1); }
-    .package-card.console { --glow-color: #FF69B4; }
-    .package-card.standard { --glow-color: var(--primary); }
-    .package-icon { width: 80px; height: 80px; background: linear-gradient(135deg, var(--glow-color, var(--primary)), var(--accent)); border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 30px; }
-    .package-name { font-size: 1.8rem; font-weight: 800; margin-bottom: 10px; color: var(--text); }
-    .package-price { font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, var(--glow-color, var(--primary)), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 30px; }
-    .package-features { list-style: none; margin-bottom: 30px; }
-    .package-features li { padding: 12px 0; color: var(--text-muted); position: relative; padding-left: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .package-features li:last-child { border-bottom: none; }
-    .package-features li::before { content: '✓'; position: absolute; left: 0; color: var(--glow-color, var(--primary)); font-weight: bold; }
-
-    /* Calendar */
-    .calendar-grid { display: grid; gap: 20px; }
-    .calendar-event { background: var(--dark-secondary); border-radius: 15px; padding: 25px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; position: relative; overflow: hidden; }
-    .calendar-event::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(180deg, var(--primary), var(--accent)); transform: scaleY(0); transition: transform 0.3s ease; }
-    .calendar-event:hover { transform: translateX(10px); border-color: rgba(255,215,0,0.2); }
-    .calendar-event:hover::before { transform: scaleY(1); }
-    .event-info { flex: 1; }
-    .event-date { font-size: 0.9rem; color: var(--primary); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .event-name { font-size: 1.2rem; font-weight: 700; color: var(--text); margin-bottom: 5px; }
-    .event-details { font-size: 0.9rem; color: var(--text-muted); }
-
-    /* Loading State */
-    .loading { text-align: center; padding: 60px; color: var(--text-muted); }
-    .loading-spinner { width: 50px; height: 50px; border: 3px solid rgba(255,215,0,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-    @keyframes spin { 100% { transform: rotate(360deg); } }
-
-    /* Quick Actions */
-    .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 100px; }
-    .action-card { background: var(--dark-secondary); border-radius: 20px; padding: 40px; text-align: center; border: 1px solid rgba(255,255,255,0.05); transition: all 0.4s ease; cursor: pointer; position: relative; overflow: hidden; }
-    .action-card::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: radial-gradient(circle, var(--primary) 0%, transparent 70%); transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; opacity: 0.1; }
-    .action-card:hover::before { width: 400px; height: 400px; }
-    .action-card:hover { transform: translateY(-10px); border-color: rgba(255,215,0,0.3); box-shadow: 0 20px 40px rgba(255,215,0,0.1); }
-    .action-icon { font-size: 3rem; margin-bottom: 20px; }
-    .action-title { font-size: 1.3rem; font-weight: 700; color: var(--primary); margin-bottom: 15px; }
-    .action-desc { color: var(--text-muted); margin-bottom: 25px; line-height: 1.6; }
-    .action-btn { padding: 12px 30px; background: linear-gradient(135deg, var(--primary), var(--accent)); color: var(--dark); border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 0.05em; }
-    .action-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(255,215,0,0.3); }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .hero-title { font-size: 3rem; }
-      .tournaments-grid, .packages-grid { grid-template-columns: 1fr; }
-      .tab-nav { flex-direction: column; align-items: center; }
-      .tab-nav::before { display: none; }
-      .hero-stats { flex-direction: column; gap: 30px; }
-      .cursor, .cursor-follower { display: none; }
-      body { cursor: auto; }
-    }
-
-    /* Page transitions */
-    .page-transition { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark); z-index: 10000; pointer-events: none; animation: pageLoad 1s ease-out forwards; }
-    @keyframes pageLoad { from { transform: scaleY(1); } to { transform: scaleY(0); transform-origin: top; } }
   </style>
 </head>
 <body>
-  <!-- Custom Cursor -->
-  <div class="cursor"></div>
-  <div class="cursor-follower"></div>
+  <div class="cursor"></div><div class="cursor-follower"></div>
 
-  <!-- Page Transition -->
-  <div class="page-transition"></div>
-
-  <!-- Hero Section -->
   <section class="hero">
     <div class="hero-bg">
-      <div class="floating-shapes">
-        <div class="shape"></div><div class="shape"></div><div class="shape"></div>
-      </div>
+      <div class="floating-shapes"><div class="shape"></div><div class="shape"></div><div class="shape"></div></div>
     </div>
-
     <div class="hero-content">
-      <h1 class="hero-title">
-        <span>SideQuest Canterbury</span>
-        LEVEL UP YOUR GAME
-      </h1>
-      <p class="hero-subtitle">Elite tournaments, unforgettable birthday parties, and Canterbury's premier gaming destination</p>
-
+      <h1 class="hero-title"><span>SideQuest Canterbury</span>LEVEL UP YOUR GAME</h1>
+      <p class="hero-subtitle">Elite tournaments, bespoke birthdays, and Canterbury’s premier gaming destination.</p>
       <div class="hero-stats">
-        <div class="stat">
-          <div class="stat-number" id="upcomingCount">0</div>
-          <div class="stat-label">Live Events</div>
-        </div>
-        <div class="stat">
-          <div class="stat-number" id="tournamentCount">0</div>
-          <div class="stat-label">Tournaments</div>
-        </div>
+        <div class="stat"><div class="stat-number" id="upcomingCount">0</div><div class="stat-label">Live Events</div></div>
+        <div class="stat"><div class="stat-number" id="tournamentCount">0</div><div class="stat-label">Tournaments</div></div>
       </div>
     </div>
-
     <div class="scroll-indicator"></div>
   </section>
 
-  <!-- Main Content -->
   <section class="main-content">
     <div class="container">
-      <!-- Tab Navigation -->
+
       <nav class="tab-nav">
-        <button class="tab-btn active" onclick="switchTab(event, 'tournaments')">Tournaments</button>
-        <button class="tab-btn" onclick="switchTab(event, 'birthdays')">Birthday Parties</button>
-        <button class="tab-btn" onclick="switchTab(event, 'calendar')">Calendar</button>
+        <button class="tab-btn active" onclick="switchTab(event,'tournaments')">Tournaments</button>
+        <button class="tab-btn" onclick="switchTab(event,'birthdays')">Birthday Parties</button>
+        <button class="tab-btn" onclick="switchTab(event,'calendar')">Calendar</button>
       </nav>
 
-      <!-- Tournaments Tab -->
+      <!-- Tournaments -->
       <div id="tournaments-tab" class="tab-content active">
         <div class="section-header">
           <h2 class="section-title">Tournament Arena</h2>
-          <p class="section-desc">Compete in Canterbury's most prestigious gaming tournaments</p>
+          <p class="section-desc">Compete in polished, high-stakes brackets. Real prizes. Pro vibes.</p>
         </div>
         <div id="tournaments-grid" class="tournaments-grid">
-          <div class="loading"><div class="loading-spinner"></div><p>Loading tournaments...</p></div>
+          <div class="loading"><div class="loading-spinner"></div><p>Loading tournaments…</p></div>
         </div>
       </div>
 
-      <!-- Birthday Tab -->
+      <!-- Birthdays -->
       <div id="birthdays-tab" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">Birthday Experiences</h2>
-          <p class="section-desc">Create legendary birthday celebrations with our gaming packages</p>
+          <p class="section-desc">Two packages. Same premium energy. Pick your playstyle.</p>
         </div>
-
-        <div class="packages-grid">
-          <!-- Console Package -->
-          <div class="package-card console">
-            <div class="package-icon">🎮</div>
-            <h3 class="package-name">Console Ultimate</h3>
-            <div class="package-price">£148</div>
-            <ul class="package-features">
-              <li>12 players gaming simultaneously</li>
-              <li>4 PS5 consoles with latest titles</li>
-              <li>2 racing simulation rigs</li>
-              <li>Nintendo Switch party games</li>
-              <li>VR gaming station access</li>
-              <li>10% off all refreshments</li>
-              <li>Birthday decorations included</li>
-              <li>Exclusive gift package</li>
-            </ul>
-            <button class="tournament-action" onclick="window.location.href='/birthday-booking'">Reserve Package</button>
+        <div class="tournaments-grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
+          <div class="tournament-card">
+            <div class="tournament-image" style="background-image:linear-gradient(0deg, rgba(0,0,0,.45), rgba(0,0,0,.0)), url('/static/games/party-consoles.jpg');"></div>
+            <div class="tournament-body">
+              <span class="tournament-status status-open">Available</span>
+              <div class="tournament-name">Console Ultimate</div>
+              <div class="tournament-game">Premium birthday session</div>
+              <div class="tournament-meta">
+                <div class="meta-item" title="Players">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>
+                  Up to 12 players
+                </div>
+                <div class="meta-item" title="Perks">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="m20 6-11 11L4 12" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Decorations + gift pack
+                </div>
+              </div>
+              <button class="tournament-action" onclick="window.location.href='/birthday-booking'">Reserve Package</button>
+            </div>
           </div>
 
-          <!-- Standard Package -->
-          <div class="package-card standard">
-            <div class="package-icon">🎯</div>
-            <h3 class="package-name">Flex Gaming</h3>
-            <div class="package-price">Pay & Play</div>
-            <ul class="package-features">
-              <li>Pay per game/equipment</li>
-              <li>Full facility access</li>
-              <li>Flexible group sizes</li>
-              <li>Custom gaming lineup</li>
-              <li>Birthday decorations included</li>
-              <li>Exclusive gift package</li>
-              <li>No deposit required</li>
-              <li>Perfect for smaller groups</li>
-            </ul>
-            <button class="tournament-action" onclick="window.location.href='/birthday-booking'">Book Now</button>
+          <div class="tournament-card">
+            <div class="tournament-image" style="background-image:linear-gradient(0deg, rgba(0,0,0,.45), rgba(0,0,0,.0)), url('/static/games/flex-gaming.jpg');"></div>
+            <div class="tournament-body">
+              <span class="tournament-status status-open">Available</span>
+              <div class="tournament-name">Flex Gaming</div>
+              <div class="tournament-game">Pay & Play access</div>
+              <div class="tournament-meta">
+                <div class="meta-item">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#9a9a9a" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>
+                  Flexible time
+                </div>
+                <div class="meta-item">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>
+                  Custom lineup
+                </div>
+              </div>
+              <button class="tournament-action" onclick="window.location.href='/birthday-booking'">Book Now</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Calendar Tab -->
+      <!-- Calendar -->
       <div id="calendar-tab" class="tab-content">
         <div class="section-header">
           <h2 class="section-title">Public Event Calendar</h2>
-          <p class="section-desc">All upcoming tournaments and gaming events (birthdays hidden for privacy)</p>
+          <p class="section-desc">Upcoming tournaments & gaming events. Birthdays hidden for privacy.</p>
         </div>
         <div id="calendar-grid" class="calendar-grid">
           <div class="loading"><div class="loading-spinner"></div><p>Loading calendar…</p></div>
         </div>
 
-        <!-- Quick Actions -->
-        <div class="quick-actions" style="margin-top:60px;">
+        <div class="quick-actions">
           <div class="action-card" onclick="window.location.href='/signup'">
-            <div class="action-icon">📰</div>
             <div class="action-title">Join Our Community</div>
-            <div class="action-desc">Get notified about new tournaments and special events</div>
+            <div class="action-desc">Get notified about new tournaments and special events.</div>
             <button class="action-btn">Subscribe to Updates</button>
           </div>
           <div class="action-card" onclick="window.open('https://discord.gg/CuwQM7Zwuk','_blank')">
-            <div class="action-icon">💬</div>
             <div class="action-title">Tournament Discord</div>
-            <div class="action-desc">Connect with other gamers and get real-time updates</div>
-            <button class="action-btn">Join Discord</button>
+            <div class="action-desc">Connect with players, teams, and admins in real time.</div>
+            <button class="action-btn">Open Discord</button>
           </div>
           <div class="action-card" onclick="window.location.href='tel:01227915058'">
-            <div class="action-icon">📞</div>
             <div class="action-title">Need Help?</div>
-            <div class="action-desc">Call us for questions about events or bookings</div>
+            <div class="action-desc">Questions about events or bookings? We’re here for you.</div>
             <button class="action-btn">01227 915058</button>
           </div>
         </div>
       </div>
+
     </div>
   </section>
 
   <script>
-    // ===== Tabs =====
-    function switchTab(evt, tabName) {
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(tabName + '-tab').classList.add('active');
+    /* ---------- Tabs ---------- */
+    function switchTab(evt, tabName){
+      document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.getElementById(tabName+'-tab').classList.add('active');
       evt.target.classList.add('active');
-      if (tabName === 'tournaments') loadTournaments();
-      if (tabName === 'calendar') loadCalendar();
+      if(tabName==='tournaments') loadTournaments();
+      if(tabName==='calendar') loadCalendar();
     }
 
-    // ===== API Helpers =====
-    async function loadStats() {
-      try {
-        const resp = await fetch('/api/events?upcoming=true', { credentials: 'same-origin' });
+    /* ---------- Assets: local-first game banner mapping ---------- */
+    const GAME_IMAGES = {
+      'valorant':            '/static/games/valorant.jpg',
+      'csgo':                '/static/games/csgo.jpg',
+      'counter-strike 2':    '/static/games/cs2.jpg',
+      'cs2':                 '/static/games/cs2.jpg',
+      'league of legends':   '/static/games/lol.jpg',
+      'dota 2':              '/static/games/dota2.jpg',
+      'rocket league':       '/static/games/rocket-league.jpg',
+      'fortnite':            '/static/games/fortnite.jpg',
+      'overwatch 2':         '/static/games/overwatch2.jpg',
+      'apex legends':        '/static/games/apex.jpg',
+      'rainbow six siege':   '/static/games/r6.jpg',
+      'minecraft':           '/static/games/minecraft.jpg',
+      'tekken 8':            '/static/games/tekken8.jpg',
+      'street fighter 6':    '/static/games/sf6.jpg',
+      'ea fc 24':            '/static/games/eafc.jpg',
+      'ea fc 25':            '/static/games/eafc25.jpg'
+    };
+
+    // If local image fails, fallback to Unsplash keyword (free use, attribution appreciated)
+    function gameBannerURL(title){
+      if(!title) return '/static/games/generic.jpg';
+      const key = title.toLowerCase().trim();
+      if(GAME_IMAGES[key]) return GAME_IMAGES[key];
+
+      // Try fuzzy contains
+      for (const k of Object.keys(GAME_IMAGES)) {
+        if (key.includes(k)) return GAME_IMAGES[k];
+      }
+      // Unsplash fallback (broad search to avoid brand IP issues)
+      const q = encodeURIComponent((title + ' gaming esports neon background').toLowerCase());
+      return `https://source.unsplash.com/1200x800/?${q}`;
+    }
+
+    /* ---------- Inline SVGs (simple, license-free) ---------- */
+    const ICONS = {
+      date: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M8 2v4M16 2v4M3 10h18" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
+      time: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#9a9a9a" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
+      users:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="3" stroke="#9a9a9a" stroke-width="2"/></svg>',
+      fee:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M7 10h10M7 14h6" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
+      type: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>'
+    };
+
+    /* ---------- Stats ---------- */
+    async function loadStats(){
+      try{
+        const resp = await fetch('/api/events?upcoming=true', { credentials:'same-origin' });
         const data = await resp.json();
-        if (data.success) {
+        if(data.success){
           const publicEvents = data.events.filter(e => e.event_type !== 'birthday');
-          const tournaments = publicEvents.filter(e => e.event_type === 'tournament');
+          const tournaments  = publicEvents.filter(e => e.event_type === 'tournament');
           animateCounter('upcomingCount', publicEvents.length);
           animateCounter('tournamentCount', tournaments.length);
         }
-      } catch (err) {
-        console.error('Stats error:', err);
-        document.getElementById('upcomingCount').textContent = '?';
-        document.getElementById('tournamentCount').textContent = '?';
+      }catch(e){
+        console.error(e);
       }
     }
 
-    async function loadTournaments() {
+    /* ---------- Tournaments ---------- */
+    async function loadTournaments(){
       const grid = document.getElementById('tournaments-grid');
       grid.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Loading tournaments…</p></div>';
-      try {
-        const resp = await fetch('/api/events?type=tournament&upcoming=true', { credentials: 'same-origin' });
+      try{
+        const resp = await fetch('/api/events?type=tournament&upcoming=true', { credentials:'same-origin' });
         const data = await resp.json();
-
-        if (data.success && data.events.length > 0) {
-          grid.innerHTML = data.events.map(event => {
-            const date = new Date(event.date_time);
-            const spotsLeft = event.capacity > 0 ? (event.capacity - (event.registration_count || 0)) : null;
-            let statusClass = 'status-open', statusText = 'Open Registration';
-            if (spotsLeft !== null) {
-              if (spotsLeft <= 0) { statusClass = 'status-full'; statusText = 'Full'; }
-              else if (spotsLeft <= 3) { statusClass = 'status-soon'; statusText = `${spotsLeft} Spots Left`; }
+        if(data.success && data.events.length){
+          grid.innerHTML = data.events.map(event=>{
+            const dt = new Date(event.date_time);
+            const reg = event.registration_count || 0;
+            const cap = (event.capacity || 0) > 0 ? event.capacity : null;
+            const spots = cap ? Math.max(cap - reg, 0) : null;
+            let statusClass='status-open', statusText='Open Registration';
+            if (spots !== null){
+              if(spots === 0){ statusClass='status-full'; statusText='Full'; }
+              else if(spots <= 3){ statusClass='status-soon'; statusText = spots + ' Spots Left'; }
             }
+            const banner = gameBannerURL(event.game_title || event.title || 'gaming');
             return `
               <div class="tournament-card">
-                <div class="tournament-image"></div>
+                <div class="tournament-image" style="background-image:url('${banner}');"></div>
                 <div class="tournament-body">
                   <span class="tournament-status ${statusClass}">${statusText}</span>
-                  <div class="tournament-name">${event.title}</div>
-                  <div class="tournament-game">${event.game_title || 'Game TBD'}</div>
+                  <div class="tournament-name">${escapeHTML(event.title)}</div>
+                  <div class="tournament-game">${escapeHTML(event.game_title || 'Game')}</div>
+
                   <div class="tournament-meta">
-                    <div class="meta-item"><span>📅</span> ${date.toLocaleDateString('en-GB')}</div>
-                    <div class="meta-item"><span>🕒</span> ${date.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                    <div class="meta-item"><span>👥</span> ${(event.registration_count||0)}${event.capacity>0?`/${event.capacity}`:''} players</div>
-                    <div class="meta-item"><span>💰</span> ${event.entry_fee>0 ? '£'+event.entry_fee : 'FREE'}</div>
+                    <div class="meta-item" title="Date">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                    <div class="meta-item" title="Time">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                    <div class="meta-item" title="Players">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
+                    <div class="meta-item" title="Entry fee">${ICONS.fee} ${event.entry_fee>0?('£'+event.entry_fee):'FREE'}</div>
                   </div>
-                  ${event.description ? `<p style="color:var(--text-muted);margin:10px 0 20px;">${event.description}</p>` : ''}
-                  <button class="tournament-action" onclick="window.open('/signup/event/${event.id}','_blank')" ${spotsLeft===0?'disabled':''}>
-                    ${spotsLeft===0?'Tournament Full':'Register Now'}
+
+                  ${event.description ? `<p style="color:var(--text-muted);margin:8px 0 18px;">${escapeHTML(event.description)}</p>` : ''}
+
+                  <button class="tournament-action" onclick="window.open('/signup/event/${event.id}','_blank')" ${spots===0?'disabled':''}>
+                    ${spots===0?'Tournament Full':'Register Now'}
                   </button>
                 </div>
               </div>`;
           }).join('');
-        } else {
+        }else{
           grid.innerHTML = `
-            <div style="grid-column:1 / -1; text-align:center; padding:60px 20px; color:var(--text-muted);">
-              <h3 style="color:var(--primary); margin-bottom:15px;">No upcoming tournaments</h3>
-              <p>Check back soon for new tournament announcements!</p>
-              <button style="margin-top:20px; padding:12px 25px; background:linear-gradient(135deg,var(--primary) 0%,var(--accent) 100%); color:#1a1a1a; border:none; border-radius:10px; font-weight:700; cursor:pointer;"
-                      onclick="window.location.href='/signup'">
-                Get Notified of New Tournaments
-              </button>
+            <div style="grid-column:1 / -1;text-align:center;padding:60px 20px;color:var(--text-muted);border:1px dashed var(--card-border);border-radius:16px">
+              <h3 style="color:var(--primary);margin-bottom:10px">No upcoming tournaments</h3>
+              <p>Check back soon for announcements.</p>
+              <button style="margin-top:18px;padding:12px 22px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:10px;font-weight:900;cursor:pointer" onclick="window.location.href='/signup'">Get Email Alerts</button>
             </div>`;
         }
-      } catch (err) {
+      }catch(e){
+        console.error(e);
         grid.innerHTML = networkError('Couldn\\'t load tournaments. Please refresh.');
       }
     }
 
-    async function loadCalendar() {
+    /* ---------- Calendar (new layout, no right-side button) ---------- */
+    async function loadCalendar(){
       const grid = document.getElementById('calendar-grid');
       grid.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Loading calendar…</p></div>';
-      try {
-        const resp = await fetch('/api/events?upcoming=true', { credentials: 'same-origin' });
+      try{
+        const resp = await fetch('/api/events?upcoming=true', { credentials:'same-origin' });
         const data = await resp.json();
+        if(data.success && data.events.length){
+          const items = data.events
+            .filter(e => e.event_type !== 'birthday')
+            .sort((a,b)=> new Date(a.date_time) - new Date(b.date_time));
 
-        if (data.success && data.events.length > 0) {
-          const publicEvents = data.events.filter(e => e.event_type !== 'birthday');
-          const sorted = publicEvents.sort((a,b) => new Date(a.date_time) - new Date(b.date_time));
+          grid.innerHTML = items.map(ev=>{
+            const dt = new Date(ev.date_time);
+            const m  = dt.toLocaleDateString('en-GB',{month:'short'});
+            const d  = dt.toLocaleDateString('en-GB',{day:'2-digit'});
+            const banner = gameBannerURL(ev.game_title || ev.title || 'gaming');
+            const reg = ev.registration_count || 0;
+            const cap = (ev.capacity || 0) > 0 ? ev.capacity : null;
 
-          if (sorted.length > 0) {
-            grid.innerHTML = sorted.map(event => {
-              const date = new Date(event.date_time);
-              return `
-                <div class="calendar-event">
-                  <div class="event-info">
-                    <div class="event-date">
-                      ${date.toLocaleDateString('en-GB', { weekday:'short', month:'short', day:'numeric' })} •
-                      ${date.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})}
-                    </div>
-                    <div class="event-name">${event.title}</div>
-                    <div class="event-details">
-                      ${event.event_type === 'tournament' ? '🏆 Tournament' : '🎮 Gaming Event'} •
-                      ${(event.registration_count||0)} registered${event.capacity > 0 ? ` / ${event.capacity} max` : ''}
-                    </div>
+            return `
+              <article class="calendar-event">
+                <div class="date-badge" aria-hidden="true">
+                  <div class="month">${m}</div>
+                  <div class="day">${d}</div>
+                </div>
+                <div class="event-info">
+                  <div class="event-name">${escapeHTML(ev.title)}</div>
+                  <div class="event-sub">${escapeHTML(ev.event_type === 'tournament' ? 'Tournament' : 'Gaming Event')}</div>
+                  <div class="event-row">
+                    <span class="chip" title="Date">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</span>
+                    <span class="chip" title="Time">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+                    <span class="chip" title="Players">${ICONS.users} ${reg}${cap?`/${cap}`:''}</span>
+                    <span class="chip" title="Entry fee">${ICONS.fee} ${ev.entry_fee>0?('£'+ev.entry_fee):'FREE'}</span>
+                    <span class="chip" title="Type">${ICONS.type} ${escapeHTML(ev.event_type)}</span>
                   </div>
-                  <button class="tournament-action" onclick="window.open('/signup/event/${event.id}','_blank')">
-                    Details
-                  </button>
-                </div>`;
-            }).join('');
-          } else {
-            grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments and gaming events!');
-          }
-        } else {
-          grid.innerHTML = emptyState('No upcoming events','Check back soon for new events and tournaments!');
+                  ${ev.description ? `<p style="color:var(--text-muted);margin-top:12px">${escapeHTML(ev.description)}</p>` : ''}
+                  <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap">
+                    <a href="/signup/event/${ev.id}" style="text-decoration:none">
+                      <button class="tournament-action" type="button">View Details</button>
+                    </a>
+                    <div style="height:44px;min-width:140px;border-radius:10px;overflow:hidden;border:1px solid var(--card-border);background:url('${banner}') center/cover no-repeat"></div>
+                  </div>
+                </div>
+              </article>`;
+          }).join('');
+        }else{
+          grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.');
         }
-      } catch (err) {
+      }catch(e){
+        console.error(e);
         grid.innerHTML = networkError('Couldn\\'t load calendar. Please refresh.');
       }
     }
 
-    // ===== Small UI helpers =====
-    function animateCounter(id, target) {
-      const el = document.getElementById(id);
-      const duration = 1000, steps = 30, increment = target / steps;
-      let current = 0;
-      const timer = setInterval(() => {
-        current += increment;
-        if (current >= target) { el.textContent = target; clearInterval(timer); }
-        else { el.textContent = Math.floor(current); }
-      }, duration / steps);
+    /* ---------- Utilities ---------- */
+    function animateCounter(id, target){
+      const el=document.getElementById(id); const dur=900, steps=24, inc=target/steps;
+      let cur=0; const t=setInterval(()=>{cur+=inc; if(cur>=target){el.textContent=target;clearInterval(t)} else {el.textContent=Math.floor(cur)}}, dur/steps);
+    }
+    function emptyState(t,s){
+      return `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)"><h3 style="color:var(--primary);margin-bottom:8px">${t}</h3><p>${s}</p></div>`;
+    }
+    function networkError(msg){
+      return `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#ff9a78"><h3>Connection Error</h3><p>${msg}</p><button onclick="location.reload()" style="margin-top:12px;padding:10px 18px;background:var(--primary);color:#141414;border:none;border-radius:8px;font-weight:900;cursor:pointer">Retry</button></div>`;
+    }
+    function escapeHTML(str){
+      return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
     }
 
-    function emptyState(title, subtitle) {
-      return `
-        <div style="grid-column:1 / -1; text-align:center; padding:40px; color:var(--text-muted);">
-          <h3 style="color:var(--primary); margin-bottom:10px;">${title}</h3>
-          <p>${subtitle}</p>
-        </div>`;
-    }
-
-    function networkError(msg) {
-      return `
-        <div style="grid-column:1 / -1; text-align:center; padding:40px; color:#ff6b35;">
-          <h3>Connection Error</h3>
-          <p>${msg}</p>
-          <button onclick="location.reload()" style="margin-top:15px; padding:10px 20px; background:var(--primary); color:#1a1a1a; border:none; border-radius:8px; cursor:pointer; font-weight:700;">
-            Retry
-          </button>
-        </div>`;
-    }
-
-    // ===== Cursor & Page polish =====
-    (function fancyCursor(){
-      const cursor = document.querySelector('.cursor');
-      const follower = document.querySelector('.cursor-follower');
-      if (!cursor || !follower) return;
-
-      let mouseX = 0, mouseY = 0, fx = 0, fy = 0;
-
-      document.addEventListener('mousemove', (e) => {
-        mouseX = e.clientX; mouseY = e.clientY;
-        cursor.style.transform = `translate(${mouseX - 10}px, ${mouseY - 10}px)`;
-      });
-
-      function follow() {
-        fx += (mouseX - fx) * 0.1;
-        fy += (mouseY - fy) * 0.1;
-        follower.style.transform = `translate(${fx - 20}px, ${fy - 20}px)`;
-        requestAnimationFrame(follow);
-      }
-      follow();
-
-      document.querySelectorAll('a, button, .tournament-card, .action-card').forEach(el => {
-        el.addEventListener('mouseenter', () => cursor.classList.add('active'));
-        el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+    /* ---------- Cursor polish ---------- */
+    (function(){
+      const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-follower');
+      if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
+      document.addEventListener('mousemove',e=>{mx=e.clientX; my=e.clientY; c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
+      (function follow(){fx+=(mx-fx)*.12; fy+=(my-fy)*.12; f.style.transform=`translate(${fx-20}px,${fy-20}px)`; requestAnimationFrame(follow);})();
+      document.querySelectorAll('a,button,.tournament-card,.action-card,.calendar-event').forEach(el=>{
+        el.addEventListener('mouseenter',()=>c.classList.add('active'));
+        el.addEventListener('mouseleave',()=>c.classList.remove('active'));
       });
     })();
 
-    // ===== Boot =====
-    document.addEventListener('DOMContentLoaded', () => {
-      loadStats();
-      loadTournaments();
-      // Auto-refresh lightweight
-      setInterval(() => { if (document.getElementById('tournaments-tab').classList.contains('active')) loadTournaments(); }, 5 * 60 * 1000);
-      setInterval(loadStats, 2 * 60 * 1000);
-      // ARIA
-      document.querySelectorAll('.tab-btn').forEach((b,i) => { b.setAttribute('aria-label', `Tab ${i+1}: ${b.textContent}`); b.setAttribute('role','tab'); });
+    /* ---------- Boot ---------- */
+    document.addEventListener('DOMContentLoaded', ()=>{
+      loadStats(); loadTournaments();
+      setInterval(()=>{ if(document.getElementById('tournaments-tab').classList.contains('active')) loadTournaments(); }, 5*60*1000);
+      setInterval(loadStats, 2*60*1000);
+      document.querySelectorAll('.tab-btn').forEach((b,i)=>{ b.setAttribute('aria-label',`Tab ${i+1}: ${b.textContent}`); b.setAttribute('role','tab'); });
     });
   </script>
 </body>
@@ -9208,7 +9090,6 @@ def events_overview_page():
     resp = make_response(events_html)
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return resp
-
 
 # =============================
 # Main
@@ -9259,7 +9140,6 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
-
 
 
 

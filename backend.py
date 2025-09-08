@@ -9083,8 +9083,9 @@ def events_overview_page():
       revealComplete = true;
       const overlay = document.getElementById('revealOverlay');
       const pageContent = document.getElementById('pageContent');
-      overlay.style.display = 'none';
-      pageContent.classList.add('revealed');
+      
+      if(overlay) overlay.style.display = 'none';
+      if(pageContent) pageContent.classList.add('revealed');
       document.querySelectorAll('.reveal-element,.stat').forEach(el=>el.classList.add('animate'));
       loadStats();
     }

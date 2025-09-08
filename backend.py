@@ -8782,81 +8782,56 @@ def events_overview_page():
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     :root{
-      --primary:#FFD700;             /* gold */
-      --accent:#FF6B35;              /* orange */
-      --bg:#0a0a0a;                  /* dark */
-      --bg-2:#141414;
+      --primary:#FFD700;
+      --accent:#FF6B35;
+      --dark:#0a0a0a;
+      --dark-2:#141414;
       --text:#ffffff;
       --muted:#9a9a9a;
       --border:rgba(255,255,255,.06);
-      /* dynamic theme accents (switch per tab) */
-      --theme-1:#00D1FF; /* tournaments electric blue */
-      --theme-2:#9B5CFF; /* games night neon purple */
-      --theme-3:#FFD36E; /* birthdays confetti gold */
     }
-    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden;cursor:none}
+    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;cursor:none}
 
-    /* Light mode toggle */
-    body.light{--bg:#f6f7f8;--bg-2:#ffffff;--text:#111;--muted:#60646c;--border:rgba(0,0,0,.08)}
-
-    /* Reduced motion */
+    /* Reduced motion respect */
     @media (prefers-reduced-motion: reduce){
-      *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+      *{animation:none!important;transition:none!important}
     }
-
-    /* ---------- Awwwards-style Intro Stencil ---------- */
-    .intro{
-      position:fixed;inset:0;background:#000;z-index:10000;display:grid;place-items:center;
-      transition:transform .9s cubic-bezier(.83,0,.17,1);transform-origin:top;
-    }
-    .intro.hide{transform:scaleY(0)}
-    .stencil{
-      width:min(70vw,680px);height:min(22vw,220px);
-      -webkit-mask:url('/static/brand/sidequest-logo.svg') center/contain no-repeat;
-      mask:url('/static/brand/sidequest-logo.svg') center/contain no-repeat;
-      background:linear-gradient(135deg,var(--primary),var(--accent));
-      filter:drop-shadow(0 30px 120px rgba(255,215,0,.25));
-      animation:pulse 1.4s ease-in-out infinite;
-    }
-    @keyframes pulse{0%,100%{filter:drop-shadow(0 30px 120px rgba(255,215,0,.15))}50%{filter:drop-shadow(0 30px 120px rgba(255,215,0,.35))}}
 
     /* Cursor */
     .cursor{width:20px;height:20px;border:2px solid var(--primary);border-radius:50%;position:fixed;pointer-events:none;transition:all .1s ease;z-index:9999;mix-blend-mode:difference}
     .cursor-f{width:40px;height:40px;background:rgba(255,215,0,.1);border-radius:50%;position:fixed;pointer-events:none;transition:all .3s ease;z-index:9998}
     .cursor.active{transform:scale(.5);background:var(--primary)}
-    @media (max-width:768px){body{cursor:auto}.cursor,.cursor-f{display:none}}
 
     /* Noise overlay */
     body::before{content:'';position:fixed;inset:0;background:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.03"/%3E%3C/svg%3E');pointer-events:none;z-index:1}
 
-    /* ---------- Hero with video ---------- */
+    /* Hero */
     .hero{min-height:92vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,rgba(255,215,0,.05) 0%,transparent 70%)}
-    .hero video{
-      position:absolute;inset:0;min-width:100%;min-height:100%;object-fit:cover;opacity:.12;filter:grayscale(1) contrast(1.1) brightness(.9)
-    }
     .hero-bg{position:absolute;inset:0;overflow:hidden}
-    .hero-bg::before{
-      content:'';position:absolute;width:200%;height:200%;top:-50%;left:-50%;
-      background:conic-gradient(from 0deg at 50% 50%,var(--primary) 0deg,transparent 60deg,transparent 300deg,var(--accent) 360deg);
-      animation:spin 30s linear infinite;opacity:.18
-    }
+    .hero-bg::before{content:'';position:absolute;width:200%;height:200%;top:-50%;left:-50%;background:conic-gradient(from 0deg at 50% 50%,var(--primary) 0deg,transparent 60deg,transparent 300deg,var(--accent) 360deg);animation:spin 30s linear infinite;opacity:.1}
     @keyframes spin{100%{transform:rotate(360deg)}}
+    .floating-shapes{position:absolute;inset:0}
+    .shape{position:absolute;border:1px solid rgba(255,215,0,0.2);animation:float 20s infinite ease-in-out}
+    .shape:nth-child(1){width:300px;height:300px;top:10%;left:10%;border-radius:30% 70% 70% 30%/30% 30% 70% 70%}
+    .shape:nth-child(2){width:220px;height:220px;top:60%;right:10%;border-radius:63% 37% 54% 46%/55% 48% 52% 45%}
+    .shape:nth-child(3){width:160px;height:160px;bottom:10%;left:30%;border-radius:40% 60% 60% 40%/60% 30% 70% 40%}
+    @keyframes float{0%,100%{transform:translate(0,0) rotate(0) scale(1)}33%{transform:translate(30px,-30px) rotate(120deg) scale(1.1)}66%{transform:translate(-20px,20px) rotate(240deg) scale(.9)}}
+
     .hero-content{position:relative;z-index:10;text-align:center;padding:0 20px}
     .title{font-size:clamp(3rem,9vw,7rem);font-weight:900;letter-spacing:-.03em;line-height:.9;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
     .subtitle{color:var(--muted);max-width:760px;margin:0 auto}
-
     .stats{display:flex;gap:42px;justify-content:center;margin-top:42px}
     .stat{text-align:center}
     .stat .num{font-size:2.6rem;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
     .stat .lbl{font-size:.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:8px}
-    .live-aria{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden} /* aria-live region */
 
-    /* ---------- Dynamic tab themes ---------- */
-    body[data-theme="tournaments"] .hero-bg::before{background:conic-gradient(from 0deg at 50% 50%, var(--theme-1) 0deg, transparent 60deg, transparent 300deg, var(--accent) 360deg)}
-    body[data-theme="games"] .hero-bg::before{background:conic-gradient(from 0deg at 50% 50%, var(--theme-2) 0deg, transparent 60deg, transparent 300deg, var(--accent) 360deg)}
-    body[data-theme="birthdays"] .hero-bg::before{background:conic-gradient(from 0deg at 50% 50%, var(--theme-3) 0deg, transparent 60deg, transparent 300deg, var(--accent) 360deg)}
+    .scroll{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);animation:bounce 2s infinite}
+    .scroll::before{content:'';display:block;width:20px;height:30px;border:2px solid var(--primary);border-radius:15px}
+    .scroll::after{content:'';display:block;width:4px;height:8px;background:var(--primary);border-radius:2px;position:absolute;top:8px;left:50%;transform:translateX(-50%);animation:scroll 2s infinite}
+    @keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(10px)}}
+    @keyframes scroll{0%{opacity:0;transform:translateX(-50%) translateY(0)}50%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
 
-    /* ---------- Layout ---------- */
+    /* Main */
     .wrap{max-width:1400px;margin:0 auto;padding:90px 20px}
 
     /* Tabs */
@@ -8865,9 +8840,10 @@ def events_overview_page():
     .tab{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:999px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:12px 20px;cursor:pointer;transition:all .2s ease}
     .tab[aria-selected="true"]{color:#141414;background:linear-gradient(135deg,var(--primary),var(--accent));border-color:transparent}
     .tab:focus-visible{outline:3px solid var(--primary)}
-    .panel{display:none}.panel.active{display:block}
+    .panel{display:none}
+    .panel.active{display:block}
 
-    /* Section heads */
+    /* Sections */
     .section-head{text-align:center;margin-bottom:44px}
     .section-title{font-size:clamp(2.4rem,5vw,3.8rem);font-weight:900;letter-spacing:-.02em;margin-bottom:10px;display:inline-block;position:relative}
     .section-title::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:64px;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:2px}
@@ -8875,67 +8851,26 @@ def events_overview_page():
 
     /* Cards */
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px}
-    .card{background:var(--bg-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease;position:relative}
+    .card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease}
     .card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
-    .banner{position:relative;height:210px;background:#111 center/cover no-repeat;will-change:transform}
+    .banner{position:relative;height:210px;background:#111 center/cover no-repeat}
     .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 60%)}
-    .badge{
-      position:absolute;top:12px;left:12px;display:inline-flex;gap:8px
-    }
-    .flag{padding:6px 10px;border-radius:10px;font-size:.72rem;font-weight:900;letter-spacing:.06em}
-    .flag.new{background:rgba(0,209,255,.18);color:#7adfff}
-    .flag.featured{background:rgba(255,215,0,.18);color:#ffd86a}
-    .flag.limited{background:rgba(255,107,53,.22);color:#ff9a78}
-
     .body{padding:22px}
     .pill{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.75rem;font-weight:900;letter-spacing:.06em;margin-bottom:12px}
     .ok{background:rgba(255,215,0,.18);color:#ffd86a}
     .warn{background:rgba(255,107,53,.18);color:#ff9a78}
+    .soon{background:rgba(255,215,0,.18);color:#ffd86a}
     .name{font-size:1.45rem;font-weight:850;margin-bottom:6px}
     .sub{color:#ff8d6a;font-weight:700;margin-bottom:16px}
     .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px;margin-bottom:18px}
     .meta-item{display:flex;align-items:center;gap:8px;color:var(--muted);white-space:nowrap}
-    .avatars{display:flex;align-items:center;gap:6px;margin-bottom:14px}
-    .avatar{width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:#111 center/cover no-repeat;display:inline-block}
-    .more{color:var(--muted);font-weight:700;font-size:.85rem;margin-left:6px}
-
-    .btn{position:relative;overflow:hidden;width:100%;padding:15px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}
+    .btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}
     .btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(255,215,0,.28)}
     .btn:disabled{opacity:.55;cursor:not-allowed}
-    .ripple{position:absolute;border-radius:50%;transform:scale(0);animation:rip .6s linear;background:rgba(255,255,255,.35)}
-    @keyframes rip{to{transform:scale(4);opacity:0}}
 
-    .countdown{font-weight:800;color:#ffd86a;margin-bottom:10px}
-
-    /* Calendar controls (from earlier) */
-    .cal-controls{display:grid;gap:16px;margin-bottom:18px}
-    .filters{display:flex;gap:8px;flex-wrap:wrap}
-    .filter-btn{padding:10px 14px;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.02);color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .2s ease}
-    .filter-btn[aria-pressed="true"]{color:#141414;background:linear-gradient(135deg,var(--primary),var(--accent));border-color:transparent}
-    .range-hint{color:var(--muted);font-size:.95rem}
-
-    .mini-cal-wrap{background:var(--bg-2);border:1px solid var(--border);border-radius:16px;overflow:hidden}
-    .mini-cal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)}
-    .mini-cal-title{font-weight:900}
-    .mini-cal-nav{display:flex;gap:8px}
-    .mini-cal-nav button{border:1px solid var(--border);background:rgba(255,255,255,.02);color:var(--text);border-radius:10px;padding:8px 10px;cursor:pointer}
-    .mini-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:6px}
-    .mini-cal .weekday{font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;text-align:center;padding:8px 6px}
-    .mini-cal .day{position:relative;text-align:center;padding:10px 0;border-radius:10px;cursor:pointer}
-    .mini-cal .day:hover{background:rgba(255,255,255,.03)}
-    .mini-cal .day.other{opacity:.35}
-    .mini-cal .day.today{outline:1px dashed var(--primary)}
-    .mini-cal .day.selected{background:linear-gradient(135deg,rgba(255,215,0,.18),rgba(255,107,53,.18))}
-    .mini-cal .dot{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:var(--primary)}
-    @media (max-width:768px){
-      .grid{grid-template-columns:1fr}
-      .mini-cal{grid-auto-flow:column;grid-auto-columns:minmax(54px,1fr);overflow-x:auto;scroll-snap-type:x mandatory}
-      .mini-cal .weekday{display:none}
-      .mini-cal .day{scroll-snap-align:center;margin:0 2px}
-    }
-
+    /* Calendar */
     .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px}
-    .cal-item{display:grid;grid-template-columns:140px 1fr;background:var(--bg-2);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:transform .2s ease,border-color .2s ease}
+    .cal-item{display:grid;grid-template-columns:140px 1fr;background:var(--dark-2);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:transform .2s ease,border-color .2s ease}
     .cal-item:hover{transform:translateY(-3px);border-color:rgba(255,215,0,.25)}
     .date{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--primary),var(--accent));color:#141414;flex-direction:column;padding:22px}
     .date .m{font-size:.85rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;opacity:.9}
@@ -8946,61 +8881,46 @@ def events_overview_page():
     .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.02);font-weight:600;color:var(--muted)}
     .thumb{height:44px;min-width:140px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#111 center/cover no-repeat}
 
-    /* Loading */
+    /* Loading / helpers */
     .loading{grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)}
     .spin{width:48px;height:48px;border:3px solid rgba(255,215,0,.12);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
     @keyframes spin{100%{transform:rotate(360deg)}}
 
     /* Quick actions */
     .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;margin-top:64px}
-    .q-card{background:var(--bg-2);border:1px solid var(--border);border-radius:18px;padding:36px;text-align:center;transition:all .3s ease;cursor:pointer}
+    .q-card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;padding:36px;text-align:center;transition:all .3s ease;cursor:pointer}
     .q-card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.3);box-shadow:0 20px 40px rgba(255,215,0,.08)}
     .q-title{font-size:1.1rem;font-weight:900;color:var(--primary);margin-bottom:10px}
     .q-text{color:var(--muted);margin-bottom:18px}
     .q-btn{padding:12px 24px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:10px;font-weight:900;cursor:pointer}
 
-    /* Floating CTA */
-    .floating-cta{
-      position:fixed;right:18px;bottom:18px;z-index:9997;
-      background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;
-      border:none;border-radius:999px;padding:12px 18px;font-weight:900;letter-spacing:.04em;cursor:pointer;box-shadow:0 12px 28px rgba(255,215,0,.25)
-    }
-
-    /* Dark/Light toggle */
-    .theme-toggle{
-      position:fixed;left:18px;bottom:18px;z-index:9997;border:1px solid var(--border);background:rgba(255,255,255,.02);color:var(--text);border-radius:999px;padding:10px 14px;font-weight:800;cursor:pointer
+    @media (max-width:768px){
+      body{cursor:auto}
+      .cursor,.cursor-f{display:none}
+      .grid{grid-template-columns:1fr}
+      .cal-item{grid-template-columns:1fr}
+      .date{flex-direction:row;gap:10px;justify-content:flex-start}
     }
   </style>
 </head>
-<body data-theme="tournaments">
-  <!-- Intro stencil -->
-  <div class="intro" id="intro">
-    <div class="stencil" aria-hidden="true"></div>
-  </div>
-
+<body>
   <div class="cursor"></div><div class="cursor-f"></div>
 
   <!-- Hero -->
   <section class="hero" aria-label="Events hero">
-    <!-- Optional background video (graceful if missing) -->
-    <video autoplay muted loop playsinline preload="auto">
-      <source src="/static/media/hero.webm" type="video/webm"/>
-      <source src="/static/media/hero.mp4" type="video/mp4"/>
-    </video>
-
-    <div class="hero-bg"></div>
-
+    <div class="hero-bg">
+      <div class="floating-shapes"><div class="shape"></div><div class="shape"></div><div class="shape"></div></div>
+    </div>
     <div class="hero-content">
       <h1 class="title">LEVEL UP YOUR GAME</h1>
       <p class="subtitle">Elite tournaments, relaxed game nights, unforgettable birthdays — all in one sleek hub.</p>
-
       <div class="stats" role="group" aria-label="Live counters">
         <div class="stat"><div class="num" id="upcomingCount">0</div><div class="lbl">Public Events</div></div>
         <div class="stat"><div class="num" id="tournamentCount">0</div><div class="lbl">Tournaments</div></div>
         <div class="stat"><div class="num" id="gamesNightCount">0</div><div class="lbl">Games Nights</div></div>
       </div>
-      <div class="live-aria" aria-live="polite" id="countersLive"></div>
     </div>
+    <div class="scroll" aria-hidden="true"></div>
   </section>
 
   <!-- Main -->
@@ -9044,14 +8964,13 @@ def events_overview_page():
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
         <article class="card">
           <div class="banner lazy-banner" data-src="/static/games/party-consoles.jpg"></div>
-          <div class="badge"><span class="flag featured">Featured</span></div>
           <div class="body">
             <span class="pill ok">Available</span>
             <div class="name">Console Ultimate</div>
             <div class="sub">Premium birthday session</div>
             <div class="meta">
-              <div class="meta-item"><span class="i users"></span>Up to 12 players</div>
-              <div class="meta-item"><span class="i list"></span>Decorations + gift pack</div>
+              <div class="meta-item" title="Players"><span class="i users"></span>Up to 12 players</div>
+              <div class="meta-item" title="Perks"><span class="i check"></span>Decorations + gift pack</div>
             </div>
             <button class="btn" onclick="location.href='/birthday-booking'">Reserve Package</button>
           </div>
@@ -9077,30 +8996,8 @@ def events_overview_page():
     <section id="panel-calendar" class="panel" role="tabpanel" aria-labelledby="tab-calendar">
       <div class="section-head">
         <h2 class="section-title">Public Event Calendar</h2>
-        <p class="section-sub">Filter by date or type. Birthdays hidden for privacy.</p>
+        <p class="section-sub">Upcoming tournaments & game nights. Birthdays hidden for privacy.</p>
       </div>
-
-      <div class="cal-controls">
-        <div class="filters" role="group" aria-label="Filter by type">
-          <button class="filter-btn" data-type="all" aria-pressed="true">All</button>
-          <button class="filter-btn" data-type="tournament" aria-pressed="false">Tournaments</button>
-          <button class="filter-btn" data-type="games_night" aria-pressed="false">Games Night</button>
-        </div>
-
-        <div class="mini-cal-wrap" aria-label="Mini month calendar">
-          <div class="mini-cal-head">
-            <div class="mini-cal-title" id="miniCalTitle">Loading…</div>
-            <div class="mini-cal-nav">
-              <button id="calPrev" aria-label="Previous month">‹</button>
-              <button id="calNext" aria-label="Next month">›</button>
-            </div>
-          </div>
-          <div id="miniCal" class="mini-cal" aria-labelledby="miniCalTitle"></div>
-        </div>
-
-        <div class="range-hint" id="calHint">Showing upcoming events</div>
-      </div>
-
       <div id="cal-grid" class="cal-grid">
         <div class="loading"><div class="spin"></div>Loading calendar…</div>
       </div>
@@ -9125,27 +9022,36 @@ def events_overview_page():
     </section>
   </main>
 
-  <!-- Floating actions -->
-  <button class="floating-cta" onclick="location.href='/signup'">Join our community</button>
-  <button class="theme-toggle" id="themeToggle">Light / Dark</button>
-
   <script>
-    /* ------------ Icons (inline, neutral) ------------ */
+    /* ---------------- Icons (inline SVG) ---------------- */
     const ICONS = {
       date:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M8 2v4M16 2v4M3 10h18" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
       time:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#9a9a9a" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
       users:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="3" stroke="#9a9a9a" stroke-width="2"/></svg>',
       fee:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M7 10h10M7 14h6" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
       list:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
+      check:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m20 6-11 11L4 12" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      clock:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#9a9a9a" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
       tag:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.59 13.41 12 22l-8-8 8-8 8.59 7.41Z" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     };
 
-    /* ------------ Local-first banners ------------ */
+    /* ---------------- Local-first game banners ---------------- */
     const GAME_IMAGES = {
       'valorant':'/static/games/valorant.jpg',
+      'horror': '/static/games/horror.jpg',
       'cs2':'/static/games/cs2.jpg',
       'counter-strike 2':'/static/games/cs2.jpg',
-      'horror':'/static/games/horror-game-night.jpg', /* catch-all for horror nights */
+      'league of legends':'/static/games/lol.jpg',
+      'dota 2':'/static/games/dota2.jpg',
+      'rocket league':'/static/games/rocket-league.jpg',
+      'overwatch 2':'/static/games/overwatch2.jpg',
+      'apex legends':'/static/games/apex.jpg',
+      'rainbow six siege':'/static/games/r6.jpg',
+      'minecraft':'/static/games/minecraft.jpg',
+      'tekken 8':'/static/games/tekken8.jpg',
+      'street fighter 6':'/static/games/sf6.jpg',
+      'ea fc 24':'/static/games/eafc.jpg',
+      'ea fc 25':'/static/games/eafc25.jpg',
       'generic':'/static/games/generic.jpg'
     };
     function bannerFor(title){
@@ -9156,13 +9062,7 @@ def events_overview_page():
       return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
     }
 
-    /* ------------ Intro stencil hide ------------ */
-    window.addEventListener('load', ()=>{ setTimeout(()=>document.getElementById('intro').classList.add('hide'), 600); });
-
-    /* ------------ Theme toggle ------------ */
-    document.getElementById('themeToggle').onclick = ()=>{ document.body.classList.toggle('light'); };
-
-    /* ------------ Tabs + dynamic theme ------------ */
+    /* ---------------- Tabs (click + keyboard) ---------------- */
     const tabButtons = Array.from(document.querySelectorAll('.tab'));
     const panels = {
       tournaments: document.getElementById('panel-tournaments'),
@@ -9185,13 +9085,12 @@ def events_overview_page():
       btn.setAttribute('aria-selected','true');
       const id = btn.id.replace('tab-','');
       panels[id].classList.add('active');
-      document.body.setAttribute('data-theme', id);
       if(id==='tournaments') loadTournaments();
       if(id==='games') loadGamesNights();
       if(id==='calendar') loadCalendar();
     }
 
-    /* ------------ Stats with ARIA live ------------ */
+    /* ---------------- Stats ---------------- */
     async function loadStats(){
       try{
         const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
@@ -9203,41 +9102,15 @@ def events_overview_page():
           animate('#upcomingCount', publics.length);
           animate('#tournamentCount', tourns.length);
           animate('#gamesNightCount', games.length);
-          document.getElementById('countersLive').textContent =
-            `There are ${publics.length} public events, ${tourns.length} tournaments, and ${games.length} games nights.`;
         }
-      }catch(e){}
+      }catch(e){ console.warn('stats err', e); }
     }
     function animate(sel, target){
       const el=document.querySelector(sel); const dur=900, steps=24, inc=(+target)/steps; let cur=0;
       const t=setInterval(()=>{cur+=inc; if(cur>=target){el.textContent=target;clearInterval(t)} else {el.textContent=Math.floor(cur)}}, dur/steps);
     }
 
-    /* ------------ Parallax + ripple ------------ */
-    document.addEventListener('mousemove', e=>{
-      document.querySelectorAll('.card .banner').forEach(b=>{
-        const r=b.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
-        const dx=(e.clientX-cx)/r.width, dy=(e.clientY-cy)/r.height;
-        b.style.transform=`translate(${dx*6}px, ${dy*6}px) scale(1.03)`;
-      });
-    });
-    document.addEventListener('mouseleave', ()=>{ document.querySelectorAll('.card .banner').forEach(b=>b.style.transform=''); });
-    document.addEventListener('click', e=>{
-      const btn=e.target.closest('.btn'); if(!btn) return;
-      const r=btn.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
-      const s=document.createElement('span'); s.className='ripple'; s.style.left=(x-5)+'px'; s.style.top=(y-5)+'px'; s.style.width=s.style.height=Math.max(r.width,r.height)+'px';
-      btn.appendChild(s); setTimeout(()=>s.remove(),600);
-    });
-
-    /* ------------ Avatars (initials-based SVG) ------------ */
-    function avatarURL(name){
-      const n=String(name||'P').trim(); const init=(n.split(' ').map(p=>p[0]).slice(0,2).join('')||'P').toUpperCase();
-      const hue = (n.length*47)%360;
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect width='100%' height='100%' fill='hsl(${hue},70%,35%)'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-family='Inter,Arial' font-size='28' fill='white' font-weight='800'>${init}</text></svg>`;
-      return 'data:image/svg+xml;utf8,'+encodeURIComponent(svg);
-    }
-
-    /* ------------ Tournaments loader ------------ */
+    /* ---------------- Tournaments loader ---------------- */
     async function loadTournaments(){
       const grid = document.getElementById('tournaments-grid');
       grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading tournaments…</div>';
@@ -9248,37 +9121,11 @@ def events_overview_page():
           grid.innerHTML = j.events.map(ev=>{
             const dt=new Date(ev.date_time), reg=ev.registration_count||0, cap=(ev.capacity||0)>0?ev.capacity:null;
             const spots = cap?Math.max(cap-reg,0):null;
-            let pill='ok', text='Open Registration'; if(spots!==null){ if(spots===0){pill='warn'; text='Full'} else if(spots<=3){pill='warn'; text='Limited Spots'} }
-            const isNew = isNewEvent(dt); const isFeatured=!!ev.is_featured; const banner=ev.banner_url || bannerFor(ev.game_title||ev.title||'generic');
-            const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-            const cd = countdown(dt);
-            const avatars = (ev.attendees||[]).slice(0,4).map(a=>`<span class="avatar" style="background-image:url('${avatarURL(a.name||a.email||"P")}')"></span>`).join('');
-            const more = (ev.attendees_count || (ev.attendees||[]).length) - 4;
-            return `
-              <article class="card">
-                <div class="banner lazy-banner" data-src="${banner}"></div>
-                <div class="badge">
-                  ${isNew?'<span class="flag new">New</span>':''}
-                  ${isFeatured?'<span class="flag featured">Featured</span>':''}
-                  ${pill==='warn' && text==='Limited Spots'?'<span class="flag limited">Limited</span>':''}
-                </div>
-                <div class="body">
-                  ${cd?`<div class="countdown">Starts in ${cd}</div>`:''}
-                  <span class="pill ${pill}">${text}</span>
-                  <div class="name">${escapeHTML(ev.title)}</div>
-                  <div class="sub" style="color:#ff5f5f;font-weight:800">Tournament</div>
-                  <div class="avatars">${avatars}${more>0?`<span class="more">+${more}</span>`:''}</div>
-                  <div class="meta">
-                    <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
-                    <div class="meta-item">${ICONS.time} ${timeOf(dt)}</div>
-                    <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} players</div>
-                    <div class="meta-item">${ICONS.fee} ${fee}</div>
-                  </div>
-                  <button class="btn" onclick="window.open('/signup/event/${ev.id}','_blank')" ${spots===0?'disabled':''}>
-                    ${spots===0?'Join Waitlist':'Register Now'}
-                  </button>
-                </div>
-              </article>`;
+            let pill='ok', text='Open Registration';
+            if(spots!==null){ if(spots===0){pill='warn'; text='Full'} else if(spots<=3){pill='soon'; text=spots+' Spots Left'} }
+            const banner=bannerFor(ev.game_title||ev.title||'generic');
+            return cardHTML({banner, pillText:text, pillClass:pill, name:ev.title, sub:ev.game_title||'Game',
+              dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
           }).join('');
           lazyMountBanners();
         }else{
@@ -9289,13 +9136,15 @@ def events_overview_page():
       }
     }
 
-    /* ------------ Games Nights loader ------------ */
+    /* ---------------- Games Nights loader ---------------- */
     async function loadGamesNights(){
       const grid = document.getElementById('games-grid');
       grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading games nights…</div>';
       try{
+        // Primary: explicit type
         let r = await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'});
         let j = await r.json();
+        // Fallback: filter by title if API doesn’t support type
         let events = (j.success ? j.events : []).filter(Boolean);
         if(!events.length){
           const all = await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
@@ -9304,26 +9153,20 @@ def events_overview_page():
         if(events.length){
           grid.innerHTML = events.map(ev=>{
             const dt=new Date(ev.date_time);
-            const banner=ev.banner_url || bannerFor(ev.game_title||ev.title||'generic');
+            const banner=bannerFor(ev.game_title||ev.title||'generic');
             const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
             const cap = (ev.capacity||0)>0?ev.capacity:null;
             const reg = ev.registration_count||0;
-            const cd = countdown(dt);
-            const avatars = (ev.attendees||[]).slice(0,4).map(a=>`<span class="avatar" style="background-image:url('${avatarURL(a.name||a.email||"P")}')"></span>`).join('');
-            const more = (ev.attendees_count || (ev.attendees||[]).length) - 4;
             return `
               <article class="card">
                 <div class="banner lazy-banner" data-src="${banner}"></div>
-                <div class="badge"><span class="flag new">${isNewEvent(dt)?'New':''}</span></div>
                 <div class="body">
-                  ${cd?`<div class="countdown">Starts in ${cd}</div>`:''}
                   <span class="pill ok">Open</span>
                   <div class="name">${escapeHTML(ev.title)}</div>
-                  <div class="sub" style="color:#a98bff;font-weight:800">Games Night</div>
-                  <div class="avatars">${avatars}${more>0?`<span class="more">+${more}</span>`:''}</div>
+                  <div class="sub">${escapeHTML(ev.game_title || 'Casual Session')}</div>
                   <div class="meta">
                     <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
-                    <div class="meta-item">${ICONS.time} ${timeOf(dt)}</div>
+                    <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
                     <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} attending</div>
                     <div class="meta-item">${ICONS.fee} ${fee}</div>
                   </div>
@@ -9341,107 +9184,61 @@ def events_overview_page():
       }
     }
 
-    /* ------------ Calendar v2 ------------ */
-    let ALL_EVENTS = [];
-    const CAL = { month: null, year: null, type: 'all', dateISO: null };
-
+    /* ---------------- Calendar loader ---------------- */
     async function loadCalendar(){
       const grid = document.getElementById('cal-grid');
       grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading calendar…</div>';
       try{
         const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
         const j = await r.json();
-        if(!j.success){ throw new Error('api'); }
-        ALL_EVENTS = (j.events||[]).filter(e=>e.event_type!=='birthday');
-        const now = new Date(); CAL.month = now.getMonth(); CAL.year  = now.getFullYear();
-        buildMiniCalendar(); bindFilters(); renderCalendarList();
-      }catch(e){ grid.innerHTML = networkError('Couldn\\'t load calendar. Please refresh.'); }
-    }
-    function bindFilters(){
-      document.querySelectorAll('.filter-btn').forEach(btn=>{
-        btn.onclick = ()=>{
-          document.querySelectorAll('.filter-btn').forEach(b=>b.setAttribute('aria-pressed','false'));
-          btn.setAttribute('aria-pressed','true'); CAL.type = btn.dataset.type; renderCalendarList();
-        };
-      });
-      document.getElementById('calPrev').onclick = ()=>{ shiftMonth(-1); };
-      document.getElementById('calNext').onclick = ()=>{ shiftMonth(1); };
-    }
-    function shiftMonth(delta){
-      CAL.month += delta; if(CAL.month<0){CAL.month=11;CAL.year--} if(CAL.month>11){CAL.month=0;CAL.year++}
-      buildMiniCalendar(); renderCalendarList();
-    }
-    function buildMiniCalendar(){
-      const wrap = document.getElementById('miniCal'); const title = document.getElementById('miniCalTitle');
-      const y = CAL.year, m = CAL.month; const first = new Date(y,m,1); const last  = new Date(y,m+1,0);
-      title.textContent = first.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
-      const weekdays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; let html = weekdays.map(w=>`<div class="weekday">${w}</div>`).join('');
-      let start = (first.getDay()+6)%7; const prevLast = new Date(y,m,0).getDate();
-      for(let i=start-1;i>=0;i--){ html += dayCell(prevLast - i, true, y, m-1); }
-      for(let d=1; d<=last.getDate(); d++){ html += dayCell(d, false, y, m); }
-      const totalCells = ((start + last.getDate()) % 7 === 0) ? (start + last.getDate()) : (start + last.getDate() + (7 - (start + last.getDate())%7));
-      const trailing = totalCells - start - last.getDate(); for(let d=1; d<=trailing; d++){ html += dayCell(d, true, y, m+1); }
-      wrap.innerHTML = html;
-      wrap.querySelectorAll('.day').forEach(el=>{
-        el.addEventListener('click', ()=>{
-          const iso = el.getAttribute('data-iso'); CAL.dateISO = (CAL.dateISO === iso) ? null : iso; renderCalendarList();
-          wrap.querySelectorAll('.day').forEach(d=>d.classList.toggle('selected', d.getAttribute('data-iso')===CAL.dateISO));
-        });
-      });
-    }
-    function dayCell(day, otherMonth, year, month){
-      const d = new Date(year, month, day); const y = d.getFullYear(), m = d.getMonth(), dd = d.getDate();
-      const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-      const isToday = sameDate(d, new Date()); const has = ALL_EVENTS.some(e => sameISO(e.date_time, iso));
-      return `<div class="day ${otherMonth?'other':''} ${isToday?'today':''}" data-iso="${iso}">${dd}${has?'<span class="dot"></span>':''}</div>`;
-    }
-    function sameDate(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
-    function sameISO(dt, iso){ const d=new Date(dt); return d.toISOString().slice(0,10)===iso; }
-
-    function renderCalendarList(){
-      const grid = document.getElementById('cal-grid'); let list = [...ALL_EVENTS];
-      if(CAL.type !== 'all'){ list = list.filter(e => (e.event_type||'').toLowerCase() === CAL.type); }
-      const hint = document.getElementById('calHint');
-      if(CAL.dateISO){ list = list.filter(e => sameISO(e.date_time, CAL.dateISO)); const pretty = new Date(CAL.dateISO+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}); hint.textContent = `Showing events on ${pretty}`; }
-      else{ hint.textContent = 'Showing upcoming events'; }
-      list.sort((a,b)=> new Date(a.date_time) - new Date(b.date_time));
-      if(!list.length){ grid.innerHTML = emptyState('No events match your filter','Try a different date or type.'); return; }
-      grid.innerHTML = list.map(ev=>{
-        const dt=new Date(ev.date_time); const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
-        const banner=ev.banner_url || bannerFor(ev.game_title||ev.title||'generic'); const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-        const cap = (ev.capacity||0)>0?ev.capacity:null; const reg = ev.registration_count||0;
-        const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : 'Event');
-        return `
-          <article class="cal-item">
-            <div class="date" aria-hidden="true"><div class="m">${m}</div><div class="d">${d}</div></div>
-            <div class="info">
-              <div class="title">${escapeHTML(ev.title)}</div>
-              <div class="chips">
-                <span class="chip">${ICONS.tag} ${escapeHTML(typ)}</span>
-                <span class="chip">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</span>
-                <span class="chip">${ICONS.time} ${timeOf(dt)}</span>
-                <span class="chip">${ICONS.users} ${reg}${cap?`/${cap}`:''}</span>
-                <span class="chip">${ICONS.fee} ${fee}</span>
-              </div>
-              ${ev.description ? `<p style="color:var(--muted);margin-top:12px">${escapeHTML(ev.description)}</p>` : ''}
-              <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                <a href="/signup/event/${ev.id}" style="text-decoration:none"><button class="btn">View Details</button></a>
-                <div class="thumb lazy-banner" data-src="${banner}"></div>
-              </div>
-            </div>
-          </article>`;
-      }).join(''); lazyMountBanners();
+        if(j.success && j.events.length){
+          const items = j.events
+            .filter(e=>e.event_type!=='birthday')
+            .sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
+          if(!items.length){ grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.'); return; }
+          grid.innerHTML = items.map(ev=>{
+            const dt=new Date(ev.date_time);
+            const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
+            const banner=bannerFor(ev.game_title||ev.title||'generic');
+            const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
+            const cap = (ev.capacity||0)>0?ev.capacity:null;
+            const reg = ev.registration_count||0;
+            const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : 'Event');
+            return `
+              <article class="cal-item">
+                <div class="date" aria-hidden="true"><div class="m">${m}</div><div class="d">${d}</div></div>
+                <div class="info">
+                  <div class="title">${escapeHTML(ev.title)}</div>
+                  <div class="chips">
+                    <span class="chip">${ICONS.tag} ${escapeHTML(typ)}</span>
+                    <span class="chip">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</span>
+                    <span class="chip">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+                    <span class="chip">${ICONS.users} ${reg}${cap?`/${cap}`:''}</span>
+                    <span class="chip">${ICONS.fee} ${fee}</span>
+                  </div>
+                  ${ev.description ? `<p style="color:var(--muted);margin-top:12px">${escapeHTML(ev.description)}</p>` : ''}
+                  <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                    <a href="/signup/event/${ev.id}" style="text-decoration:none"><button class="btn">View Details</button></a>
+                    <div class="thumb lazy-banner" data-src="${banner}"></div>
+                  </div>
+                </div>
+              </article>`;
+          }).join('');
+          lazyMountBanners();
+        }else{
+          grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments and game nights.');
+        }
+      }catch(e){
+        grid.innerHTML = networkError('Couldn\\'t load calendar. Please refresh.');
+      }
     }
 
-    /* ------------ Helpers ------------ */
-    function timeOf(dt){ return dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
+    /* ---------------- Helpers ---------------- */
     function escapeHTML(s){return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
     function emptyState(t,s){return `<div class="loading"><h3 style="color:var(--primary);margin-bottom:10px">${t}</h3><p>${s}</p></div>`;}
     function networkError(msg){return `<div class="loading" style="color:#ff9a78"><h3>Connection Error</h3><p>${msg}</p><button onclick="location.reload()" class="q-btn" style="margin-top:12px">Retry</button></div>`;}
-    function isNewEvent(dt){ const now=new Date(); const diff=(dt-now)/86400000; return diff>0 && diff<=14; }
-    function countdown(dt){ const now=new Date(); let s=(dt-now)/1000; if(s<=0) return ''; const d=Math.floor(s/86400); s-=d*86400; const h=Math.floor(s/3600); s-=h*3600; const m=Math.floor(s/60); return (d?d+'d ':'')+(h?h+'h ':'')+(m?m+'m':''); }
 
-    // Lazy mount banners
+    // Lazy mount banners for .lazy-banner elements
     function lazyMountBanners(){
       const els = document.querySelectorAll('.lazy-banner[data-src]');
       if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=`url('${e.dataset.src}')`); return; }
@@ -9451,12 +9248,14 @@ def events_overview_page():
             const el=ent.target; el.style.backgroundImage=`url('${el.dataset.src}')`; el.removeAttribute('data-src'); obs.unobserve(el);
           }
         });
-      },{rootMargin:'200px'}); els.forEach(e=>io.observe(e));
+      },{rootMargin:'200px'});
+      els.forEach(e=>io.observe(e));
     }
 
     // Cursor polish
     (function(){
-      const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-f'); if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
+      const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-f');
+      if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
       document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
       (function follow(){fx+=(mx-fx)*.12;fy+=(my-fy)*.12;f.style.transform=`translate(${fx-20}px,${fy-20}px)`;requestAnimationFrame(follow)})();
       document.querySelectorAll('a,button,.card,.cal-item').forEach(el=>{
@@ -9465,16 +9264,41 @@ def events_overview_page():
       });
     })();
 
+    // Reusable card HTML
+    function cardHTML({banner,pillText,pillClass,name,sub,dt,reg,cap,fee,id,description}){
+      return `
+        <article class="card">
+          <div class="banner lazy-banner" data-src="${banner}"></div>
+          <div class="body">
+            <span class="pill ${pillClass}">${pillText}</span>
+            <div class="name">${escapeHTML(name)}</div>
+            <div class="sub">${escapeHTML(sub||'')}</div>
+            <div class="meta">
+              <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+              <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+              <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} players</div>
+              <div class="meta-item">${ICONS.fee} ${fee}</div>
+            </div>
+            ${description ? `<p style="color:var(--muted);margin:6px 0 14px">${escapeHTML(description)}</p>` : ''}
+            <button class="btn" onclick="window.open('/signup/event/${id}','_blank')" ${pillClass==='warn'?'disabled':''}>
+              ${pillClass==='warn'?'Full':'Register Now'}
+            </button>
+          </div>
+        </article>`;
+    }
+
     // Boot
     document.addEventListener('DOMContentLoaded', ()=>{
-      loadStats(); loadTournaments();
+      loadStats();
+      loadTournaments();
+      // Gentle auto-refresh
       setInterval(()=>{ if(document.getElementById('panel-tournaments').classList.contains('active')) loadTournaments(); }, 5*60*1000);
       setInterval(loadStats, 2*60*1000);
     });
   </script>
 </body>
 </html>'''
-    resp = make_response(html)
+    resp = make_response(events_html)
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return resp
 

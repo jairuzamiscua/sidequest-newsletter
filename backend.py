@@ -9038,7 +9038,7 @@ def events_overview_page():
     /* ---------------- Local-first game banners ---------------- */
     const GAME_IMAGES = {
       'valorant':'/static/games/valorant.jpg',
-      'horror game night': '/static/games/horror-night.jpg',
+      'horror game night': '/static/games/horror-game-night.jpg',
       'cs2':'/static/games/cs2.jpg',
       'counter-strike 2':'/static/games/cs2.jpg',
       'league of legends':'/static/games/lol.jpg',

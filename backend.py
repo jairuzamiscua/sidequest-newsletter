@@ -9509,6 +9509,135 @@ def events_overview_page():
         </article>`;
     }
 
+    // Mechanical flip counter animation (like old clocks)
+    function flipNumber(element, target, duration = 1500){
+      const digits = target.toString().length;
+      element.style.fontFamily = 'monospace';
+      
+      let currentNumber = 0;
+      const flipSpeed = 15; // Much faster - 15ms between flips
+      const totalFlips = duration / flipSpeed;
+      let flipsCompleted = 0;
+      
+      const flipInterval = setInterval(() => {
+        flipsCompleted++;
+        
+        // Calculate how close we are to the end
+        const progress = flipsCompleted / totalFlips;
+        
+        if (progress < 0.85) {
+          // Fast random flipping phase - really rapid
+          currentNumber = Math.floor(Math.random() * Math.pow(10, digits));
+        } else if (progress < 0.98) {
+          // Quick settling phase
+          const targetStr = target.toString().padStart(digits, '0');
+          const currentStr = currentNumber.toString().padStart(digits, '0');
+          let newNumber = '';
+          
+          for (let i = 0; i < digits; i++) {
+            if (Math.random() > 0.1) { // Much higher chance to settle
+              newNumber += targetStr[i];
+            } else {
+              newNumber += Math.floor(Math.random() * 10);
+            }
+          }
+          currentNumber = parseInt(newNumber) || 0;
+        } else {
+          // Final lock
+          currentNumber = target;
+          clearInterval(flipInterval);
+        }
+        
+        element.textContent = currentNumber;
+      }, flipSpeed);
+    }
+
+    // Enhanced animate function with mechanical flipping
+    function animate(sel, target){
+      const el = document.querySelector(sel);
+      if(!el) return;
+      
+      // Add mechanical flip effect
+      flipNumber(el, target);
+    }
+
+    // Floating particles system
+    function createParticles(){
+      const container = document.getElementById('heroParticles');
+      if(!container) return;
+      
+      function addParticle(){
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 2 + 's';
+        container.appendChild(particle);
+        
+        // Remove after animation
+        setTimeout(()=>particle.remove(), 20000);
+      }
+      
+      // Create initial particles
+      for(let i=0;i<8;i++){
+        setTimeout(addParticle, i*2000);
+      }
+      
+      // Continue creating particles
+      setInterval(addParticle, 3000);
+    }
+
+    // Magnetic hover effects
+    function addMagneticEffects(){
+      document.querySelectorAll('.card,.q-card,.cal-item').forEach(card=>{
+        card.addEventListener('mousemove',e=>{
+          const rect = card.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * 100;
+          const y = ((e.clientY - rect.top) / rect.height) * 100;
+          card.style.setProperty('--mouse-x', x + '%');
+          card.style.setProperty('--mouse-y', y + '%');
+        });
+        
+        card.addEventListener('mouseleave',()=>{
+          card.style.removeProperty('--mouse-x');
+          card.style.removeProperty('--mouse-y');
+        });
+      });
+    }
+
+    // Enhanced button ripple effect
+    function addRippleEffect(){
+      document.querySelectorAll('.btn,.cal-btn,.q-btn').forEach(btn=>{
+        btn.addEventListener('click',e=>{
+          const rect = btn.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          
+          const ripple = document.createElement('span');
+          ripple.style.cssText = `
+            position:absolute;
+            border-radius:50%;
+            background:rgba(255,255,255,.6);
+            transform:scale(0);
+            animation:ripple 0.6s linear;
+            left:${x}px;
+            top:${y}px;
+            width:40px;
+            height:40px;
+            margin-left:-20px;
+            margin-top:-20px;
+          `;
+          
+          btn.appendChild(ripple);
+          setTimeout(()=>ripple.remove(), 600);
+        });
+      });
+      
+      // Add ripple animation
+      const style = document.createElement('style');
+      style.textContent = '@keyframes ripple{to{transform:scale(4);opacity:0}}';
+      document.head.appendChild(style);
+    }
+
     // Boot sequence
     document.addEventListener('DOMContentLoaded', ()=>{
       // Start reveal animation immediately

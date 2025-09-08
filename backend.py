@@ -9052,7 +9052,7 @@ def events_overview_page():
       'street fighter 6':'/static/games/sf6.jpg',
       'ea fc 24':'/static/games/eafc.jpg',
       'ea fc 25':'/static/games/eafc25.jpg',
-      'generic':'/static/games/generic.jpg'
+      'generic':'/static/games/generic.jpg',
       'f1':'/static/games/f1.jpg'
     };
     function bannerFor(title){

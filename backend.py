@@ -9508,6 +9508,13 @@ def events_overview_page():
       // Start reveal animation immediately
       startRevealSequence();
       
+      // Initialize enhancement effects
+      setTimeout(()=>{
+        createParticles();
+        addMagneticEffects();
+        addRippleEffect();
+      }, 4200);
+      
       // Initialize other functionality after reveal
       setTimeout(()=>{
         if(!revealComplete) return; // Only if reveal was skipped

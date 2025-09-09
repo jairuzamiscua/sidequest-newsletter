@@ -8981,6 +8981,7 @@ def events_overview_page():
     .card::before{content:'';position:absolute;inset:0;background:var(--gradient-1);opacity:0;transition:opacity 0.6s ease;border-radius:32px}
     .card:hover{transform:translateY(-12px) scale(1.02);border-color:rgba(255,215,0,.5);box-shadow:0 32px 64px rgba(0,0,0,.4), 0 0 0 1px rgba(255,215,0,.3)}
     .card:hover::before{opacity:0.03}
+    .card-content{flex:1}
 
     .banner{position:relative;height:280px;background:#000 center/cover no-repeat;overflow:hidden}
     .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8),transparent 70%)}
@@ -9385,7 +9386,7 @@ def events_overview_page():
      'community':'/static/games/community.jpg',
      'cosplay':'/static/games/cosplay.jpg',
      'retro':'/static/games/retro.jpg',
-     'mortal kombat':'/static/games/mk.jpg,
+     'mortal kombat':'/static/games/mk.jpg',
      'generic':'/static/games/generic.jpg'
    };
    function bannerFor(title){
@@ -9542,7 +9543,7 @@ def events_overview_page():
                         <div class="meta">
                         <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
                         <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                        <div class="meta-item">${ICONS.users} ${reg}${cap?\`/\${cap}\`:''}attending</div>
+                        <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} attending</div>
                         <div class="meta-item">${ICONS.fee} ${fee}</div>
                         </div>
                         ${ev.description ? `<p style="color:var(--text-muted);font-weight:600;margin-bottom:16px">${escapeHTML(ev.description)}</p>` : ''}
@@ -9639,25 +9640,27 @@ def events_overview_page():
       }, 100);
     }
     function cardHTML({banner,pillText,pillClass,name,sub,dt,reg,cap,fee,id,description}){
-      return `
-        <article class="card fade-in">
-          <div class="banner lazy-banner" data-src="${banner}"></div>
-          <div class="body">
-            <span class="pill ${pillClass}">${pillText}</span>
-            <div class="name">${escapeHTML(name)}</div>
-            <div class="sub">${escapeHTML(sub||'')}</div>
-            <div class="meta">
-              <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
-              <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-              <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} players</div>
-              <div class="meta-item">${ICONS.fee} ${fee}</div>
+        return `
+            <article class="card fade-in">
+            <div class="banner lazy-banner" data-src="${banner}"></div>
+            <div class="body">
+                <div class="card-content">
+                <span class="pill ${pillClass}">${pillText}</span>
+                <div class="name">${escapeHTML(name)}</div>
+                <div class="sub">${escapeHTML(sub||'')}</div>
+                <div class="meta">
+                    <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                    <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                    <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} players</div>
+                    <div class="meta-item">${ICONS.fee} ${fee}</div>
+                </div>
+                ${description ? `<p style="color:var(--text-muted);margin:12px 0 20px;font-size:1rem;line-height:1.5">${escapeHTML(description)}</p>` : ''}
+                </div>
+                <button class="btn" onclick="window.open('/signup/event/${id}','_blank')" ${pillClass==='warn'?'disabled':''}>
+                ${pillClass==='warn'?'Full':'Register Now'}
+                </button>
             </div>
-            ${description ? `<p style="color:var(--text-muted);margin:12px 0 20px;font-size:1rem;line-height:1.5">${escapeHTML(description)}</p>` : ''}
-            <button class="btn" onclick="window.open('/signup/event/${id}','_blank')" ${pillClass==='warn'?'disabled':''}>
-              ${pillClass==='warn'?'Full':'Register Now'}
-            </button>
-          </div>
-        </article>`;
+            </article>`;
     }
 
     /* ---------------- Visibility-aware polling ---------------- */
@@ -9758,7 +9761,6 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
-
 
 
 

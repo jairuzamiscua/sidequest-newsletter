@@ -8769,9 +8769,11 @@ def birthday_booking_page():
     return response
         
 
+from flask import make_response
+
 @app.route('/events', methods=['GET'])
 def events_overview_page():
-    """SideQuest Events – elevated design with Spline/Awwwards inspiration"""
+    """SideQuest Events – elevated design, NO loading overlay"""
     events_html = '''<!DOCTYPE html>
 <html lang="en" class="no-js">
 <head>
@@ -8793,7 +8795,7 @@ def events_overview_page():
     body{margin:0;font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden;font-feature-settings:'cv11','ss01';}
     img{max-width:100%;display:block}
 
-    /* Enhanced top bar with glassmorphism */
+    /* Top bar */
     .bar{position:sticky;top:0;z-index:1000;backdrop-filter:blur(24px);
       background:linear-gradient(180deg,rgba(10,10,10,.85),rgba(10,10,10,.65));
       border-bottom:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,.12)}
@@ -8810,24 +8812,7 @@ def events_overview_page():
     .links a.active::before,.links a:hover::before{opacity:1}
     .links a span{position:relative;z-index:1}
 
-    /* Enhanced loader */
-    .reveal{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a0a 0%,#0f0f12 100%);z-index:9999;
-      display:flex;align-items:center;justify-content:center;flex-direction:column;
-      transition:opacity 1s cubic-bezier(.4,0,.2,1),visibility 1s cubic-bezier(.4,0,.2,1)}
-    .reveal.hide{opacity:0;visibility:hidden;display:none}
-    .reveal-logo{width:280px;opacity:0;transform:translateY(12px) scale(.92);
-      animation:logo 1s cubic-bezier(.4,0,.2,1) forwards;filter:drop-shadow(var(--glow))}
-    .reveal-tag{opacity:0;color:var(--muted);margin-top:16px;font-weight:500;letter-spacing:.05em;
-      animation:fade .8s ease .5s forwards}
-    .reveal-bar{width:200px;height:3px;background:rgba(255,255,255,.08);overflow:hidden;border-radius:3px;
-      margin-top:20px;opacity:0;animation:fade .6s ease .7s forwards}
-    .reveal-prog{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));width:0;
-      animation:grow 1.2s cubic-bezier(.4,0,.2,1) .8s forwards}
-    @keyframes logo{to{opacity:1;transform:translateY(0) scale(1)}} 
-    @keyframes fade{to{opacity:1}} 
-    @keyframes grow{to{width:100%}}
-
-    /* Enhanced sections */
+    /* Sections */
     .section{width:var(--wrap);margin:auto;padding:var(--space) 0;position:relative}
     .divider{height:140px;position:relative}
     .divider::before{content:'';position:absolute;inset:0;background:
@@ -8835,7 +8820,7 @@ def events_overview_page():
       radial-gradient(ellipse 60% 140% at 50% 100%, rgba(255,107,53,.10), transparent 70%);
       opacity:.7;filter:blur(12px)}
 
-    /* HERO - More dramatic scaling and spacing */
+    /* HERO */
     .hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden}
     .hero .content{position:relative;z-index:2;padding:0 24px;max-width:1200px}
     .title-xl{font-size:clamp(4rem,12vw,11rem);line-height:.82;font-weight:900;letter-spacing:-.04em;
@@ -8853,12 +8838,11 @@ def events_overview_page():
       background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
     .stat .lbl{font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;
       margin-top:8px;font-weight:600}
-    
     @keyframes heroTitle{from{opacity:0;transform:translateY(30px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
     @keyframes heroLead{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
     @keyframes heroStats{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
-    /* Enhanced parallax */
+    /* Parallax */
     .parallax{position:absolute;inset:-20vh;pointer-events:none}
     .layer{position:absolute;inset:-15%;will-change:transform;opacity:.4;filter:blur(3px)}
     .l1{background:radial-gradient(1000px 600px at 18% 35%, rgba(255,215,0,.12), transparent 65%)}
@@ -8866,29 +8850,21 @@ def events_overview_page():
     .l3{background:conic-gradient(from 0deg at 50% 50%, var(--primary), transparent 70%, transparent 290deg, var(--accent));
       opacity:.15;filter:blur(120px)}
 
-    /* Enhanced floating shapes */
+    /* Floating shapes */
     .floating{position:absolute;inset:0;z-index:1}
     .shape{position:absolute;border:1px solid rgba(255,215,0,0.15);animation:float 25s infinite ease-in-out}
-    .shape:nth-child(1){width:400px;height:400px;top:8%;left:8%;
-      border-radius:35% 65% 75% 25%/25% 35% 65% 75%;opacity:.6}
-    .shape:nth-child(2){width:280px;height:280px;top:55%;right:10%;
-      border-radius:70% 30% 50% 50%/60% 40% 60% 40%;opacity:.4}
-    .shape:nth-child(3){width:200px;height:200px;bottom:8%;left:30%;
-      border-radius:50% 50% 50% 50%/60% 40% 60% 40%;opacity:.5}
-    @keyframes float{
-      0%,100%{transform:translate(0,0) rotate(0) scale(1)}
-      33%{transform:translate(35px,-30px) rotate(120deg) scale(1.08)}
-      66%{transform:translate(-25px,25px) rotate(240deg) scale(.92)}
-    }
+    .shape:nth-child(1){width:400px;height:400px;top:8%;left:8%;border-radius:35% 65% 75% 25%/25% 35% 65% 75%;opacity:.6}
+    .shape:nth-child(2){width:280px;height:280px;top:55%;right:10%;border-radius:70% 30% 50% 50%/60% 40% 60% 40%;opacity:.4}
+    .shape:nth-child(3){width:200px;height:200px;bottom:8%;left:30%;border-radius:50% 50% 50% 50%/60% 40% 60% 40%;opacity:.5}
+    @keyframes float{0%,100%{transform:translate(0,0) rotate(0) scale(1)}33%{transform:translate(35px,-30px) rotate(120deg) scale(1.08)}66%{transform:translate(-25px,25px) rotate(240deg) scale(.92)}}
 
-    /* Enhanced section headers */
+    /* Section heads */
     .head{margin-bottom:48px;text-align:center}
     .h2{font-size:clamp(2.8rem,6vw,5rem);font-weight:900;letter-spacing:-.03em;margin:0 0 16px;
-      background:linear-gradient(135deg,var(--text) 0%,var(--muted) 100%);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+      background:linear-gradient(135deg,var(--text) 0%,var(--muted) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
     .sub{color:var(--muted);max-width:600px;margin:0 auto;font-size:1.15rem;font-weight:400;line-height:1.4}
 
-    /* Enhanced cards with better hierarchy */
+    /* Cards + subtle 3D/lighting */
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:32px}
     .card,.cal-item{
       background:linear-gradient(145deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.01) 100%), var(--panel);
@@ -8902,9 +8878,8 @@ def events_overview_page():
       opacity:0; transition:opacity .4s ease;
     }
     .card:hover,.cal-item:hover{
-      transform:translateY(-8px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)); 
-      border-color:rgba(255,215,0,.25); 
-      box-shadow:0 32px 64px rgba(0,0,0,.12), var(--glow);
+      transform:translateY(-8px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
+      border-color:rgba(255,215,0,.25); box-shadow:0 32px 64px rgba(0,0,0,.12), var(--glow);
     }
     .card:hover::after,.cal-item:hover::after{opacity:1}
 
@@ -8919,67 +8894,53 @@ def events_overview_page():
     .meta-item{color:var(--muted);display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:500}
     .btn{width:100%;padding:16px 20px;background:linear-gradient(135deg,var(--primary),var(--accent));
       color:#0a0a0a;border:none;border-radius:16px;font-weight:700;text-transform:uppercase;
-      letter-spacing:.08em;font-size:.85rem;cursor:pointer;
-      transition:all .3s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
-    .btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--accent),var(--primary));
-      opacity:0;transition:opacity .3s ease}
+      letter-spacing:.08em;font-size:.85rem;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
+    .btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--accent),var(--primary));opacity:0;transition:opacity .3s ease}
     .btn:hover{transform:translateY(-2px);box-shadow:0 16px 40px rgba(255,215,0,.3)}
     .btn:hover::before{opacity:1}
     .btn:active{transform:translateY(0);box-shadow:0 8px 20px rgba(255,215,0,.25)}
     .btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
     .btn span{position:relative;z-index:1}
 
-    /* Enhanced banners */
+    /* Banners */
     .banner{position:relative;height:240px;background:#0f0f12 center/cover no-repeat;overflow:hidden}
     .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.4),transparent 60%)}
     .img-reveal{transform:scale(1.06) translateY(10px);clip-path:inset(8% round 20px);
       transition:transform 1s cubic-bezier(.2,.6,.2,1),clip-path 1s cubic-bezier(.2,.6,.2,1)}
     .is-in .img-reveal{transform:scale(1) translateY(0);clip-path:inset(0% round 20px)}
 
-    /* Enhanced calendar */
+    /* Calendar */
     .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:32px}
     .cal-banner{position:relative;height:240px;background:#0f0f12 center/cover no-repeat}
     .cal-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.4),transparent 60%)}
     .cal-date{position:absolute;top:20px;left:20px;background:linear-gradient(135deg,var(--primary),var(--accent));
-      color:#0a0a0a;padding:14px 18px;border-radius:16px;display:flex;flex-direction:column;
-      align-items:center;min-width:70px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+      color:#0a0a0a;padding:14px 18px;border-radius:16px;display:flex;flex-direction:column;align-items:center;min-width:70px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
     .cal-date .m{font-size:.7rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
     .cal-date .d{font-size:1.8rem;font-weight:900;line-height:.85;margin-top:4px}
     .cal-body{padding:32px}
-    .cal-type{display:inline-block;padding:8px 16px;border-radius:999px;font-size:.7rem;
-      font-weight:700;letter-spacing:.1em;margin-bottom:16px;background:var(--ring);
-      color:#0a0a0a;text-transform:uppercase}
+    .cal-type{display:inline-block;padding:8px 16px;border-radius:999px;font-size:.7rem;font-weight:700;letter-spacing:.1em;margin-bottom:16px;background:var(--ring);color:#0a0a0a;text-transform:uppercase}
     .cal-title{font-size:1.35rem;font-weight:800;margin:8px 0 8px;letter-spacing:-.01em;line-height:1.2}
     .cal-sub{color:#ff8d6a;font-weight:600;margin-bottom:16px;font-size:1rem}
     .cal-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 20px;margin-bottom:20px}
-    .cal-cta{display:inline-flex;align-items:center;justify-content:center;width:100%;
-      padding:16px 20px;background:linear-gradient(135deg,var(--primary),var(--accent));
-      border:none;border-radius:16px;color:#0a0a0a;font-weight:700;letter-spacing:.08em;
-      text-decoration:none;transition:all .3s cubic-bezier(.4,0,.2,1);text-transform:uppercase;font-size:.85rem}
+    .cal-cta{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:16px 20px;background:linear-gradient(135deg,var(--primary),var(--accent));border:none;border-radius:16px;color:#0a0a0a;font-weight:700;letter-spacing:.08em;text-decoration:none;transition:all .3s cubic-bezier(.4,0,.2,1);text-transform:uppercase;font-size:.85rem}
 
-    /* Enhanced scroll indicator */
-    .scroll{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);
-      animation:bounce 2.5s infinite;opacity:.7}
-    .scroll::before{content:'';display:block;width:24px;height:36px;border:2px solid var(--primary);
-      border-radius:18px;background:rgba(255,215,0,.02)}
-    .scroll::after{content:'';display:block;width:4px;height:10px;background:var(--primary);
-      border-radius:2px;position:absolute;top:10px;left:50%;transform:translateX(-50%);
-      animation:scroll 2.5s infinite}
+    /* Scroll indicator */
+    .scroll{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);animation:bounce 2.5s infinite;opacity:.7}
+    .scroll::before{content:'';display:block;width:24px;height:36px;border:2px solid var(--primary);border-radius:18px;background:rgba(255,215,0,.02)}
+    .scroll::after{content:'';display:block;width:4px;height:10px;background:var(--primary);border-radius:2px;position:absolute;top:10px;left:50%;transform:translateX(-50%);animation:scroll 2.5s infinite}
     @keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(12px)}}
     @keyframes scroll{0%{opacity:0;transform:translateX(-50%) translateY(0)}50%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(12px)}}
 
-    /* Enhanced reveal animations */
+    /* Reveals */
     .reveal-in{opacity:1;transform:none;transition:opacity .8s cubic-bezier(.4,0,.2,1),transform .8s cubic-bezier(.4,0,.2,1)}
     .js .reveal-in{opacity:0;transform:translateY(24px)}
     .js .reveal-in.is-in{opacity:1;transform:translateY(0)}
 
-    /* Enhanced loading states */
+    /* Loading placeholders inside sections */
     .loading{grid-column:1/-1;text-align:center;padding:80px 40px;color:var(--muted)}
-    .spin{width:52px;height:52px;border:3px solid rgba(255,215,0,.1);border-top-color:var(--primary);
-      border-radius:50%;animation:spin 1.2s linear infinite;margin:0 auto 20px}
+    .spin{width:52px;height:52px;border:3px solid rgba(255,215,0,.1);border-top-color:var(--primary);border-radius:50%;animation:spin 1.2s linear infinite;margin:0 auto 20px}
     @keyframes spin{to{transform:rotate(360deg)}}
 
-    /* Enhanced mobile responsiveness */
     @media (max-width:960px){
       .grid,.cal-grid{grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px}
       .bar-inner{padding:16px 6vw}
@@ -8989,7 +8950,6 @@ def events_overview_page():
       .body,.cal-body{padding:24px}
       .section{padding:clamp(40px,6vw,80px) 0}
     }
-
     @media (max-width:640px){
       .grid,.cal-grid{grid-template-columns:1fr}
       .stats{flex-direction:column;align-items:center;gap:16px}
@@ -9000,7 +8960,7 @@ def events_overview_page():
   </style>
 </head>
 <body>
-  <!-- Enhanced top bar -->
+  <!-- Top bar -->
   <header class="bar">
     <div class="bar-inner">
       <div class="brand">
@@ -9018,14 +8978,7 @@ def events_overview_page():
     </div>
   </header>
 
-  <!-- Enhanced loader -->
-  <div class="reveal" id="reveal" aria-hidden="true">
-    <img src="/static/brand/sidequest-logo.png" class="reveal-logo" alt="SideQuest"/>
-    <div class="reveal-tag">Canterbury's Premier Gaming Hub</div>
-    <div class="reveal-bar"><div class="reveal-prog"></div></div>
-  </div>
-
-  <!-- Enhanced HERO -->
+  <!-- HERO -->
   <section class="section hero" id="hero">
     <div class="parallax">
       <div class="layer l1" data-depth="0.08"></div>
@@ -9050,7 +9003,7 @@ def events_overview_page():
 
   <div class="divider"></div>
 
-  <!-- Enhanced TOURNAMENTS -->
+  <!-- TOURNAMENTS -->
   <section id="tournaments" class="section reveal-in">
     <div class="head">
       <h2 class="h2">Tournament Arena</h2>
@@ -9063,7 +9016,7 @@ def events_overview_page():
 
   <div class="divider"></div>
 
-  <!-- Enhanced GAMES NIGHT -->
+  <!-- GAMES NIGHT -->
   <section id="games" class="section reveal-in">
     <div class="head">
       <h2 class="h2">Games Night</h2>
@@ -9076,7 +9029,7 @@ def events_overview_page():
 
   <div class="divider"></div>
 
-  <!-- Enhanced SPECIAL -->
+  <!-- SPECIAL -->
   <section id="special" class="section reveal-in">
     <div class="head">
       <h2 class="h2">Special Events</h2>
@@ -9089,7 +9042,7 @@ def events_overview_page():
 
   <div class="divider"></div>
 
-  <!-- Enhanced BIRTHDAYS -->
+  <!-- BIRTHDAYS -->
   <section id="birthdays" class="section reveal-in">
     <div class="head">
       <h2 class="h2">Birthday Experiences</h2>
@@ -9106,9 +9059,7 @@ def events_overview_page():
             <div class="meta-item">Up to 12 players</div>
             <div class="meta-item">Decorations + gift pack</div>
           </div>
-          <button class="btn" onclick="location.href='/birthday-booking'">
-            <span>Reserve Package</span>
-          </button>
+          <button class="btn" onclick="location.href='/birthday-booking'"><span>Reserve Package</span></button>
         </div>
       </article>
       <article class="card">
@@ -9121,9 +9072,7 @@ def events_overview_page():
             <div class="meta-item">Flexible time</div>
             <div class="meta-item">Custom lineup</div>
           </div>
-          <button class="btn" onclick="location.href='/birthday-booking'">
-            <span>Book Now</span>
-          </button>
+          <button class="btn" onclick="location.href='/birthday-booking'"><span>Book Now</span></button>
         </div>
       </article>
     </div>
@@ -9131,7 +9080,7 @@ def events_overview_page():
 
   <div class="divider"></div>
 
-  <!-- Enhanced CALENDAR -->
+  <!-- CALENDAR -->
   <section id="calendar" class="section reveal-in">
     <div class="head">
       <h2 class="h2">Public Event Calendar</h2>
@@ -9142,288 +9091,108 @@ def events_overview_page():
     </div>
   </section>
 
-  <!-- Enhanced Scripts -->
+  <!-- Scripts -->
   <script>
-    // JS enabled marker + better error handling
-    (function(){
-      try{
-        document.documentElement.classList.remove('no-js');
-        document.documentElement.classList.add('js');
-      }catch(e){console.warn('Failed to set JS class');}
-    })();
+    // Mark JS-enabled (for reveal-in)
+    (function(){document.documentElement.classList.add('js');})();
 
-    // Enhanced loader with better failsafe
-    (function(){
-      const ov=document.getElementById('reveal'); 
-      const done=()=>{ 
-        if(ov) {
-          ov.classList.add('hide');
-          setTimeout(() => ov.style.display = 'none', 1000);
-        }
-      };
-      window.addEventListener('error',done); 
-      // Ensure loader never gets stuck
-      setTimeout(done, 2000);
-      // Hide on page interaction
-      document.addEventListener('click', done, {once: true});
-      document.addEventListener('scroll', done, {once: true});
-    })();
-
-    /* Enhanced icons */
+    /* Icons */
     const ICONS={
       date:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 2v4M16 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       time:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
       users:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="3" stroke="currentColor" stroke-width="2"/></svg>',
       fee:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 10h10M7 14h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
     };
-    
-    const GAME_IMAGES={
-      'valorant':'/static/games/valorant.jpg',
-      'horror':'/static/games/horror.jpg',
-      'cs2':'/static/games/cs2.jpg',
-      'counter-strike 2':'/static/games/cs2.jpg',
-      'league of legends':'/static/games/lol.jpg',
-      'dota 2':'/static/games/dota2.jpg',
-      'rocket league':'/static/games/rocket-league.jpg',
-      'overwatch 2':'/static/games/overwatch2.jpg',
-      'apex legends':'/static/games/apex.jpg',
-      'rainbow six siege':'/static/games/r6.jpg',
-      'minecraft':'/static/games/minecraft.jpg',
-      'tekken 8':'/static/games/tekken8.jpg',
-      'street fighter 6':'/static/games/sf6.jpg',
-      'ea fc 24':'/static/games/eafc.jpg',
-      'ea fc 25':'/static/games/eafc25.jpg',
-      'f1':'/static/games/f1.jpg',
-      'special':'/static/games/special-event.jpg',
-      'themed':'/static/games/themed-night.jpg',
-      'community':'/static/games/community.jpg',
-      'cosplay':'/static/games/cosplay.jpg',
-      'retro':'/static/games/retro.jpg',
-      'generic':'/static/games/generic.jpg'
-    };
-    
-    function bannerFor(title){
-      if(!title) return GAME_IMAGES['generic']; 
-      const k=String(title).toLowerCase().trim(); 
-      if(GAME_IMAGES[k]) return GAME_IMAGES[k]; 
-      for(const t of Object.keys(GAME_IMAGES)){ 
-        if(k.includes(t)) return GAME_IMAGES[t]; 
-      } 
-      return GAME_IMAGES['generic'];
-    }
-    
-    function escapeHTML(s){
-      return String(s||'').replace(/[&<>\"']/g,m=>({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      }[m]));
-    }
-    
-    function emptyState(t,s){
-      return `<div class="loading">
-        <div class="spin"></div>
-        <h3 style="color:var(--primary);margin:12px 0;font-weight:700">${t}</h3>
-        <p style="color:var(--muted);margin:0">${s}</p>
-      </div>`;
-    }
-    
-    function networkError(msg){
-      return `<div class="loading" style="color:#ff9a78">
-        <h3 style="margin:12px 0;font-weight:700">Connection Error</h3>
-        <p style="margin:0 0 20px">${msg}</p>
-        <button onclick="location.reload()" class="btn" style="margin:0 auto;max-width:200px">
-          <span>Retry</span>
-        </button>
-      </div>`;
-    }
 
-    /* Enhanced Scrollspy */
+    const GAME_IMAGES={'valorant':'/static/games/valorant.jpg','horror':'/static/games/horror.jpg','cs2':'/static/games/cs2.jpg','counter-strike 2':'/static/games/cs2.jpg','league of legends':'/static/games/lol.jpg','dota 2':'/static/games/dota2.jpg','rocket league':'/static/games/rocket-league.jpg','overwatch 2':'/static/games/overwatch2.jpg','apex legends':'/static/games/apex.jpg','rainbow six siege':'/static/games/r6.jpg','minecraft':'/static/games/minecraft.jpg','tekken 8':'/static/games/tekken8.jpg','street fighter 6':'/static/games/sf6.jpg','ea fc 24':'/static/games/eafc.jpg','ea fc 25':'/static/games/eafc25.jpg','f1':'/static/games/f1.jpg','special':'/static/games/special-event.jpg','themed':'/static/games/themed-night.jpg','community':'/static/games/community.jpg','cosplay':'/static/games/cosplay.jpg','retro':'/static/games/retro.jpg','generic':'/static/games/generic.jpg'};
+    function bannerFor(title){if(!title) return GAME_IMAGES['generic']; const k=String(title).toLowerCase().trim(); if(GAME_IMAGES[k]) return GAME_IMAGES[k]; for(const t of Object.keys(GAME_IMAGES)){ if(k.includes(t)) return GAME_IMAGES[t]; } return GAME_IMAGES['generic'];}
+    function escapeHTML(s){return String(s||'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+    function emptyState(t,s){return `<div class="loading"><div class="spin"></div><h3 style="color:var(--primary);margin:12px 0;font-weight:700">${t}</h3><p style="color:var(--muted);margin:0">${s}</p></div>`;}
+    function networkError(msg){return `<div class="loading" style="color:#ff9a78"><h3 style="margin:12px 0;font-weight:700">Connection Error</h3><p style="margin:0 0 20px">${msg}</p><button onclick="location.reload()" class="btn" style="margin:0 auto;max-width:200px"><span>Retry</span></button></div>`;}
+
+    /* Scrollspy */
     (function(){
       const links=[...document.querySelectorAll('#spy a')];
       const secs=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
       if(!('IntersectionObserver' in window)) return;
-      
-      const io=new IntersectionObserver((es)=>{
-        es.forEach(e=>{
-          if(e.isIntersecting){
-            const id='#'+e.target.id;
-            links.forEach(l=>l.classList.toggle('active', l.getAttribute('href')===id));
-          }
-        });
-      },{rootMargin:'-30% 0px -60% 0px',threshold:0});
-      
+      const io=new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting){ const id='#'+e.target.id; links.forEach(l=>l.classList.toggle('active', l.getAttribute('href')===id)); } });},{rootMargin:'-30% 0px -60% 0px',threshold:0});
       secs.forEach(s=>io.observe(s));
     })();
 
-    /* Enhanced In-view reveals */
+    /* In-view reveals */
     (function(){
       const els=document.querySelectorAll('.reveal-in');
-      if(!('IntersectionObserver' in window)){ 
-        els.forEach(el=>el.classList.add('is-in')); 
-        return; 
-      }
-      
-      const io=new IntersectionObserver((es,o)=>{ 
-        es.forEach(ent=>{ 
-          if(ent.isIntersecting){ 
-            ent.target.classList.add('is-in'); 
-            o.unobserve(ent.target);
-          } 
-        }); 
-      },{rootMargin:'0px 0px -15% 0px',threshold:.08});
-      
+      if(!('IntersectionObserver' in window)){ els.forEach(el=>el.classList.add('is-in')); return; }
+      const io=new IntersectionObserver((es,o)=>{ es.forEach(ent=>{ if(ent.isIntersecting){ ent.target.classList.add('is-in'); o.unobserve(ent.target);} }); },{rootMargin:'0px 0px -15% 0px',threshold:.08});
       els.forEach(el=>io.observe(el));
     })();
 
-    /* Enhanced Parallax hero layers */
+    /* Parallax hero layers */
     (function(){
-      const layers=document.querySelectorAll('.hero .layer'); 
-      if(!layers.length) return;
-      
+      const layers=document.querySelectorAll('.hero .layer'); if(!layers.length) return;
       let mx=0,my=0,tx=0,ty=0,sy=0;
-      
-      window.addEventListener('mousemove',e=>{
-        const w=innerWidth,h=innerHeight; 
-        mx=(e.clientX/w-0.5)*2; 
-        my=(e.clientY/h-0.5)*2;
-      });
-      
-      window.addEventListener('scroll',()=>{
-        sy=scrollY||0;
-      },{passive:true});
-      
-      (function raf(){
-        tx+=(mx-tx)*.04; 
-        ty+=(my-ty)*.04;
-        
-        layers.forEach(el=>{
-          const d=parseFloat(el.dataset.depth||'0.1'); 
-          const x=-(tx*28*d); 
-          const y=(sy*d*.4)-(ty*18*d); 
-          el.style.transform=`translate3d(${x}px,${y}px,0)`;
-        });
-        
-        requestAnimationFrame(raf);
-      })();
+      window.addEventListener('mousemove',e=>{const w=innerWidth,h=innerHeight; mx=(e.clientX/w-0.5)*2; my=(e.clientY/h-0.5)*2;});
+      window.addEventListener('scroll',()=>{sy=scrollY||0;},{passive:true});
+      (function raf(){tx+=(mx-tx)*.04; ty+=(my-ty)*.04; layers.forEach(el=>{const d=parseFloat(el.dataset.depth||'0.1'); const x=-(tx*28*d); const y=(sy*d*.4)-(ty*18*d); el.style.transform=`translate3d(${x}px,${y}px,0)`;}); requestAnimationFrame(raf);})();
     })();
 
-    /* Enhanced 3D / lighting on cards */
+    /* 3D / lighting on cards */
     (function(){
       const items=()=>document.querySelectorAll('.card,.cal-item');
-      
       function bind(el){
         let r=null;
-        
         function set(e){
           r=el.getBoundingClientRect();
           const x=(e.clientX-r.left)/r.width, y=(e.clientY-r.top)/r.height;
-          el.style.setProperty('--px', `${x*100}%`);
-          el.style.setProperty('--py', `${y*100}%`);
-          const rx=(y-.5)*-8;  // Enhanced tilt
-          const ry=(x-.5)*8;   
-          el.style.setProperty('--rx', rx.toFixed(2)+'deg');
-          el.style.setProperty('--ry', ry.toFixed(2)+'deg');
+          el.style.setProperty('--px', `${x*100}%`); el.style.setProperty('--py', `${y*100}%`);
+          const rx=(y-.5)*-8, ry=(x-.5)*8; el.style.setProperty('--rx', rx.toFixed(2)+'deg'); el.style.setProperty('--ry', ry.toFixed(2)+'deg');
         }
-        
         el.addEventListener('mousemove', set);
-        el.addEventListener('mouseleave',()=>{
-          el.style.removeProperty('--rx'); 
-          el.style.removeProperty('--ry'); 
-          el.style.setProperty('--px','50%'); 
-          el.style.setProperty('--py','50%');
-        });
+        el.addEventListener('mouseleave',()=>{el.style.removeProperty('--rx'); el.style.removeProperty('--ry'); el.style.setProperty('--px','50%'); el.style.setProperty('--py','50%');});
       }
-      
-      const obs=new MutationObserver(()=>
-        items().forEach(b=>b.dataset.bound|| (bind(b), b.dataset.bound=1))
-      );
-      obs.observe(document.body,{subtree:true,childList:true});
-      items().forEach(b=>b.dataset.bound|| (bind(b), b.dataset.bound=1));
+      const obs=new MutationObserver(()=>items().forEach(b=>b.dataset.bound||(bind(b),b.dataset.bound=1)));
+      obs.observe(document.body,{subtree:true,childList:true}); items().forEach(b=>b.dataset.bound||(bind(b),b.dataset.bound=1));
     })();
 
-    /* Enhanced Lazy banners */
+    /* Lazy banners */
     function lazyBanners(){
       const els=document.querySelectorAll('.lazy-banner[data-src]');
-      if(!('IntersectionObserver' in window)){ 
-        els.forEach(e=>e.style.backgroundImage=`url('${e.dataset.src}')`); 
-        return; 
-      }
-      
-      const io=new IntersectionObserver((en,ob)=>{
-        en.forEach(x=>{
-          if(x.isIntersecting){
-            const el=x.target;
-            el.style.backgroundImage=`url('${el.dataset.src}')`;
-            el.removeAttribute('data-src');
-            ob.unobserve(el);
-          }
-        });
-      },{rootMargin:'300px'});
-      
+      if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=`url('${e.dataset.src}')`); return; }
+      const io=new IntersectionObserver((en,ob)=>{en.forEach(x=>{if(x.isIntersecting){const el=x.target; el.style.backgroundImage=`url('${el.dataset.src}')`; el.removeAttribute('data-src'); ob.unobserve(el);}});},{rootMargin:'300px'});
       els.forEach(e=>io.observe(e));
     }
 
-    /* Enhanced Stats with better animation */
+    /* Stats */
     async function loadStats(){
       try{
-        const r=await fetch('/api/events?upcoming=true',{credentials:'same-origin'}); 
-        if(!r.ok) throw new Error(`HTTP ${r.status}`);
-        
+        const r=await fetch('/api/events?upcoming=true',{credentials:'same-origin'}); if(!r.ok) throw new Error(`HTTP ${r.status}`);
         const j=await r.json();
         if(j.success && j.events){
           const publics=j.events.filter(e=>e.event_type!=='birthday');
           const tourns=publics.filter(e=>e.event_type==='tournament');
-          const games=publics.filter(e=>e.event_type==='games_night' || /games?\s*night/i.test(e.title||''));
+          const games=publics.filter(e=>e.event_type==='games_night' || /games?\\s*night/i.test(e.title||''));
           const special=publics.filter(e=>e.event_type==='special');
-          
-          // Enhanced animations with stagger
-          setTimeout(()=>flip('#upcomingCount',publics.length), 100);
-          setTimeout(()=>flip('#tournamentCount',tourns.length), 200);
-          setTimeout(()=>flip('#gamesNightCount',games.length), 300);
-          setTimeout(()=>flip('#specialEventCount',special.length), 400);
-        } else {
-          console.warn('No events data received');
+          setTimeout(()=>flip('#upcomingCount',publics.length),100);
+          setTimeout(()=>flip('#tournamentCount',tourns.length),200);
+          setTimeout(()=>flip('#gamesNightCount',games.length),300);
+          setTimeout(()=>flip('#specialEventCount',special.length),400);
         }
-      }catch(e){
-        console.error('Failed to load stats:', e);
-      }
+      }catch(e){console.error('Failed to load stats:',e);}
     }
-    
     function flip(sel,n,ms=1200){
-      const el=document.querySelector(sel); 
-      if(!el) return;
-      
-      const digits=Math.max(1, String(n).length); 
-      let cur=0; 
-      const speed=20, total=ms/speed; 
-      let k=0;
-      
-      const t=setInterval(()=>{
-        k++; 
-        const p=k/total;
-        
-        if(p<.75){ 
-          cur=Math.floor(Math.random()*Math.pow(10,digits)); 
-        }
-        else if(p<.92){ 
-          const ts=String(n).padStart(digits,'0'); 
-          let m=''; 
-          for(let i=0;i<digits;i++) 
-            m+=(Math.random()>.3)?ts[i]:Math.floor(Math.random()*10); 
-          cur=parseInt(m)||0; 
-        }
-        else { 
-          cur=n; 
-          clearInterval(t); 
-        }
-        
+      const el=document.querySelector(sel); if(!el) return;
+      const digits=Math.max(1,String(n).length); let cur=0; const speed=20,total=ms/speed; let k=0;
+      const t=setInterval(()=>{k++; const p=k/total;
+        if(p<.75){cur=Math.floor(Math.random()*Math.pow(10,digits));}
+        else if(p<.92){const ts=String(n).padStart(digits,'0'); let m=''; for(let i=0;i<digits;i++) m+=(Math.random()>.3)?ts[i]:Math.floor(Math.random()*10); cur=parseInt(m)||0;}
+        else {cur=n; clearInterval(t);}
         el.textContent=cur;
       },speed);
     }
 
-    /* Enhanced card builder */
+    /* Card HTML */
     function cardHTML({banner,pillText,pillClass,name,sub,dt,reg,cap,fee,id,description}){
-      const regText = cap ? `${reg}/${cap}` : reg;
-      
+      const regText=cap?`${reg}/${cap}`:reg;
       return `
         <article class="card reveal-in">
           <div class="banner img-reveal lazy-banner" data-src="${banner}"></div>
@@ -9437,95 +9206,44 @@ def events_overview_page():
               <div class="meta-item">${ICONS.users} ${regText} players</div>
               <div class="meta-item">${ICONS.fee} ${fee}</div>
             </div>
-            ${description ? `<p style="color:var(--muted);margin:8px 0 20px;line-height:1.4">${escapeHTML(description)}</p>` : ''}
-            <button class="btn" onclick="window.open('/signup/event/${id}','_blank')" ${pillClass==='warn'?'disabled':''}>
-              <span>${pillClass==='warn'?'Event Full':'Register Now'}</span>
-            </button>
+            ${description?`<p style="color:var(--muted);margin:8px 0 20px;line-height:1.4">${escapeHTML(description)}</p>`:''}
+            <button class="btn" onclick="window.open('/signup/event/${id}','_blank')" ${pillClass==='warn'?'disabled':''}><span>${pillClass==='warn'?'Event Full':'Register Now'}</span></button>
           </div>
         </article>`;
     }
 
-    /* Enhanced data loaders with better error handling */
+    /* Loaders */
     async function loadTournaments(){
       const grid=document.getElementById('tournaments-grid');
-      
       try{
-        const r=await fetch('/api/events?type=tournament&upcoming=true',{credentials:'same-origin'}); 
-        if(!r.ok) throw new Error(`HTTP ${r.status}`);
-        
+        const r=await fetch('/api/events?type=tournament&upcoming=true',{credentials:'same-origin'}); if(!r.ok) throw new Error(`HTTP ${r.status}`);
         const j=await r.json();
-        
         if(j.success && j.events && j.events.length){
           grid.innerHTML=j.events.map(ev=>{
-            const dt=new Date(ev.date_time);
-            const reg=ev.registration_count||0;
-            const cap=(ev.capacity||0)>0?ev.capacity:null;
-            const spots=cap?Math.max(cap-reg,0):null; 
-            
-            let pill='',text='Open Registration';
-            if(spots!==null){ 
-              if(spots===0){
-                pill='warn';
-                text='Full'
-              } else if(spots<=3){
-                pill='soon';
-                text=spots+' Spots Left'
-              } 
-            }
-            
-            const banner=bannerFor(ev.game_title||ev.title||'generic');
-            const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-            
-            return cardHTML({
-              banner,pillText:text,pillClass:pill,name:ev.title,
-              sub:ev.game_title||'Tournament',dt,reg,cap,fee,id:ev.id,
-              description:ev.description
-            });
+            const dt=new Date(ev.date_time), reg=ev.registration_count||0, cap=(ev.capacity||0)>0?ev.capacity:null;
+            const spots=cap?Math.max(cap-reg,0):null; let pill='',text='Open Registration';
+            if(spots!==null){ if(spots===0){pill='warn';text='Full'} else if(spots<=3){pill='soon';text=spots+' Spots Left'} }
+            const banner=bannerFor(ev.game_title||ev.title||'generic'); const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
+            return cardHTML({banner,pillText:text,pillClass:pill,name:ev.title,sub:ev.game_title||'Tournament',dt,reg,cap,fee,id:ev.id,description:ev.description});
           }).join('');
-        } else { 
-          grid.innerHTML=emptyState('No Upcoming Tournaments','New tournaments will be announced soon. Follow our socials for updates!'); 
-        }
-      }catch(e){ 
-        console.error('Tournament loading failed:', e);
-        grid.innerHTML=networkError('Couldn\'t load tournaments. Please check your connection and try again.'); 
-      }
-      
+        } else { grid.innerHTML=emptyState('No Upcoming Tournaments','New tournaments will be announced soon.'); }
+      }catch(e){ console.error('Tournament loading failed:',e); grid.innerHTML=networkError('Couldn\\'t load tournaments.'); }
       lazyBanners();
     }
 
     async function loadGamesNights(){
       const grid=document.getElementById('games-grid');
-      
       try{
-        let r=await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'}); 
-        if(!r.ok) throw new Error(`HTTP ${r.status}`);
-        
-        let j=await r.json();
-        let events=(j.success?j.events:[]).filter(Boolean);
-        
-        // Fallback search if no games_night type events
+        let r=await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'}); if(!r.ok) throw new Error(`HTTP ${r.status}`);
+        let j=await r.json(); let events=(j.success?j.events:[]).filter(Boolean);
         if(!events.length){
           const allR=await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
-          if(allR.ok){
-            const all=await allR.json();
-            if(all.success) {
-              events=all.events.filter(e=>
-                e.event_type!=='birthday' && 
-                /games?\s*night/i.test(e.title||'')
-              );
-            }
-          }
+          if(allR.ok){const all=await allR.json(); if(all.success) events=all.events.filter(e=>e.event_type!=='birthday' && /games?\\s*night/i.test(e.title||''));}
         }
-        
         if(events.length){
           grid.innerHTML=events.map(ev=>{
-            const dt=new Date(ev.date_time);
-            const banner=bannerFor(ev.game_title||ev.title||'generic');
-            const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE'; 
-            const cap=(ev.capacity||0)>0?ev.capacity:null; 
-            const reg=ev.registration_count||0;
-            const regText = cap ? `${reg}/${cap}` : reg;
-            
+            const dt=new Date(ev.date_time), banner=bannerFor(ev.game_title||ev.title||'generic');
+            const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE', cap=(ev.capacity||0)>0?ev.capacity:null, reg=ev.registration_count||0, regText=cap?`${reg}/${cap}`:reg;
             return `
               <article class="card reveal-in">
                 <div class="banner img-reveal lazy-banner" data-src="${banner}"></div>
@@ -9539,111 +9257,50 @@ def events_overview_page():
                     <div class="meta-item">${ICONS.users} ${regText} attending</div>
                     <div class="meta-item">${ICONS.fee} ${fee}</div>
                   </div>
-                  ${ev.description ? `<p style="color:var(--muted);margin:8px 0 20px;line-height:1.4">${escapeHTML(ev.description)}</p>` : ''}
-                  <button class="btn" onclick="window.open('/signup/event/${ev.id}','_blank')">
-                    <span>Save My Spot</span>
-                  </button>
+                  ${ev.description?`<p style="color:var(--muted);margin:8px 0 20px;line-height:1.4">${escapeHTML(ev.description)}</p>`:''}
+                  <button class="btn" onclick="window.open('/signup/event/${ev.id}','_blank')"><span>Save My Spot</span></button>
                 </div>
               </article>`;
           }).join('');
-        } else { 
-          grid.innerHTML=emptyState('No Upcoming Games Nights','Follow our socials and check back soon for casual gaming sessions!'); 
-        }
-      }catch(e){ 
-        console.error('Games nights loading failed:', e);
-        grid.innerHTML=networkError('Couldn\'t load games nights. Please check your connection and try again.'); 
-      }
-      
+        } else { grid.innerHTML=emptyState('No Upcoming Games Nights','Follow our socials and check back soon.'); }
+      }catch(e){ console.error('Games nights loading failed:',e); grid.innerHTML=networkError('Couldn\\'t load games nights.'); }
       lazyBanners();
     }
 
     async function loadSpecialEvents(){
       const grid=document.getElementById('special-grid');
-      
       try{
-        const r=await fetch('/api/events?type=special&upcoming=true',{credentials:'same-origin'}); 
-        if(!r.ok) throw new Error(`HTTP ${r.status}`);
-        
+        const r=await fetch('/api/events?type=special&upcoming=true',{credentials:'same-origin'}); if(!r.ok) throw new Error(`HTTP ${r.status}`);
         const j=await r.json();
-        
         if(j.success && j.events && j.events.length){
           grid.innerHTML=j.events.map(ev=>{
-            const dt=new Date(ev.date_time);
-            const reg=ev.registration_count||0;
-            const cap=(ev.capacity||0)>0?ev.capacity:null;
-            const spots=cap?Math.max(cap-reg,0):null; 
-            
-            let pill='',text='Available';
-            if(spots!==null){ 
-              if(spots===0){
-                pill='warn';
-                text='Full'
-              } else if(spots<=3){
-                pill='soon';
-                text=spots+' Spots Left'
-              } 
-            }
-            
-            const banner=bannerFor(ev.game_title||ev.title||'special');
-            const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-            
-            return cardHTML({
-              banner,pillText:text,pillClass:pill,name:ev.title,
-              sub:ev.game_title||'Special Event',dt,reg,cap,fee,id:ev.id,
-              description:ev.description
-            });
+            const dt=new Date(ev.date_time), reg=ev.registration_count||0, cap=(ev.capacity||0)>0?ev.capacity:null;
+            const spots=cap?Math.max(cap-reg,0):null; let pill='',text='Available';
+            if(spots!==null){ if(spots===0){pill='warn';text='Full'} else if(spots<=3){pill='soon';text=spots+' Spots Left'} }
+            const banner=bannerFor(ev.game_title||ev.title||'special'); const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
+            return cardHTML({banner,pillText:text,pillClass:pill,name:ev.title,sub:ev.game_title||'Special Event',dt,reg,cap,fee,id:ev.id,description:ev.description});
           }).join('');
-        } else { 
-          grid.innerHTML=emptyState('No Upcoming Special Events','New special events will be announced soon. Stay tuned!'); 
-        }
-      }catch(e){ 
-        console.error('Special events loading failed:', e);
-        grid.innerHTML=networkError('Couldn\'t load special events. Please check your connection and try again.'); 
-      }
-      
+        } else { grid.innerHTML=emptyState('No Upcoming Special Events','New special events will be announced soon.'); }
+      }catch(e){ console.error('Special events loading failed:',e); grid.innerHTML=networkError('Couldn\\'t load special events.'); }
       lazyBanners();
     }
 
     async function loadCalendar(){
       const grid=document.getElementById('cal-grid');
-      
       try{
-        const r=await fetch('/api/events?upcoming=true',{credentials:'same-origin'}); 
-        if(!r.ok) throw new Error(`HTTP ${r.status}`);
-        
+        const r=await fetch('/api/events?upcoming=true',{credentials:'same-origin'}); if(!r.ok) throw new Error(`HTTP ${r.status}`);
         const j=await r.json();
-        
         if(j.success && j.events && j.events.length){
-          const items=j.events
-            .filter(e=>e.event_type!=='birthday')
-            .sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
-            
-          if(!items.length){ 
-            grid.innerHTML=emptyState('No Upcoming Public Events','New events will appear here soon. Check back regularly!'); 
-            return; 
-          }
-          
+          const items=j.events.filter(e=>e.event_type!=='birthday').sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
+          if(!items.length){ grid.innerHTML=emptyState('No Upcoming Public Events','New events will appear here soon.'); return; }
           grid.innerHTML=items.map(ev=>{
-            const dt=new Date(ev.date_time); 
-            const m=dt.toLocaleDateString('en-GB',{month:'short'}); 
-            const d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
-            const banner=bannerFor(ev.game_title||ev.title||'generic'); 
-            const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE'; 
-            const cap=(ev.capacity||0)>0?ev.capacity:null; 
-            const reg=ev.registration_count||0;
-            const regText = cap ? `${reg}/${cap}` : reg;
-            
-            const typ=ev.event_type==='tournament'?'Tournament':
-                     (ev.event_type==='games_night'?'Games Night':
-                     (ev.event_type==='special'?'Special':'Event'));
-            
+            const dt=new Date(ev.date_time), m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
+            const banner=bannerFor(ev.game_title||ev.title||'generic'), fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE', cap=(ev.capacity||0)>0?ev.capacity:null, reg=ev.registration_count||0, regText=cap?`${reg}/${cap}`:reg;
+            const typ=ev.event_type==='tournament'?'Tournament':(ev.event_type==='games_night'?'Games Night':(ev.event_type==='special'?'Special':'Event'));
             return `
               <article class="cal-item reveal-in">
                 <div class="cal-banner img-reveal lazy-banner" data-src="${banner}">
-                  <div class="cal-date">
-                    <span class="m">${m}</span>
-                    <span class="d">${d}</span>
-                  </div>
+                  <div class="cal-date"><span class="m">${m}</span><span class="d">${d}</span></div>
                 </div>
                 <div class="cal-body">
                   <span class="cal-type">${escapeHTML(typ)}</span>
@@ -9659,57 +9316,21 @@ def events_overview_page():
                 </div>
               </article>`;
           }).join('');
-        } else { 
-          grid.innerHTML=emptyState('No Upcoming Public Events','Check back soon for new tournaments, game nights & special events!'); 
-        }
-      }catch(e){ 
-        console.error('Calendar loading failed:', e);
-        grid.innerHTML=networkError('Couldn\'t load calendar. Please check your connection and try again.'); 
-      }
-      
+        } else { grid.innerHTML=emptyState('No Upcoming Public Events','Check back soon for new tournaments, game nights & special events!'); }
+      }catch(e){ console.error('Calendar loading failed:',e); grid.innerHTML=networkError('Couldn\\'t load calendar.'); }
       lazyBanners();
     }
 
-    /* Enhanced Boot sequence */
+    /* Boot */
     (function boot(){
-      // Load stats immediately
       loadStats();
-      
-      // Load tournaments first (above fold)
       loadTournaments();
-      
-      // Lazy load remaining sections
-      const sectionLoaders = new Map([
-        ['#games', loadGamesNights],
-        ['#special', loadSpecialEvents],
-        ['#calendar', loadCalendar]
-      ]);
-      
+      const sectionLoaders=new Map([['#games',loadGamesNights],['#special',loadSpecialEvents],['#calendar',loadCalendar]]);
       if('IntersectionObserver' in window){
-        const io=new IntersectionObserver((es,o)=>{
-          es.forEach(ent=>{
-            if(ent.isIntersecting){
-              const id='#'+ent.target.id;
-              if(sectionLoaders.has(id)){ 
-                sectionLoaders.get(id)(); 
-                sectionLoaders.delete(id); 
-              }
-              o.unobserve(ent.target);
-            }
-          });
-        },{rootMargin:'0px 0px -20% 0px',threshold:.05});
-        
-        for(const id of sectionLoaders.keys()){ 
-          const el=document.querySelector(id); 
-          if(el) io.observe(el); 
-        }
-      } else { 
-        // Fallback for older browsers
-        for(const fn of sectionLoaders.values()) fn(); 
-      }
-      
-      // Refresh stats periodically
-      setInterval(loadStats, 180000); // Every 3 minutes
+        const io=new IntersectionObserver((es,o)=>{es.forEach(ent=>{if(ent.isIntersecting){const id='#'+ent.target.id; if(sectionLoaders.has(id)){sectionLoaders.get(id)(); sectionLoaders.delete(id);} o.unobserve(ent.target);}});},{rootMargin:'0px 0px -20% 0px',threshold:.05});
+        for(const id of sectionLoaders.keys()){const el=document.querySelector(id); if(el) io.observe(el);}
+      } else { for(const fn of sectionLoaders.values()) fn(); }
+      setInterval(loadStats,180000);
     })();
   </script>
 </body>
@@ -9719,6 +9340,7 @@ def events_overview_page():
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
     return resp
+
 
 # =============================
 # Main

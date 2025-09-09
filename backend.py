@@ -8768,6 +8768,7 @@ def birthday_booking_page():
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
         
+
 @app.route('/events', methods=['GET'])
 def events_overview_page():
     """Public events overview page – tournaments, birthdays, and a public calendar"""
@@ -8789,7 +8790,7 @@ def events_overview_page():
       --border:rgba(255,255,255,.06);
       --special:#8B5FBF;
     }
-    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;cursor:none}
+    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden}
 
     /* Opening reveal animation */
     .reveal-overlay{position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1s ease,visibility 1s ease}
@@ -8842,23 +8843,22 @@ def events_overview_page():
       *{animation:none!important;transition:none!important}
       .reveal-overlay{display:none}
       .page-content,.reveal-element,.stat{opacity:1!important;transform:none!important}
+      .parallax-bg,.parallax-element{transform:none!important}
     }
-
-    /* Cursor */
-    .cursor{width:20px;height:20px;border:2px solid var(--primary);border-radius:50%;position:fixed;pointer-events:none;transition:all .1s ease;z-index:9999;mix-blend-mode:difference}
-    .cursor-f{width:40px;height:40px;background:rgba(255,215,0,.1);border-radius:50%;position:fixed;pointer-events:none;transition:all .3s ease;z-index:9998}
-    .cursor.active{transform:scale(.5);background:var(--primary)}
 
     /* Noise overlay */
     body::before{content:'';position:fixed;inset:0;background:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.03"/%3E%3C/svg%3E');pointer-events:none;z-index:1}
 
-    /* Hero */
+    /* Hero with parallax */
     .hero{min-height:92vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,rgba(255,215,0,.05) 0%,transparent 70%)}
     .hero-bg{position:absolute;inset:0;overflow:hidden}
     .hero-bg::before{content:'';position:absolute;width:200%;height:200%;top:-50%;left:-50%;background:conic-gradient(from 0deg at 50% 50%,var(--primary) 0deg,transparent 60deg,transparent 300deg,var(--accent) 360deg);animation:spin 30s linear infinite;opacity:.1}
     @keyframes spin{100%{transform:rotate(360deg)}}
+    
+    /* Parallax floating shapes */
     .floating-shapes{position:absolute;inset:0}
     .shape{position:absolute;border:1px solid rgba(255,215,0,0.2);animation:float 20s infinite ease-in-out}
+    .shape.parallax-element{transition:transform 0.3s ease-out}
     .shape:nth-child(1){width:300px;height:300px;top:10%;left:10%;border-radius:30% 70% 70% 30%/30% 30% 70% 70%}
     .shape:nth-child(2){width:220px;height:220px;top:60%;right:10%;border-radius:63% 37% 54% 46%/55% 48% 52% 45%}
     .shape:nth-child(3){width:160px;height:160px;bottom:10%;left:30%;border-radius:40% 60% 60% 40%/60% 30% 70% 40%}
@@ -8878,8 +8878,9 @@ def events_overview_page():
     @keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(10px)}}
     @keyframes scroll{0%{opacity:0;transform:translateX(-50%) translateY(0)}50%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
 
-    /* Main */
-    .wrap{max-width:1400px;margin:0 auto;padding:90px 20px}
+    /* Main with subtle parallax */
+    .wrap{max-width:1400px;margin:0 auto;padding:90px 20px;position:relative}
+    .parallax-bg{position:absolute;top:-20%;left:0;right:0;height:120%;background:linear-gradient(135deg,rgba(255,215,0,.01) 0%,transparent 50%,rgba(255,107,53,.01) 100%);z-index:-1}
 
     /* Tabs */
     .tabs{display:flex;justify-content:center;gap:8px;margin-bottom:64px;position:relative;flex-wrap:wrap}
@@ -8899,9 +8900,10 @@ def events_overview_page():
     .section-title::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:64px;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:2px}
     .section-sub{color:var(--muted);max-width:680px;margin:0 auto}
 
-    /* Cards */
+    /* Cards with subtle parallax */
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px}
     .card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease;position:relative}
+    .card.parallax-element{transition:transform .25s ease,border-color .25s ease}
     .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--primary),transparent);opacity:0;transition:opacity .3s ease}
     .card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
     .card:hover::before{opacity:1}
@@ -8928,6 +8930,7 @@ def events_overview_page():
     /* Calendar - Vertical card layout like Special Events */
     .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px}
     .cal-item{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease;position:relative}
+    .cal-item.parallax-element{transition:transform .25s ease,border-color .25s ease}
     .cal-item::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--primary),transparent);opacity:0;transition:opacity .3s ease}
     .cal-item:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
     .cal-item:hover::before{opacity:1}
@@ -8960,6 +8963,7 @@ def events_overview_page():
     /* Quick actions */
     .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;margin-top:64px}
     .q-card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;padding:36px;text-align:center;transition:all .3s ease;cursor:pointer}
+    .q-card.parallax-element{transition:all .3s ease}
     .q-card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.3);box-shadow:0 20px 40px rgba(255,215,0,.08)}
     .q-title{font-size:1.1rem;font-weight:900;color:var(--primary);margin-bottom:10px}
     .q-text{color:var(--muted);margin-bottom:18px}
@@ -8969,8 +8973,6 @@ def events_overview_page():
     .q-btn:hover::before{left:100%}
 
     @media (max-width:768px){
-      body{cursor:auto}
-      .cursor,.cursor-f{display:none!important}
       .grid{grid-template-columns:1fr;gap:16px}
       .stats{gap:16px;flex-wrap:wrap}
       .stat .num{font-size:2.2rem}
@@ -8991,12 +8993,6 @@ def events_overview_page():
       .cal-meta{grid-template-columns:1fr;gap:8px}
       .cal-meta-item{font-size:.85rem}
     }
-
-    /* Disable custom cursor on problematic browsers */
-    @supports not (mix-blend-mode: difference) {
-      body{cursor:auto!important}
-      .cursor,.cursor-f{display:none!important}
-    }
   </style>
 </head>
 <body>
@@ -9011,12 +9007,14 @@ def events_overview_page():
 
   <!-- Page Content -->
   <div class="page-content" id="pageContent">
-    <div class="cursor"></div><div class="cursor-f"></div>
-
     <!-- Hero -->
     <section class="hero reveal-element" aria-label="Events hero">
       <div class="hero-bg">
-        <div class="floating-shapes"><div class="shape"></div><div class="shape"></div><div class="shape"></div></div>
+        <div class="floating-shapes">
+          <div class="shape parallax-element"></div>
+          <div class="shape parallax-element"></div>
+          <div class="shape parallax-element"></div>
+        </div>
       </div>
       <div class="hero-content">
         <h1 class="title reveal-element">LEVEL UP YOUR GAME</h1>
@@ -9033,6 +9031,8 @@ def events_overview_page():
 
     <!-- Main -->
     <main class="wrap reveal-element">
+      <div class="parallax-bg"></div>
+      
       <!-- Tabs -->
       <div class="tabs reveal-element" role="tablist" aria-label="Events navigation">
         <button class="tab" role="tab" aria-selected="true" id="tab-tournaments" aria-controls="panel-tournaments">Tournaments</button>
@@ -9082,7 +9082,7 @@ def events_overview_page():
           <p class="section-sub">Two packages. Same premium energy. Pick your playstyle.</p>
         </div>
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
-          <article class="card">
+          <article class="card parallax-element">
             <div class="banner lazy-banner" data-src="/static/games/party-consoles.jpg"></div>
             <div class="body">
               <span class="pill ok">Available</span>
@@ -9096,7 +9096,7 @@ def events_overview_page():
             </div>
           </article>
 
-          <article class="card">
+          <article class="card parallax-element">
             <div class="banner lazy-banner" data-src="/static/games/flex-gaming.jpg"></div>
             <div class="body">
               <span class="pill ok">Available</span>
@@ -9123,19 +9123,9 @@ def events_overview_page():
         </div>
 
         <div class="quick">
-          <div class="q-card" onclick="location.href='/signup'">
+          <div class="q-card parallax-element" onclick="location.href='/signup'">
             <div class="q-title">Join Our Community</div>
             <div class="q-text">Get notified about new tournaments and game nights.</div>
-            <button class="q-btn">Subscribe to Updates</button>
-          </div>
-          <div class="q-card" onclick="window.open('https://discord.gg/CuwQM7Zwuk','_blank')">
-            <div class="q-title">Tournament Discord</div>
-            <div class="q-text">Connect with players, teams, and admins in real time.</div>
-            <button class="q-btn">Open Discord</button>
-          </div>
-          <div class="q-card" onclick="location.href='tel:012279915058'">
-            <div class="q-title">Need Help?</div>
-            <div class="q-text">Questions about events or bookings? We're here for you.</div>
             <button class="q-btn">01227 915058</button>
           </div>
         </div>
@@ -9198,6 +9188,56 @@ def events_overview_page():
       if(pageContent) pageContent.classList.add('revealed');
       document.querySelectorAll('.reveal-element,.stat').forEach(el=>el.classList.add('animate'));
       loadStats();
+    }
+
+    /* ---------------- Parallax Effects ---------------- */
+    function initParallax(){
+      let scrollY = window.pageYOffset;
+      
+      function updateParallax(){
+        scrollY = window.pageYOffset;
+        
+        // Parallax for floating shapes in hero
+        const shapes = document.querySelectorAll('.floating-shapes .parallax-element');
+        shapes.forEach((shape, index) => {
+          const speed = 0.5 + (index * 0.1); // Different speeds for each shape
+          const yPos = -(scrollY * speed);
+          shape.style.transform = `translateY(${yPos}px)`;
+        });
+        
+        // Parallax for background elements
+        const parallaxBg = document.querySelector('.parallax-bg');
+        if(parallaxBg) {
+          const yPos = -(scrollY * 0.3);
+          parallaxBg.style.transform = `translateY(${yPos}px)`;
+        }
+        
+        // Subtle parallax for cards
+        const cards = document.querySelectorAll('.card.parallax-element, .cal-item.parallax-element, .q-card.parallax-element');
+        cards.forEach((card, index) => {
+          const rect = card.getBoundingClientRect();
+          const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+          
+          if(isVisible) {
+            const speed = 0.05 + (index % 3) * 0.02; // Very subtle movement
+            const yPos = -(scrollY * speed);
+            card.style.transform = `translateY(${yPos}px)`;
+          }
+        });
+      }
+      
+      // Throttled scroll listener
+      let ticking = false;
+      function onScroll(){
+        if(!ticking) {
+          requestAnimationFrame(updateParallax);
+          ticking = true;
+          setTimeout(() => ticking = false, 16); // ~60fps
+        }
+      }
+      
+      window.addEventListener('scroll', onScroll, { passive: true });
+      updateParallax(); // Initial call
     }
 
     /* ---------------- Icons (inline SVG) ---------------- */
@@ -9293,10 +9333,6 @@ def events_overview_page():
         }
       }catch(e){ console.warn('stats err', e); }
     }
-    function animate(sel, target){
-      const el=document.querySelector(sel); const dur=900, steps=24, inc=(+target)/steps; let cur=0;
-      const t=setInterval(()=>{cur+=inc; if(cur>=target){el.textContent=target;clearInterval(t)} else {el.textContent=Math.floor(cur)}}, dur/steps);
-    }
 
     /* ---------------- Special Events loader ---------------- */
     async function loadSpecialEvents(){
@@ -9320,6 +9356,7 @@ def events_overview_page():
               dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
           }).join('');
           lazyMountBanners();
+          addParallaxToCards();
         }else{
           grid.innerHTML = emptyState('No upcoming special events','New special events will be announced soon.');
         }
@@ -9346,6 +9383,7 @@ def events_overview_page():
               dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
           }).join('');
           lazyMountBanners();
+          addParallaxToCards();
         }else{
           grid.innerHTML = emptyState('No upcoming tournaments','New tournaments will be announced soon.');
         }
@@ -9376,7 +9414,7 @@ def events_overview_page():
             const cap = (ev.capacity||0)>0?ev.capacity:null;
             const reg = ev.registration_count||0;
             return `
-              <article class="card">
+              <article class="card parallax-element">
                 <div class="banner lazy-banner" data-src="${banner}"></div>
                 <div class="body">
                   <span class="pill ok">Open</span>
@@ -9385,15 +9423,16 @@ def events_overview_page():
                   <div class="meta">
                     <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
                     <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                    <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} attending</div>
+                    <div class="meta-item">${ICONS.users} ${reg}${cap?\`/\${cap}\`:''} attending</div>
                     <div class="meta-item">${ICONS.fee} ${fee}</div>
                   </div>
-                  ${ev.description ? `<p class="sub" style="color:var(--muted);font-weight:600;margin-bottom:16px">${escapeHTML(ev.description)}</p>` : ''}
+                  ${ev.description ? \`<p class="sub" style="color:var(--muted);font-weight:600;margin-bottom:16px">${escapeHTML(ev.description)}</p>\` : ''}
                   <button class="btn" onclick="window.open('/signup/event/${ev.id}','_blank')">Save My Spot</button>
                 </div>
-              </article>`;
+              </article>\`;
           }).join('');
           lazyMountBanners();
+          addParallaxToCards();
         }else{
           grid.innerHTML = emptyState('No upcoming games nights','Follow our socials and check back soon.');
         }
@@ -9423,8 +9462,8 @@ def events_overview_page():
             const reg = ev.registration_count||0;
             const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : (ev.event_type==='special' ? 'Special Event' : 'Event'));
             const typClass = ev.event_type==='tournament' ? 'tournament' : (ev.event_type==='games_night' ? 'games_night' : (ev.event_type==='special' ? 'special' : 'tournament'));
-            return `
-              <article class="cal-item">
+            return \`
+              <article class="cal-item parallax-element">
                 <div class="cal-banner lazy-banner" data-src="${banner}">
                   <div class="cal-date-overlay">
                     <span class="month">${m}</span>
@@ -9438,15 +9477,16 @@ def events_overview_page():
                   <div class="cal-meta">
                     <div class="cal-meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
                     <div class="cal-meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                    <div class="cal-meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
+                    <div class="cal-meta-item">${ICONS.users} ${reg}${cap?\`/\${cap}\`:''}</div>
                     <div class="cal-meta-item">${ICONS.fee} ${fee}</div>
                   </div>
-                  ${ev.description ? `<div class="cal-description">${escapeHTML(ev.description)}</div>` : ''}
+                  ${ev.description ? \`<div class="cal-description">${escapeHTML(ev.description)}</div>\` : ''}
                   <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
                 </div>
-              </article>`;
+              </article>\`;
           }).join('');
           lazyMountBanners();
+          addParallaxToCards();
         }else{
           grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments, game nights & special events.');
         }
@@ -9457,39 +9497,33 @@ def events_overview_page():
 
     /* ---------------- Helpers ---------------- */
     function escapeHTML(s){return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-    function emptyState(t,s){return `<div class="loading"><h3 style="color:var(--primary);margin-bottom:10px">${t}</h3><p>${s}</p></div>`;}
-    function networkError(msg){return `<div class="loading" style="color:#ff9a78"><h3>Connection Error</h3><p>${msg}</p><button onclick="location.reload()" class="q-btn" style="margin-top:12px">Retry</button></div>`;}
+    function emptyState(t,s){return \`<div class="loading"><h3 style="color:var(--primary);margin-bottom:10px">${t}</h3><p>${s}</p></div>\`;}
+    function networkError(msg){return \`<div class="loading" style="color:#ff9a78"><h3>Connection Error</h3><p>${msg}</p><button onclick="location.reload()" class="q-btn" style="margin-top:12px">Retry</button></div>\`;}
 
     // Lazy mount banners for .lazy-banner elements
     function lazyMountBanners(){
       const els = document.querySelectorAll('.lazy-banner[data-src]');
-      if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=`url('${e.dataset.src}')`); return; }
+      if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=\`url('\${e.dataset.src}')\`); return; }
       const io = new IntersectionObserver((entries,obs)=>{
         entries.forEach(ent=>{
           if(ent.isIntersecting){
-            const el=ent.target; el.style.backgroundImage=`url('${el.dataset.src}')`; el.removeAttribute('data-src'); obs.unobserve(el);
+            const el=ent.target; el.style.backgroundImage=\`url('\${el.dataset.src}')\`; el.removeAttribute('data-src'); obs.unobserve(el);
           }
         });
       },{rootMargin:'200px'});
       els.forEach(e=>io.observe(e));
     }
 
-    // Cursor polish
-    (function(){
-      const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-f');
-      if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
-      document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
-      (function follow(){fx+=(mx-fx)*.12;fy+=(my-fy)*.12;f.style.transform=`translate(${fx-20}px,${fy-20}px)`;requestAnimationFrame(follow)})();
-      document.querySelectorAll('a,button,.card,.cal-item').forEach(el=>{
-        el.addEventListener('mouseenter',()=>c.classList.add('active'));
-        el.addEventListener('mouseleave',()=>c.classList.remove('active'));
-      });
-    })();
+    // Add parallax class to dynamically created cards
+    function addParallaxToCards(){
+      const cards = document.querySelectorAll('.card:not(.parallax-element), .cal-item:not(.parallax-element)');
+      cards.forEach(card => card.classList.add('parallax-element'));
+    }
 
     // Reusable card HTML
     function cardHTML({banner,pillText,pillClass,name,sub,dt,reg,cap,fee,id,description}){
-      return `
-        <article class="card">
+      return \`
+        <article class="card parallax-element">
           <div class="banner lazy-banner" data-src="${banner}"></div>
           <div class="body">
             <span class="pill ${pillClass}">${pillText}</span>
@@ -9498,15 +9532,15 @@ def events_overview_page():
             <div class="meta">
               <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
               <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-              <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} players</div>
+              <div class="meta-item">${ICONS.users} ${reg}${cap?\`/\${cap}\`:''} players</div>
               <div class="meta-item">${ICONS.fee} ${fee}</div>
             </div>
-            ${description ? `<p style="color:var(--muted);margin:6px 0 14px">${escapeHTML(description)}</p>` : ''}
+            ${description ? \`<p style="color:var(--muted);margin:6px 0 14px">${escapeHTML(description)}</p>\` : ''}
             <button class="btn" onclick="window.open('/signup/event/${id}','_blank')" ${pillClass==='warn'?'disabled':''}>
               ${pillClass==='warn'?'Full':'Register Now'}
             </button>
           </div>
-        </article>`;
+        </article>\`;
     }
 
     // Mechanical flip counter animation (like old clocks)
@@ -9561,49 +9595,6 @@ def events_overview_page():
       flipNumber(el, target);
     }
 
-    // Floating particles system
-    function createParticles(){
-      const container = document.getElementById('heroParticles');
-      if(!container) return;
-      
-      function addParticle(){
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.animationDelay = Math.random() * 2 + 's';
-        container.appendChild(particle);
-        
-        // Remove after animation
-        setTimeout(()=>particle.remove(), 20000);
-      }
-      
-      // Create initial particles
-      for(let i=0;i<8;i++){
-        setTimeout(addParticle, i*2000);
-      }
-      
-      // Continue creating particles
-      setInterval(addParticle, 3000);
-    }
-
-    // Magnetic hover effects
-    function addMagneticEffects(){
-      document.querySelectorAll('.card,.q-card,.cal-item').forEach(card=>{
-        card.addEventListener('mousemove',e=>{
-          const rect = card.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width) * 100;
-          const y = ((e.clientY - rect.top) / rect.height) * 100;
-          card.style.setProperty('--mouse-x', x + '%');
-          card.style.setProperty('--mouse-y', y + '%');
-        });
-        
-        card.addEventListener('mouseleave',()=>{
-          card.style.removeProperty('--mouse-x');
-          card.style.removeProperty('--mouse-y');
-        });
-      });
-    }
-
     // Enhanced button ripple effect
     function addRippleEffect(){
       document.querySelectorAll('.btn,.cal-btn,.q-btn').forEach(btn=>{
@@ -9613,19 +9604,19 @@ def events_overview_page():
           const y = e.clientY - rect.top;
           
           const ripple = document.createElement('span');
-          ripple.style.cssText = `
+          ripple.style.cssText = \`
             position:absolute;
             border-radius:50%;
             background:rgba(255,255,255,.6);
             transform:scale(0);
             animation:ripple 0.6s linear;
-            left:${x}px;
-            top:${y}px;
+            left:\${x}px;
+            top:\${y}px;
             width:40px;
             height:40px;
             margin-left:-20px;
             margin-top:-20px;
-          `;
+          \`;
           
           btn.appendChild(ripple);
           setTimeout(()=>ripple.remove(), 600);
@@ -9643,10 +9634,15 @@ def events_overview_page():
       // Start reveal animation immediately
       startRevealSequence();
       
-      // Initialize enhancement effects
+      // Initialize parallax effects
       setTimeout(()=>{
-        createParticles();
-        addMagneticEffects();
+        if(window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+          initParallax();
+        }
+      }, 4200);
+      
+      // Initialize other enhancement effects
+      setTimeout(()=>{
         addRippleEffect();
       }, 4200);
       

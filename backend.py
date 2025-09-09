@@ -8768,7 +8768,6 @@ def birthday_booking_page():
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
         
-
 @app.route('/events', methods=['GET'])
 def events_overview_page():
     """Public events overview page – tournaments, birthdays, and a public calendar"""
@@ -8803,6 +8802,8 @@ def events_overview_page():
       --gradient-1:linear-gradient(135deg, var(--primary) 0%, var(--accent) 50%, var(--secondary) 100%);
       --gradient-2:linear-gradient(225deg, var(--tertiary) 0%, var(--secondary) 100%);
       --noise:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.02"/%3E%3C/svg%3E');
+      /* thermal effect */
+      --heat-opacity:.12;
     }
     
     html{scroll-behavior:smooth;scroll-snap-type:y proximity}
@@ -8815,7 +8816,17 @@ def events_overview_page():
             var(--noise);
         background-size:20px 20px, auto;
     }
-
+    /* thermal “bloom” over the dotted grid */
+    body::after{
+      content:'';
+      position:fixed; inset:0; z-index:1; pointer-events:none;
+      background:
+        radial-gradient(120px 120px at var(--mx,-200px) var(--my,-200px),
+          rgba(255,215,0,var(--heat-opacity)),
+          rgba(255,107,53, calc(var(--heat-opacity)*.5)) 45%,
+          rgba(0,0,0,0) 70%);
+      mix-blend-mode:screen; opacity:.35; transition:opacity .2s ease;
+    }
 
     /* Simple reveal animation - 2 seconds max */
     .reveal-overlay{position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 0.8s ease,visibility 0.8s ease}
@@ -8825,29 +8836,18 @@ def events_overview_page():
     .reveal-loader{margin-top:30px;width:200px;height:2px;background:rgba(255,255,255,.1);border-radius:1px;overflow:hidden;opacity:0;animation:fadeIn 0.3s ease 1.2s forwards}
     .reveal-progress{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));width:0;animation:loadProgress 0.6s ease-out 1.5s forwards}
 
-    @keyframes logoReveal{
-    0%{opacity:0;transform:scale(0.9) translateY(20px)}
-    100%{opacity:1;transform:scale(1) translateY(0)}
-    }
+    @keyframes logoReveal{0%{opacity:0;transform:scale(0.9) translateY(20px)}100%{opacity:1;transform:scale(1) translateY(0)}}
     @keyframes fadeInUp{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
     @keyframes loadProgress{from{width:0}to{width:100%}}
 
-    /* Page transitions */
-    .page-content{
-      opacity:0;transform:translateY(50px);
-      transition:all 2s cubic-bezier(0.77,0,0.175,1);
-    }
+    .page-content{opacity:0;transform:translateY(50px);transition:all 2s cubic-bezier(0.77,0,0.175,1)}
     .page-content.revealed{opacity:1;transform:translateY(0)}
 
-    /* Scroll-triggered animations */
-    .reveal-element{
-      opacity:0;transform:translateY(80px) rotateX(10deg);
-      transition:all 1.2s cubic-bezier(0.77,0,0.175,1);
-    }
+    .reveal-element{opacity:0;transform:translateY(80px) rotateX(10deg);transition:all 1.2s cubic-bezier(0.77,0,0.175,1)}
     .reveal-element.animate{opacity:1;transform:translateY(0) rotateX(0)}
 
-    /* Hero section - Awwwards style */
+    /* Hero section */
     .hero{
       min-height:100vh;display:flex;align-items:center;justify-content:center;
       position:relative;overflow:hidden;
@@ -8859,7 +8859,6 @@ def events_overview_page():
         linear-gradient(180deg, var(--dark) 0%, var(--dark-2) 50%, var(--dark-3) 100%);
     }
 
-    /* Animated background */
     .hero-bg{position:absolute;inset:0;overflow:hidden}
     .hero-bg::before{
       content:'';position:absolute;width:200%;height:200%;top:-50%;left:-50%;
@@ -8868,41 +8867,16 @@ def events_overview_page():
         var(--accent) 120deg, transparent 180deg,
         var(--secondary) 240deg, transparent 300deg,
         var(--tertiary) 360deg);
-      animation:rotate 60s linear infinite;opacity:.03;
-      filter:blur(2px);
+      animation:rotate 60s linear infinite;opacity:.03;filter:blur(2px);
     }
     @keyframes rotate{100%{transform:rotate(360deg)}}
 
-    /* Floating geometric shapes */
     .floating-shapes{position:absolute;inset:0}
-    .shape{
-      position:absolute;border:1px solid rgba(255,215,0,0.1);
-      animation:floatComplex 30s infinite cubic-bezier(0.4,0.0,0.2,1);
-      backdrop-filter:blur(1px);
-    }
-    .shape:nth-child(1){
-      width:400px;height:400px;top:5%;left:5%;
-      border-radius:60% 40% 40% 60%/60% 40% 60% 40%;
-      animation-delay:-8s;
-      border-color:rgba(255,215,0,0.08);
-    }
-    .shape:nth-child(2){
-      width:300px;height:300px;top:50%;right:8%;
-      border-radius:40% 60% 60% 40%/40% 60% 40% 60%;
-      border-color:rgba(255,107,53,0.06);
-      animation-delay:-16s;
-    }
-    .shape:nth-child(3){
-      width:200px;height:200px;bottom:10%;left:30%;
-      border-radius:50%;border-color:rgba(139,95,191,0.05);
-      animation-delay:-24s;
-    }
-    .shape:nth-child(4){
-      width:150px;height:150px;top:20%;right:25%;
-      border-radius:30% 70% 70% 30%/30% 30% 70% 70%;
-      border-color:rgba(0,212,255,0.04);
-      animation-delay:-4s;
-    }
+    .shape{position:absolute;border:1px solid rgba(255,215,0,0.1);animation:floatComplex 30s infinite cubic-bezier(0.4,0.0,0.2,1);backdrop-filter:blur(1px)}
+    .shape:nth-child(1){width:400px;height:400px;top:5%;left:5%;border-radius:60% 40% 40% 60%/60% 40% 60% 40%;animation-delay:-8s;border-color:rgba(255,215,0,0.08)}
+    .shape:nth-child(2){width:300px;height:300px;top:50%;right:8%;border-radius:40% 60% 60% 40%/40% 60% 40% 60%;border-color:rgba(255,107,53,0.06);animation-delay:-16s}
+    .shape:nth-child(3){width:200px;height:200px;bottom:10%;left:30%;border-radius:50%;border-color:rgba(139,95,191,0.05);animation-delay:-24s}
+    .shape:nth-child(4){width:150px;height:150px;top:20%;right:25%;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;border-color:rgba(0,212,255,0.04);animation-delay:-4s}
     @keyframes floatComplex{
       0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}
       20%{transform:translate(40px,-30px) rotate(72deg) scale(1.1)}
@@ -8911,570 +8885,222 @@ def events_overview_page():
       80%{transform:translate(30px,30px) rotate(288deg) scale(0.95)}
     }
 
-    /* Hero content */
-    .hero-content{
-      position:relative;z-index:10;text-align:center;
-      padding:0 32px;max-width:1400px;
-    }
+    .hero-content{position:relative;z-index:10;text-align:center;padding:0 32px;max-width:1400px}
     
+    /* ↓ Softer headline + copy change */
     .title{
-      font-size:clamp(4rem,15vw,12rem);font-weight:900;
-      letter-spacing:-0.06em;line-height:0.8;margin-bottom:40px;
+      font-size:clamp(4rem,15vw,12rem);
+      font-weight:900;
+      letter-spacing:-0.06em;
+      line-height:0.8;
+      margin-bottom:40px;
       background:var(--gradient-1);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-      background-clip:text;position:relative;
-      text-shadow:0 0 100px rgba(255,215,0,.4);
-      animation:titlePulse 4s ease-in-out infinite;
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+      background-clip:text;
+      text-shadow:0 0 24px rgba(255,215,0,.18);
+      filter:saturate(.95) brightness(.98);
+      animation:none;
     }
     
-    @keyframes titlePulse{
-      0%,100%{filter:brightness(1)}
-      50%{filter:brightness(1.2)}
-    }
-    
-    .subtitle{
-      color:var(--text-muted);max-width:800px;margin:0 auto;
-      font-size:clamp(1.3rem,3vw,2rem);font-weight:300;
-      letter-spacing:0.02em;line-height:1.4;
-      margin-bottom:80px;
-    }
+    .subtitle{color:var(--text-muted);max-width:800px;margin:0 auto;font-size:clamp(1.3rem,3vw,2rem);font-weight:300;letter-spacing:0.02em;line-height:1.4;margin-bottom:80px}
 
-    /* Enhanced stats */
-    .stats{
-      display:flex;gap:clamp(32px,8vw,80px);justify-content:center;
-      margin-top:80px;flex-wrap:wrap;
-    }
-    .stat{
-      text-align:center;opacity:0;transform:translateY(50px) scale(0.8);
-      transition:all 1s cubic-bezier(0.77,0,0.175,1);
-      background:var(--glass);backdrop-filter:blur(20px);
-      border:1px solid var(--border);border-radius:24px;
-      padding:40px 32px;min-width:180px;position:relative;
-      overflow:hidden;
-    }
-    .stat::before{
-      content:'';position:absolute;inset:0;
-      background:var(--gradient-1);opacity:0;
-      transition:opacity 0.3s ease;
-    }
+    .stats{display:flex;gap:clamp(32px,8vw,80px);justify-content:center;margin-top:80px;flex-wrap:wrap}
+    .stat{text-align:center;opacity:0;transform:translateY(50px) scale(0.8);transition:all 1s cubic-bezier(0.77,0,0.175,1);background:var(--glass);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:24px;padding:40px 32px;min-width:180px;position:relative;overflow:hidden}
+    .stat::before{content:'';position:absolute;inset:0;background:var(--gradient-1);opacity:0;transition:opacity 0.3s ease}
     .stat:hover::before{opacity:0.05}
     .stat.animate{opacity:1;transform:translateY(0) scale(1)}
     .stat:nth-child(1){transition-delay:0.3s}
     .stat:nth-child(2){transition-delay:0.5s}
     .stat:nth-child(3){transition-delay:0.7s}
     .stat:nth-child(4){transition-delay:0.9s}
-    
-    .stat .num{
-      font-size:clamp(2.5rem,5vw,4rem);font-weight:900;
-      background:var(--gradient-1);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-      line-height:1;position:relative;z-index:2;
-      font-family:'JetBrains Mono',monospace;
-    }
-    .stat .lbl{
-      font-size:0.9rem;color:var(--muted);text-transform:uppercase;
-      letter-spacing:0.1em;margin-top:16px;font-weight:600;
-      position:relative;z-index:2;
-    }
+    .stat .num{font-size:clamp(2.5rem,5vw,4rem);font-weight:900;background:var(--gradient-1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;position:relative;z-index:2;font-family:'JetBrains Mono',monospace}
+    .stat .lbl{font-size:0.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-top:16px;font-weight:600;position:relative;z-index:2}
 
-    /* Scroll indicator */
-    .scroll{
-      position:absolute;bottom:40px;left:50%;transform:translateX(-50%);
-      animation:scrollFloat 4s infinite cubic-bezier(0.4,0.0,0.2,1);
-      opacity:0.8;
-    }
-    .scroll::before{
-      content:'SCROLL';display:block;color:var(--muted);
-      font-size:0.7rem;letter-spacing:0.2em;text-align:center;
-      margin-bottom:16px;font-weight:600;
-    }
-    .scroll::after{
-      content:'';display:block;width:2px;height:40px;
-      background:var(--gradient-1);margin:0 auto;border-radius:1px;
-      animation:scrollLine 4s infinite cubic-bezier(0.4,0.0,0.2,1);
-    }
-    @keyframes scrollFloat{
-      0%,100%{transform:translateX(-50%) translateY(0)}
-      50%{transform:translateX(-50%) translateY(12px)}
-    }
-    @keyframes scrollLine{
-      0%{height:40px;opacity:1}
-      50%{height:20px;opacity:0.6}
-      100%{height:40px;opacity:1}
-    }
+    .scroll{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);animation:scrollFloat 4s infinite cubic-bezier(0.4,0.0,0.2,1);opacity:0.8}
+    .scroll::before{content:'SCROLL';display:block;color:var(--muted);font-size:0.7rem;letter-spacing:0.2em;text-align:center;margin-bottom:16px;font-weight:600}
+    .scroll::after{content:'';display:block;width:2px;height:40px;background:var(--gradient-1);margin:0 auto;border-radius:1px;animation:scrollLine 4s infinite cubic-bezier(0.4,0.0,0.2,1)}
+    @keyframes scrollFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(12px)}}
+    @keyframes scrollLine{0%{height:40px;opacity:1}50%{height:20px;opacity:0.6}100%{height:40px;opacity:1}}
 
-    /* Trust strip - seamless scroll */
-    .trust-strip{
-      position:relative;z-index:9;
-      background:
+    /* Trust strip */
+    .trust-strip{position:relative;z-index:9;background:
         linear-gradient(180deg,var(--glass),rgba(255,255,255,.01)),
-        linear-gradient(90deg,
-          rgba(255,215,0,.06) 0%,
-          rgba(255,107,53,.04) 25%,
-          rgba(139,95,191,.04) 50%,
-          rgba(0,212,255,.04) 75%,
-          rgba(255,215,0,.06) 100%);
-      border-top:1px solid var(--border);border-bottom:1px solid var(--border);
-      padding:24px 0;overflow:hidden;backdrop-filter:blur(10px);
-    }
-    
-    .trust-content{
-      display:flex;
-      animation:marquee 45s linear infinite;
-      will-change:transform;
-    }
-    
+        linear-gradient(90deg,rgba(255,215,0,.06) 0%,rgba(255,107,53,.04) 25%,rgba(139,95,191,.04) 50%,rgba(0,212,255,.04) 75%,rgba(255,215,0,.06) 100%);
+      border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:24px 0;overflow:hidden;backdrop-filter:blur(10px)}
+    .trust-content{display:flex;animation:marquee 45s linear infinite;will-change:transform}
     .trust-strip:hover .trust-content{animation-play-state:paused}
-    
-    .trust-items{
-      display:flex;gap:24px;align-items:center;
-      white-space:nowrap;flex-shrink:0;
-    }
-    
-    .chip{
-      display:inline-flex;gap:12px;align-items:center;
-      padding:16px 24px;border-radius:60px;
-      font-weight:600;font-size:0.95rem;letter-spacing:0.02em;
-      background:var(--glass);backdrop-filter:blur(15px);
-      border:1px solid var(--border);color:var(--text-soft);
-      transition:all 0.4s cubic-bezier(0.77,0,0.175,1);
-      position:relative;overflow:hidden;
-    }
-    
-    .chip::before{
-      content:'';position:absolute;inset:0;
-      background:var(--gradient-1);opacity:0;
-      transition:opacity 0.4s ease;
-    }
-    
-    .chip:hover{
-      transform:translateY(-4px) scale(1.05);
-      box-shadow:0 16px 40px rgba(255,215,0,.15);
-      border-color:rgba(255,215,0,.4);
-    }
-    
+    .trust-items{display:flex;gap:24px;align-items:center;white-space:nowrap;flex-shrink:0}
+    .chip{display:inline-flex;gap:12px;align-items:center;padding:16px 24px;border-radius:60px;font-weight:600;font-size:0.95rem;letter-spacing:0.02em;background:var(--glass);backdrop-filter:blur(15px);border:1px solid var(--border);color:var(--text-soft);transition:all 0.4s cubic-bezier(0.77,0,0.175,1);position:relative;overflow:hidden}
+    .chip::before{content:'';position:absolute;inset:0;background:var(--gradient-1);opacity:0;transition:opacity 0.4s ease}
+    .chip:hover{transform:translateY(-4px) scale(1.05);box-shadow:0 16px 40px rgba(255,215,0,.15);border-color:rgba(255,215,0,.4)}
     .chip:hover::before{opacity:0.1}
-    
-    .chip .dot{
-      width:8px;height:8px;border-radius:50%;
-      background:var(--gradient-1);display:inline-block;
-      flex-shrink:0;position:relative;z-index:2;
-    }
-    
-    @keyframes marquee{
-      from{transform:translateX(0)}
-      to{transform:translateX(-100%)}
-    }
+    .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--gradient-1);display:inline-block;flex-shrink:0;position:relative;z-index:2}
+    @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-100%)}}
 
-    /* Main content */
-    .wrap{
-      max-width:1600px;margin:0 auto;padding:120px 32px;
-    }
+    .wrap{max-width:1600px;margin:0 auto;padding:120px 32px}
 
-    /* Tabs - modern pill design */
+    /* Tabs – yellow/black/orange */
     .tabs{
       display:flex;justify-content:center;gap:8px;margin-bottom:120px;
       position:relative;flex-wrap:wrap;padding:8px;
-      background:var(--glass);backdrop-filter:blur(20px);
-      border:1px solid var(--border);border-radius:80px;
-      max-width:fit-content;margin-left:auto;margin-right:auto;
-      box-shadow:0 8px 32px rgba(0,0,0,.2);
+      background:rgba(255,215,0,.06);
+      border:1px solid rgba(255,215,0,.25);
+      border-radius:80px;max-width:fit-content;margin-left:auto;margin-right:auto;
+      backdrop-filter:blur(12px);
     }
-    
     .tab{
-      background:transparent;border:none;border-radius:60px;
-      color:var(--muted);font-weight:600;text-transform:uppercase;
-      letter-spacing:0.05em;padding:20px 32px;cursor:pointer;
-      transition:all 0.4s cubic-bezier(0.77,0,0.175,1);
-      position:relative;overflow:hidden;font-size:0.85rem;
-      backdrop-filter:blur(10px);
+      background:#0b0b0b;border:1px solid rgba(255,215,0,.25);
+      border-radius:60px;color:#ffd86a;
+      font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+      padding:18px 28px;cursor:pointer;font-size:.85rem;
+      transition:transform .25s cubic-bezier(.2,.8,.2,1), border-color .25s, color .25s;
+      position:relative;overflow:hidden;backdrop-filter:blur(10px);
     }
-    
-    .tab::before{
-      content:'';position:absolute;inset:0;
-      background:var(--gradient-1);opacity:0;
-      transition:opacity 0.4s ease;border-radius:60px;
-    }
-    
+    .tab:hover{ transform:translateY(-2px); border-color:#FFC04D; color:#FFE07A }
     .tab[aria-selected="true"]{
-      color:var(--dark);transform:translateY(-2px);
-      box-shadow:0 8px 24px var(--glow);
+      color:#0b0b0b;
+      background:linear-gradient(135deg,#FFD700 0%,#FF9A3E 55%,#FF6B35 100%);
+      border-color:transparent; box-shadow:0 8px 24px rgba(255,153,51,.35);
     }
-    
-    .tab[aria-selected="true"]::before{opacity:1}
-    
     .tab span{position:relative;z-index:1}
-    
     .tab:focus-visible{outline:2px solid var(--primary);outline-offset:4px}
 
-    .panel{
-      display:none;
-      animation:panelSlide 0.8s cubic-bezier(0.77,0,0.175,1) forwards;
-    }
+    .panel{display:none;animation:panelSlide 0.8s cubic-bezier(0.77,0,0.175,1) forwards}
     .panel.active{display:block}
-    
-    @keyframes panelSlide{
-      from{opacity:0;transform:translateY(40px)}
-      to{opacity:1;transform:translateY(0)}
-    }
+    @keyframes panelSlide{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
 
-    /* Section headers */
     .section-head{text-align:center;margin-bottom:80px}
-    .section-title{
-      font-size:clamp(3.5rem,8vw,6rem);font-weight:900;
-      letter-spacing:-0.04em;margin-bottom:24px;
-      background:var(--gradient-2);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-      position:relative;display:inline-block;
-    }
-    .section-title::after{
-      content:'';position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);
-      width:120px;height:6px;border-radius:3px;
-      background:var(--gradient-1);
-      box-shadow:0 0 20px var(--glow);
-    }
-    .section-sub{
-      color:var(--text-muted);max-width:700px;margin:0 auto;
-      font-size:1.2rem;font-weight:400;letter-spacing:0.01em;
-      line-height:1.6;
-    }
+    .section-title{font-size:clamp(3.5rem,8vw,6rem);font-weight:900;letter-spacing:-0.04em;margin-bottom:24px;background:var(--gradient-2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;position:relative;display:inline-block}
+    .section-title::after{content:'';position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:120px;height:6px;border-radius:3px;background:var(--gradient-1);box-shadow:0 0 20px var(--glow)}
+    .section-sub{color:var(--text-muted);max-width:700px;margin:0 auto;font-size:1.2rem;font-weight:400;letter-spacing:0.01em;line-height:1.6}
 
-    /* Enhanced cards */
-    .grid{
-      display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
-      gap:40px;
-    }
-    
-    .card{
-      background:var(--dark-3);border:1px solid var(--border);
-      border-radius:32px;overflow:hidden;
-      transition:all 0.6s cubic-bezier(0.77,0,0.175,1);
-      position:relative;backdrop-filter:blur(15px);
-      transform:translateY(20px);opacity:0;
-    }
-    
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:40px}
+    .card{background:var(--dark-3);border:1px solid var(--border);border-radius:32px;overflow:hidden;transition:all 0.6s cubic-bezier(0.77,0,0.175,1);position:relative;backdrop-filter:blur(15px);transform:translateY(20px);opacity:0}
     .card.visible{transform:translateY(0);opacity:1}
-    
-    .card::before{
-      content:'';position:absolute;inset:0;
-      background:var(--gradient-1);opacity:0;
-      transition:opacity 0.6s ease;border-radius:32px;
-    }
-    
-    .card:hover{
-      transform:translateY(-12px) scale(1.02);
-      border-color:rgba(255,215,0,.5);
-      box-shadow:0 32px 64px rgba(0,0,0,.4), 0 0 0 1px rgba(255,215,0,.3);
-    }
-    
+    .card::before{content:'';position:absolute;inset:0;background:var(--gradient-1);opacity:0;transition:opacity 0.6s ease;border-radius:32px}
+    .card:hover{transform:translateY(-12px) scale(1.02);border-color:rgba(255,215,0,.5);box-shadow:0 32px 64px rgba(0,0,0,.4), 0 0 0 1px rgba(255,215,0,.3)}
     .card:hover::before{opacity:0.03}
 
-    .banner{
-      position:relative;height:280px;
-      background:#000 center/cover no-repeat;overflow:hidden;
-    }
-    .banner::after{
-      content:'';position:absolute;inset:0;
-      background:linear-gradient(to top,rgba(0,0,0,.8),transparent 70%);
-    }
-
+    .banner{position:relative;height:280px;background:#000 center/cover no-repeat;overflow:hidden}
+    .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8),transparent 70%)}
     .body{padding:32px;position:relative;z-index:2}
     
-    .pill{
-      display:inline-block;padding:10px 20px;border-radius:60px;
-      font-size:0.75rem;font-weight:800;letter-spacing:0.06em;
-      margin-bottom:20px;text-transform:uppercase;
-      backdrop-filter:blur(10px);
-      box-shadow:0 4px 12px rgba(0,0,0,.2);
-    }
+    .pill{display:inline-block;padding:10px 20px;border-radius:60px;font-size:0.75rem;font-weight:800;letter-spacing:0.06em;margin-bottom:20px;text-transform:uppercase;backdrop-filter:blur(10px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
     .ok{background:rgba(255,215,0,.2);color:#ffd86a;border:1px solid rgba(255,215,0,.4)}
     .warn{background:rgba(255,107,53,.2);color:#ff9a78;border:1px solid rgba(255,107,53,.4)}
     .soon{background:rgba(255,215,0,.2);color:#ffd86a;border:1px solid rgba(255,215,0,.4)}
     .special{background:rgba(139,95,191,.2);color:#b68dd8;border:1px solid rgba(139,95,191,.4)}
 
-    .name{
-      font-size:1.8rem;font-weight:800;margin-bottom:12px;
-      line-height:1.2;letter-spacing:-0.02em;
-    }
-    .sub{
-      color:#ff8d6a;font-weight:600;margin-bottom:24px;
-      font-size:1rem;
-    }
+    .name{font-size:1.8rem;font-weight:800;margin-bottom:12px;line-height:1.2;letter-spacing:-0.02em}
+    .sub{color:#ff8d6a;font-weight:600;margin-bottom:24px;font-size:1rem}
 
-    .meta{
-      display:grid;grid-template-columns:repeat(2,1fr);
-      gap:20px 24px;margin-bottom:32px;
-    }
-    .meta-item{
-      display:flex;align-items:center;gap:12px;
-      color:var(--text-muted);white-space:nowrap;font-size:0.95rem;
-      font-weight:500;
-    }
+    .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:20px 24px;margin-bottom:32px}
+    .meta-item{display:flex;align-items:center;gap:12px;color:var(--text-muted);white-space:nowrap;font-size:0.95rem;font-weight:500}
 
-    .btn{
-      width:100%;padding:20px;
-      background:var(--gradient-1);color:var(--dark);border:none;
-      border-radius:20px;font-weight:800;text-transform:uppercase;
-      letter-spacing:0.05em;cursor:pointer;font-size:0.95rem;
-      transition:all 0.4s cubic-bezier(0.77,0,0.175,1);
-      position:relative;overflow:hidden;
-      box-shadow:0 8px 24px rgba(255,215,0,.3);
-    }
-    
-    .btn::before{
-      content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
-      background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);
-      transition:left 0.8s ease;
-    }
-    
-    .btn:hover{
-      transform:translateY(-4px) scale(1.02);
-      box-shadow:0 16px 40px rgba(255,215,0,.5);
-    }
-    
+    .btn{width:100%;padding:20px;background:var(--gradient-1);color:var(--dark);border:none;border-radius:20px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;cursor:pointer;font-size:0.95rem;transition:all 0.4s cubic-bezier(0.77,0,0.175,1);position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(255,215,0,.3)}
+    .btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transition:left 0.8s ease}
+    .btn:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 16px 40px rgba(255,215,0,.5)}
     .btn:hover::before{left:100%}
-    
     .btn:active{transform:translateY(-2px) scale(1.01)}
     .btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
 
-    /* Calendar styling */
-    .cal-grid{
-      display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
-      gap:40px;
-    }
-    
-    .cal-item{
-      background:var(--dark-3);border:1px solid var(--border);
-      border-radius:32px;overflow:hidden;
-      transition:all 0.6s cubic-bezier(0.77,0,0.175,1);
-      position:relative;
-    }
-    
-    .cal-item:hover{
-      transform:translateY(-12px);
-      border-color:rgba(255,215,0,.5);
-      box-shadow:0 32px 64px rgba(0,0,0,.4);
-    }
-
-    .cal-banner{
-      position:relative;height:280px;
-      background:#000 center/cover no-repeat;
-    }
-    .cal-banner::after{
-      content:'';position:absolute;inset:0;
-      background:linear-gradient(to top,rgba(0,0,0,.8),transparent 70%);
-    }
-    
-    .cal-date-overlay{
-      position:absolute;top:24px;left:24px;
-      background:var(--gradient-1);color:var(--dark);
-      padding:20px 24px;border-radius:20px;
-      display:flex;flex-direction:column;align-items:center;
-      min-width:90px;z-index:2;
-      box-shadow:0 12px 32px rgba(0,0,0,.4);
-    }
-    
-    .cal-date-overlay .month{
-      font-size:0.7rem;font-weight:800;
-      letter-spacing:0.15em;text-transform:uppercase;
-      opacity:0.9;line-height:1;
-    }
-    .cal-date-overlay .day{
-      font-size:2.2rem;line-height:0.9;font-weight:900;
-      margin-top:4px;
-    }
-
+    .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:40px}
+    .cal-item{background:var(--dark-3);border:1px solid var(--border);border-radius:32px;overflow:hidden;transition:all 0.6s cubic-bezier(0.77,0,0.175,1);position:relative}
+    .cal-item:hover{transform:translateY(-12px);border-color:rgba(255,215,0,.5);box-shadow:0 32px 64px rgba(0,0,0,.4)}
+    .cal-banner{position:relative;height:280px;background:#000 center/cover no-repeat}
+    .cal-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8),transparent 70%)}
+    .cal-date-overlay{position:absolute;top:24px;left:24px;background:var(--gradient-1);color:var(--dark);padding:20px 24px;border-radius:20px;display:flex;flex-direction:column;align-items:center;min-width:90px;z-index:2;box-shadow:0 12px 32px rgba(0,0,0,.4)}
+    .cal-date-overlay .month{font-size:0.7rem;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;opacity:0.9;line-height:1}
+    .cal-date-overlay .day{font-size:2.2rem;line-height:0.9;font-weight:900;margin-top:4px}
     .cal-body{padding:32px}
-    .cal-type-pill{
-      display:inline-block;padding:10px 20px;border-radius:60px;
-      font-size:0.75rem;font-weight:800;letter-spacing:0.06em;
-      margin-bottom:20px;text-transform:uppercase;
-    }
+    .cal-type-pill{display:inline-block;padding:10px 20px;border-radius:60px;font-size:0.75rem;font-weight:800;letter-spacing:0.06em;margin-bottom:20px;text-transform:uppercase}
     .cal-type-pill.tournament{background:rgba(255,215,0,.2);color:#ffd86a}
     .cal-type-pill.games_night{background:rgba(255,215,0,.2);color:#ffd86a}
     .cal-type-pill.special{background:rgba(139,95,191,.2);color:#b68dd8}
-    
-    .cal-title{
-      font-size:1.8rem;font-weight:800;margin-bottom:12px;
-      line-height:1.2;
-    }
-    .cal-subtitle{
-      color:#ff8d6a;font-weight:600;margin-bottom:24px;
-    }
-    .cal-meta{
-      display:grid;grid-template-columns:repeat(2,1fr);
-      gap:20px 24px;margin-bottom:24px;
-    }
-    .cal-meta-item{
-      display:flex;align-items:center;gap:12px;
-      color:var(--text-muted);white-space:nowrap;font-size:0.95rem;
-    }
-    .cal-description{
-      color:var(--text-muted);margin-bottom:32px;
-      font-size:1rem;line-height:1.6;
-    }
-    .cal-btn{
-      width:100%;padding:20px;
-      background:var(--gradient-1);color:var(--dark);border:none;
-      border-radius:20px;font-weight:800;text-transform:uppercase;
-      letter-spacing:0.05em;cursor:pointer;font-size:0.95rem;
-      transition:all 0.4s cubic-bezier(0.77,0,0.175,1);
-      text-decoration:none;display:flex;align-items:center;justify-content:center;
-      position:relative;overflow:hidden;
-      box-shadow:0 8px 24px rgba(255,215,0,.3);
-    }
-    
-    .cal-btn::before{
-      content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
-      background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);
-      transition:left 0.8s ease;
-    }
-    
-    .cal-btn:hover{
-      transform:translateY(-4px);
-      box-shadow:0 16px 40px rgba(255,215,0,.5);
-    }
-    
+    .cal-title{font-size:1.8rem;font-weight:800;margin-bottom:12px;line-height:1.2}
+    .cal-subtitle{color:#ff8d6a;font-weight:600;margin-bottom:24px}
+    .cal-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:20px 24px;margin-bottom:24px}
+    .cal-meta-item{display:flex;align-items:center;gap:12px;color:var(--text-muted);white-space:nowrap;font-size:0.95rem}
+    .cal-description{color:var(--text-muted);margin-bottom:32px;font-size:1rem;line-height:1.6}
+    .cal-btn{width:100%;padding:20px;background:var(--gradient-1);color:var(--dark);border:none;border-radius:20px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;cursor:pointer;font-size:0.95rem;transition:all 0.4s cubic-bezier(0.77,0,0.175,1);text-decoration:none;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(255,215,0,.3)}
+    .cal-btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transition:left 0.8s ease}
+    .cal-btn:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(255,215,0,.5)}
     .cal-btn:hover::before{left:100%}
 
-    /* Loading states */
-    .loading{
-      grid-column:1/-1;text-align:center;padding:120px;
-      color:var(--muted);
-    }
-    .spin{
-      width:60px;height:60px;
-      border:4px solid rgba(255,215,0,.1);
-      border-top-color:var(--primary);border-radius:50%;
-      animation:spin 1.2s linear infinite;margin:0 auto 24px;
-    }
+    .loading{grid-column:1/-1;text-align:center;padding:120px;color:var(--muted)}
+    .spin{width:60px;height:60px;border:4px solid rgba(255,215,0,.1);border-top-color:var(--primary);border-radius:50%;animation:spin 1.2s linear infinite;margin:0 auto 24px}
     @keyframes spin{100%{transform:rotate(360deg)}}
 
-    /* Quick actions */
-    .quick{
-    display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
-    gap:40px;margin-top:120px;
+    .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:40px;margin-top:120px}
+    .q-card{background:var(--dark-3);border:1px solid var(--border);border-radius:32px;padding:48px;text-align:center;transition:all 0.6s cubic-bezier(0.77,0,0.175,1);cursor:pointer;position:relative;overflow:hidden;backdrop-filter:blur(15px)}
+    .q-card::before{content:'';position:absolute;inset:0;background:var(--gradient-2);opacity:0;transition:opacity 0.6s ease;border-radius:32px}
+    .q-card:hover{transform:translateY(-12px) scale(1.02);border-color:rgba(255,215,0,.4);box-shadow:0 32px 64px rgba(0,0,0,.3)}
+    .q-card:hover::before{opacity:0.05}
+    .q-title{font-size:1.5rem;font-weight:800;color:var(--primary);margin-bottom:16px;letter-spacing:-0.02em;position:relative;z-index:2}
+    .q-text{color:var(--text-muted);margin-bottom:32px;font-size:1rem;line-height:1.6;position:relative;z-index:2}
+    .q-btn{padding:18px 36px;background:var(--gradient-1);color:var(--dark);border:none;border-radius:16px;font-weight:800;cursor:pointer;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.05em;transition:all 0.4s cubic-bezier(0.77,0,0.175,1);position:relative;overflow:hidden;z-index:2;box-shadow:0 8px 24px rgba(255,215,0,.3)}
+    .q-btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transition:left 0.8s ease}
+    .q-btn:hover{transform:translateY(-4px) scale(1.05);box-shadow:0 16px 40px rgba(255,215,0,.4)}
+    .q-btn:hover::before{left:100%}
+
+    @media (max-width:1024px){
+      .grid,.cal-grid{grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:32px}
+      .quick{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:32px}
+    }
+    @media (max-width:768px){
+      .grid,.cal-grid,.quick{grid-template-columns:1fr;gap:24px}
+      .stats{gap:20px;flex-wrap:wrap}
+      .stat{min-width:140px;padding:32px 24px}
+      .stat .num{font-size:2.5rem}
+      .hero-content{padding:0 24px}
+      .wrap{padding:80px 24px}
+      .tabs{gap:6px;padding:6px;flex-wrap:wrap}
+      .tab{padding:16px 24px;font-size:0.8rem}
+      .section-head{margin-bottom:60px}
+      .q-card{padding:36px 28px}
+      .cal-banner,.banner{height:200px}
+      .cal-date-overlay{top:20px;left:20px;padding:16px 20px;min-width:75px}
+      .cal-date-overlay .month{font-size:0.65rem}
+      .cal-date-overlay .day{font-size:1.8rem}
+      .cal-body,.body{padding:28px}
+      .cal-title,.name{font-size:1.5rem}
+      .cal-meta,.meta{grid-template-columns:1fr;gap:16px}
+      .cal-meta-item,.meta-item{font-size:0.9rem}
+      .title{font-size:clamp(3.5rem,12vw,6rem)}
+      .subtitle{font-size:1.1rem}
+      .chip{padding:12px 20px;font-size:0.9rem;gap:10px}
+      .trust-strip{padding:20px 0}
+      .trust-items{gap:20px}
+    }
+    @media (max-width:480px){
+      .hero{min-height:90vh}
+      .wrap{padding:60px 20px}
+      .tabs{margin-bottom:60px}
+      .section-title{font-size:clamp(2.5rem,10vw,4rem)}
+      .card,.cal-item{border-radius:24px}
+      .banner,.cal-banner{height:180px}
+      .body,.cal-body{padding:24px}
+      .btn,.cal-btn{padding:18px;font-size:0.9rem}
+      .q-card{padding:32px 24px}
+      .stats{margin-top:60px}
+      .stat{padding:24px 20px;min-width:120px}
+      .stat .num{font-size:2rem}
     }
 
-   .q-card{
-     background:var(--dark-3);border:1px solid var(--border);
-     border-radius:32px;padding:48px;text-align:center;
-     transition:all 0.6s cubic-bezier(0.77,0,0.175,1);
-     cursor:pointer;position:relative;overflow:hidden;
-     backdrop-filter:blur(15px);
-   }
-   
-   .q-card::before{
-     content:'';position:absolute;inset:0;
-     background:var(--gradient-2);opacity:0;
-     transition:opacity 0.6s ease;border-radius:32px;
-   }
-   
-   .q-card:hover{
-     transform:translateY(-12px) scale(1.02);
-     border-color:rgba(255,215,0,.4);
-     box-shadow:0 32px 64px rgba(0,0,0,.3);
-   }
-   
-   .q-card:hover::before{opacity:0.05}
+    @media (prefers-reduced-motion: reduce){
+      *{animation:none!important;transition:none!important}
+      .reveal-overlay{display:none}
+      .page-content,.reveal-element,.stat{opacity:1!important;transform:none!important}
+      .trust-content{animation:none}
+      .hero-bg::before{animation:none}
+      .floating-shapes .shape{animation:none}
+      .scroll{animation:none}
+    }
 
-   .q-title{
-     font-size:1.5rem;font-weight:800;color:var(--primary);
-     margin-bottom:16px;letter-spacing:-0.02em;
-     position:relative;z-index:2;
-   }
-   .q-text{
-     color:var(--text-muted);margin-bottom:32px;
-     font-size:1rem;line-height:1.6;position:relative;z-index:2;
-   }
-   .q-btn{
-     padding:18px 36px;
-     background:var(--gradient-1);color:var(--dark);border:none;
-     border-radius:16px;font-weight:800;cursor:pointer;font-size:0.9rem;
-     text-transform:uppercase;letter-spacing:0.05em;
-     transition:all 0.4s cubic-bezier(0.77,0,0.175,1);
-     position:relative;overflow:hidden;z-index:2;
-     box-shadow:0 8px 24px rgba(255,215,0,.3);
-   }
-   
-   .q-btn::before{
-     content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
-     background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);
-     transition:left 0.8s ease;
-   }
-   
-   .q-btn:hover{
-     transform:translateY(-4px) scale(1.05);
-     box-shadow:0 16px 40px rgba(255,215,0,.4);
-   }
-   
-   .q-btn:hover::before{left:100%}
-
-   /* Responsive design */
-   @media (max-width:1024px){
-     .grid,.cal-grid{grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:32px}
-     .quick{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:32px}
-   }
-
-   @media (max-width:768px){
-     .grid,.cal-grid,.quick{grid-template-columns:1fr;gap:24px}
-     .stats{gap:20px;flex-wrap:wrap}
-     .stat{min-width:140px;padding:32px 24px}
-     .stat .num{font-size:2.5rem}
-     .hero-content{padding:0 24px}
-     .wrap{padding:80px 24px}
-     .tabs{gap:6px;padding:6px;flex-wrap:wrap}
-     .tab{padding:16px 24px;font-size:0.8rem}
-     .section-head{margin-bottom:60px}
-     .q-card{padding:36px 28px}
-     .cal-banner,.banner{height:200px}
-     .cal-date-overlay{top:20px;left:20px;padding:16px 20px;min-width:75px}
-     .cal-date-overlay .month{font-size:0.65rem}
-     .cal-date-overlay .day{font-size:1.8rem}
-     .cal-body,.body{padding:28px}
-     .cal-title,.name{font-size:1.5rem}
-     .cal-meta,.meta{grid-template-columns:1fr;gap:16px}
-     .cal-meta-item,.meta-item{font-size:0.9rem}
-     .title{font-size:clamp(3.5rem,12vw,6rem)}
-     .subtitle{font-size:1.1rem}
-     .chip{padding:12px 20px;font-size:0.9rem;gap:10px}
-     .trust-strip{padding:20px 0}
-     .trust-items{gap:20px}
-   }
-
-   @media (max-width:480px){
-     .hero{min-height:90vh}
-     .wrap{padding:60px 20px}
-     .tabs{margin-bottom:60px}
-     .section-title{font-size:clamp(2.5rem,10vw,4rem)}
-     .card,.cal-item{border-radius:24px}
-     .banner,.cal-banner{height:180px}
-     .body,.cal-body{padding:24px}
-     .btn,.cal-btn{padding:18px;font-size:0.9rem}
-     .q-card{padding:32px 24px}
-     .stats{margin-top:60px}
-     .stat{padding:24px 20px;min-width:120px}
-     .stat .num{font-size:2rem}
-   }
-
-   /* Reduced motion */
-   @media (prefers-reduced-motion: reduce){
-     *{animation:none!important;transition:none!important}
-     .reveal-overlay{display:none}
-     .page-content,.reveal-element,.stat{opacity:1!important;transform:none!important}
-     .trust-content{animation:none}
-     .hero-bg::before{animation:none}
-     .floating-shapes .shape{animation:none}
-     .scroll{animation:none}
-   }
-
-   /* Intersection observer animations */
-   .fade-in{
-     opacity:0;transform:translateY(60px);
-     transition:all 1s cubic-bezier(0.77,0,0.175,1);
-   }
-   .fade-in.visible{opacity:1;transform:translateY(0)}
- </style>
+    .fade-in{opacity:0;transform:translateY(60px);transition:all 1s cubic-bezier(0.77,0,0.175,1)}
+    .fade-in.visible{opacity:1;transform:translateY(0)}
+  </style>
 </head>
 <body>
  <!-- Opening Reveal Overlay -->
@@ -9497,7 +9123,7 @@ def events_overview_page():
        </div>
      </div>
      <div class="hero-content">
-       <h1 class="title reveal-element">LEVEL UP YOUR GAME</h1>
+       <h1 class="title reveal-element">PLAY YOUR WAY</h1>
        <p class="subtitle reveal-element">Elite tournaments, relaxed game nights, unforgettable birthdays & special events — all in one sleek hub.</p>
        <div class="stats reveal-element" role="group" aria-label="Live counters">
          <div class="stat">
@@ -9555,21 +9181,11 @@ def events_overview_page():
    <main class="wrap reveal-element">
      <!-- Tabs -->
      <div class="tabs reveal-element" role="tablist" aria-label="Events navigation">
-       <button class="tab" role="tab" aria-selected="true" id="tab-tournaments" aria-controls="panel-tournaments">
-         <span>Tournaments</span>
-       </button>
-       <button class="tab" role="tab" aria-selected="false" id="tab-games" aria-controls="panel-games">
-         <span>Games Nights</span>
-       </button>
-       <button class="tab" role="tab" aria-selected="false" id="tab-special" aria-controls="panel-special">
-         <span>Special Events</span>
-       </button>
-       <button class="tab" role="tab" aria-selected="false" id="tab-birthdays" aria-controls="panel-birthdays">
-         <span>Birthday Parties</span>
-       </button>
-       <button class="tab" role="tab" aria-selected="false" id="tab-calendar" aria-controls="panel-calendar">
-         <span>Calendar</span>
-       </button>
+       <button class="tab" role="tab" aria-selected="true" id="tab-tournaments" aria-controls="panel-tournaments"><span>Tournaments</span></button>
+       <button class="tab" role="tab" aria-selected="false" id="tab-games" aria-controls="panel-games"><span>Games Nights</span></button>
+       <button class="tab" role="tab" aria-selected="false" id="tab-special" aria-controls="panel-special"><span>Special Events</span></button>
+       <button class="tab" role="tab" aria-selected="false" id="tab-birthdays" aria-controls="panel-birthdays"><span>Birthday Parties</span></button>
+       <button class="tab" role="tab" aria-selected="false" id="tab-calendar" aria-controls="panel-calendar"><span>Calendar</span></button>
      </div>
 
      <!-- Tournaments -->
@@ -9674,35 +9290,57 @@ def events_overview_page():
  </div>
 
  <script>
+   /* ---------------- Perf helpers (minimal) ---------------- */
+   const supportsPassive = (()=>{let p=false;try{window.addEventListener('t',null,Object.defineProperty({},'passive',{get(){p=true;}}));}catch(_){}
+     return p;})();
+   const addEvt = (t,fn,opt={}) => window.addEventListener(t,fn,supportsPassive?{passive:true,...opt}:opt);
+
+   /* cache + abort for snappier tab switches */
+   let fetchCtl=null;
+   const cache = new Map(); // {url:{t:number,v:any}}
+   function abortInFlight(){ if(fetchCtl){ try{fetchCtl.abort();}catch(_){} fetchCtl=null; } }
+   async function cachedJson(url){
+     const now=Date.now(), hit=cache.get(url);
+     if(hit && now-hit.t<60000) return hit.v;
+     fetchCtl=new AbortController();
+     const r = await fetch(url,{credentials:'same-origin',signal:fetchCtl.signal});
+     const j = await r.json();
+     cache.set(url,{t:now,v:j});
+     return j;
+   }
+
+   /* thermal pointer vars for CSS */
+   addEvt('mousemove', e=>{
+     const s=document.documentElement.style;
+     s.setProperty('--mx', e.clientX+'px');
+     s.setProperty('--my', e.clientY+'px');
+   });
+
    /* ---------------- Opening Reveal Animation ---------------- */
    let revealComplete = false;
-    function startRevealSequence(){
-        const overlay = document.getElementById('revealOverlay');
-        const pageContent = document.getElementById('pageContent');
-        if(!overlay || !pageContent){ return; }
-        setTimeout(()=>{
-            overlay.classList.add('hide');
-            pageContent.classList.add('revealed');
-            revealComplete = true;
-            setTimeout(()=>{
-            document.querySelectorAll('.reveal-element').forEach((el,i)=>{ 
-                setTimeout(()=>el.classList.add('animate'),i*100); 
-            });
-            setTimeout(()=>{
-                document.querySelectorAll('.stat').forEach((el,i)=>{ 
-                setTimeout(()=>el.classList.add('animate'),i*80); 
-                });
-                setTimeout(loadStats,300);
-            },400);
-            },300);
-        },2200); // Reduced from 6000 to 2200ms
-    }
-   
-   document.addEventListener('click',()=>{ if(!revealComplete) skipReveal(); });
-   document.addEventListener('keydown',(e)=>{ 
-     if(!revealComplete && (e.key===' '||e.key==='Enter'||e.key==='Escape')) skipReveal(); 
-   });
-   
+   function startRevealSequence(){
+     const overlay = document.getElementById('revealOverlay');
+     const pageContent = document.getElementById('pageContent');
+     if(!overlay || !pageContent){ return; }
+     setTimeout(()=>{
+       overlay.classList.add('hide');
+       pageContent.classList.add('revealed');
+       revealComplete = true;
+       setTimeout(()=>{
+         document.querySelectorAll('.reveal-element').forEach((el,i)=>{ setTimeout(()=>el.classList.add('animate'),i*100); });
+         setTimeout(()=>{
+           document.querySelectorAll('.stat').forEach((el,i)=>{ setTimeout(()=>el.classList.add('animate'),i*80); });
+           setTimeout(loadStats,300);
+         },400);
+       },300);
+       /* start polling once visible */
+       bootPolling();
+       /* initial load for first tab */
+       loadTournaments();
+     },2200);
+   }
+   addEvt('click',()=>{ if(!revealComplete) skipReveal(); });
+   addEvt('keydown',(e)=>{ if(!revealComplete && (e.key===' '||e.key==='Enter'||e.key==='Escape')) skipReveal(); });
    function skipReveal(){
      if(revealComplete) return;
      revealComplete = true;
@@ -9712,6 +9350,8 @@ def events_overview_page():
      if(pageContent) pageContent.classList.add('revealed');
      document.querySelectorAll('.reveal-element,.stat').forEach(el=>el.classList.add('animate'));
      loadStats();
+     bootPolling();
+     loadTournaments();
    }
 
    /* ---------------- Icons (inline SVG) ---------------- */
@@ -9724,30 +9364,8 @@ def events_overview_page():
 
    /* ---------------- Game banners ---------------- */
    const GAME_IMAGES = {
-     'valorant':'/static/games/valorant.jpg',
-     'horror': '/static/games/horror.jpg',
-     'cs2':'/static/games/cs2.jpg',
-     'counter-strike 2':'/static/games/cs2.jpg',
-     'league of legends':'/static/games/lol.jpg',
-     'dota 2':'/static/games/dota2.jpg',
-     'rocket league':'/static/games/rocket-league.jpg',
-     'overwatch 2':'/static/games/overwatch2.jpg',
-     'apex legends':'/static/games/apex.jpg',
-     'rainbow six siege':'/static/games/r6.jpg',
-     'minecraft':'/static/games/minecraft.jpg',
-     'tekken 8':'/static/games/tekken8.jpg',
-     'street fighter 6':'/static/games/sf6.jpg',
-     'ea fc 24':'/static/games/eafc.jpg',
-     'ea fc 25':'/static/games/eafc25.jpg',
-     'f1':'/static/games/f1.jpg',
-     'special':'/static/games/special-event.jpg',
-     'themed':'/static/games/themed-night.jpg',
-     'community':'/static/games/community.jpg',
-     'cosplay':'/static/games/cosplay.jpg',
-     'retro':'/static/games/retro.jpg',
-     'generic':'/static/games/generic.jpg'
+     'valorant':'/static/games/valorant.jpg','horror':'/static/games/horror.jpg','cs2':'/static/games/cs2.jpg','counter-strike 2':'/static/games/cs2.jpg','league of legends':'/static/games/lol.jpg','dota 2':'/static/games/dota2.jpg','rocket league':'/static/games/rocket-league.jpg','overwatch 2':'/static/games/overwatch2.jpg','apex legends':'/static/games/apex.jpg','rainbow six siege':'/static/games/r6.jpg','minecraft':'/static/games/minecraft.jpg','tekken 8':'/static/games/tekken8.jpg','street fighter 6':'/static/games/sf6.jpg','ea fc 24':'/static/games/eafc.jpg','ea fc 25':'/static/games/eafc25.jpg','f1':'/static/games/f1.jpg','special':'/static/games/special-event.jpg','themed':'/static/games/themed-night.jpg','community':'/static/games/community.jpg','cosplay':'/static/games/cosplay.jpg','retro':'/static/games/retro.jpg','generic':'/static/games/generic.jpg'
    };
-   
    function bannerFor(title){
      if(!title) return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
      const key = String(title).toLowerCase().trim();
@@ -9765,7 +9383,6 @@ def events_overview_page():
      birthdays: document.getElementById('panel-birthdays'),
      calendar: document.getElementById('panel-calendar')
    };
-   
    tabButtons.forEach(btn=>{
      btn.addEventListener('click', ()=>activateTab(btn));
      btn.addEventListener('keydown', e=>{
@@ -9775,7 +9392,6 @@ def events_overview_page():
        if(e.key==='Enter' || e.key===' ') activateTab(btn);
      });
    });
-   
    function activateTab(btn){
      tabButtons.forEach(b=>b.setAttribute('aria-selected','false'));
      Object.values(panels).forEach(p=>p.classList.remove('active'));
@@ -9783,16 +9399,15 @@ def events_overview_page():
      const id = btn.id.replace('tab-','');
      panels[id].classList.add('active');
      if(id==='tournaments') loadTournaments();
-     if(id==='games') loadGamesNights();
-     if(id==='special') loadSpecialEvents();
-     if(id==='calendar') loadCalendar();
+     if(id==='games')      loadGamesNights();
+     if(id==='special')    loadSpecialEvents();
+     if(id==='calendar')   loadCalendar();
    }
 
-   /* ---------------- Stats with enhanced animation ---------------- */
+   /* ---------------- Stats ---------------- */
    async function loadStats(){
      try{
-       const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
-       const j = await r.json();
+       const j = await cachedJson('/api/events?upcoming=true');
        if(j.success){
          const publics = j.events.filter(e=>e.event_type!=='birthday');
          const tourns  = publics.filter(e=>e.event_type==='tournament');
@@ -9803,43 +9418,31 @@ def events_overview_page():
          animateCounter('#gamesNightCount', games.length);
          animateCounter('#specialEventCount', special.length);
        }
-     }catch(e){ 
-       console.warn('stats err', e);
+     }catch(e){
        animateCounter('#upcomingCount', 0);
        animateCounter('#tournamentCount', 0);
        animateCounter('#gamesNightCount', 0);
        animateCounter('#specialEventCount', 0);
      }
    }
-   
    function animateCounter(selector, target){
-     const el = document.querySelector(selector);
-     if(!el) return;
-     const duration = 1500;
-     const steps = 40;
-     const increment = target / steps;
-     let current = 0;
-     let step = 0;
-     
+     const el = document.querySelector(selector); if(!el) return;
+     const duration = 1500, steps = 40, increment = target / steps;
+     let current = 0, step = 0;
      const timer = setInterval(() => {
-       step++;
-       current += increment;
-       if(step >= steps) {
-         el.textContent = target;
-         clearInterval(timer);
-       } else {
-         el.textContent = Math.floor(current);
-       }
+       step++; current += increment;
+       if(step >= steps) { el.textContent = target; clearInterval(timer); }
+       else { el.textContent = Math.floor(current); }
      }, duration / steps);
    }
 
-   /* ---------------- Event Loaders ---------------- */
+   /* ---------------- Event Loaders (cached + abort) ---------------- */
    async function loadSpecialEvents(){
+     abortInFlight();
      const grid = document.getElementById('special-grid');
      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading special events…</div>';
      try{
-       const r = await fetch('/api/events?type=special&upcoming=true',{credentials:'same-origin'});
-       const j = await r.json();
+       const j = await cachedJson('/api/events?type=special&upcoming=true');
        if(j.success && j.events.length){
          grid.innerHTML = j.events.map(ev=>{
            const dt=new Date(ev.date_time), reg=ev.registration_count||0, cap=(ev.capacity||0)>0?ev.capacity:null;
@@ -9854,8 +9457,7 @@ def events_overview_page():
            return cardHTML({banner, pillText:text, pillClass:pill, name:ev.title, sub:ev.game_title||'Special Event',
              dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
          }).join('');
-         lazyMountBanners();
-         triggerCardAnimations();
+         lazyMountBanners(); triggerCardAnimations();
        }else{
          grid.innerHTML = emptyState('No upcoming special events','New special events will be announced soon.');
        }
@@ -9865,11 +9467,11 @@ def events_overview_page():
    }
 
    async function loadTournaments(){
+     abortInFlight();
      const grid = document.getElementById('tournaments-grid');
      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading tournaments…</div>';
      try{
-       const r = await fetch('/api/events?type=tournament&upcoming=true',{credentials:'same-origin'});
-       const j = await r.json();
+       const j = await cachedJson('/api/events?type=tournament&upcoming=true');
        if(j.success && j.events.length){
          grid.innerHTML = j.events.map(ev=>{
            const dt=new Date(ev.date_time), reg=ev.registration_count||0, cap=(ev.capacity||0)>0?ev.capacity:null;
@@ -9880,8 +9482,7 @@ def events_overview_page():
            return cardHTML({banner, pillText:text, pillClass:pill, name:ev.title, sub:ev.game_title||'Game',
              dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
          }).join('');
-         lazyMountBanners();
-         triggerCardAnimations();
+         lazyMountBanners(); triggerCardAnimations();
        }else{
          grid.innerHTML = emptyState('No upcoming tournaments','New tournaments will be announced soon.');
        }
@@ -9891,14 +9492,14 @@ def events_overview_page():
    }
 
    async function loadGamesNights(){
+     abortInFlight();
      const grid = document.getElementById('games-grid');
      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading games nights…</div>';
      try{
-       let r = await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'});
-       let j = await r.json();
+       let j = await cachedJson('/api/events?type=games_night&upcoming=true');
        let events = (j.success ? j.events : []).filter(Boolean);
        if(!events.length){
-         const all = await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
+         const all = await cachedJson('/api/events?upcoming=true');
          if(all.success) events = all.events.filter(e => e.event_type!=='birthday' && /games?\s*night/i.test(e.title||''));
        }
        if(events.length){
@@ -9926,8 +9527,7 @@ def events_overview_page():
                 </div>
               </article>`;
           }).join('');
-          lazyMountBanners();
-          triggerCardAnimations();
+          lazyMountBanners(); triggerCardAnimations();
         }else{
           grid.innerHTML = emptyState('No upcoming games nights','Follow our socials and check back soon.');
         }
@@ -9937,87 +9537,63 @@ def events_overview_page():
     }
 
     async function loadCalendar(){
-        const grid = document.getElementById('cal-grid');
-        grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading calendar…</div>';
-        try{
-            const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
-            const j = await r.json();
-            if(j.success && j.events.length){
-            const items = j.events
-                .filter(e=>e.event_type!=='birthday')
-                .sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
-            if(!items.length){ 
-                grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.'); 
-                return; 
-            }
-            grid.innerHTML = items.map(ev=>{
-                const dt=new Date(ev.date_time);
-                const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
-                const banner=bannerFor(ev.game_title||ev.title||'generic');
-                const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-                const cap = (ev.capacity||0)>0?ev.capacity:null;
-                const reg = ev.registration_count||0;
-                const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : (ev.event_type==='special' ? 'Special Event' : 'Event'));
-                const typClass = ev.event_type==='tournament' ? 'tournament' : (ev.event_type==='games_night' ? 'games_night' : (ev.event_type==='special' ? 'special' : 'tournament'));
-                return `
-                <article class="cal-item">
-                    <div class="cal-banner lazy-banner" data-src="${banner}">
-                    <div class="cal-date-overlay">
-                        <span class="month">${m}</span>
-                        <span class="day">${d}</span>
-                    </div>
-                    </div>
-                    <div class="cal-body">
-                    <span class="cal-type-pill ${typClass}">${escapeHTML(typ)}</span>
-                    <div class="cal-title">${escapeHTML(ev.title)}</div>
-                    <div class="cal-subtitle">${escapeHTML(ev.game_title || 'Event')}</div>
-                    <div class="cal-meta">
-                        <div class="cal-meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
-                        <div class="cal-meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                        <div class="cal-meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
-                        <div class="cal-meta-item">${ICONS.fee} ${fee}</div>
-                    </div>
-                    ${ev.description ? `<div class="cal-description">${escapeHTML(ev.description)}</div>` : ''}
-                    <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
-                    </div>
-                </article>`;
-            }).join('');
-            lazyMountBanners();
-            }else{
-            grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments, game nights & special events.');
-            }
-        }catch(e){
-            grid.innerHTML = networkError('Could not load calendar. Please refresh.');
+      abortInFlight();
+      const grid = document.getElementById('cal-grid');
+      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading calendar…</div>';
+      try{
+        const j = await cachedJson('/api/events?upcoming=true');
+        if(j.success && j.events.length){
+          const items = j.events.filter(e=>e.event_type!=='birthday').sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
+          if(!items.length){ grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.'); return; }
+          grid.innerHTML = items.map(ev=>{
+            const dt=new Date(ev.date_time);
+            const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
+            const banner=bannerFor(ev.game_title||ev.title||'generic');
+            const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
+            const cap = (ev.capacity||0)>0?ev.capacity:null;
+            const reg = ev.registration_count||0;
+            const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : (ev.event_type==='special' ? 'Special Event' : 'Event'));
+            const typClass = ev.event_type==='tournament' ? 'tournament' : (ev.event_type==='games_night' ? 'games_night' : (ev.event_type==='special' ? 'special' : 'tournament'));
+            return `
+              <article class="cal-item">
+                <div class="cal-banner lazy-banner" data-src="${banner}">
+                  <div class="cal-date-overlay">
+                    <span class="month">${m}</span>
+                    <span class="day">${d}</span>
+                  </div>
+                </div>
+                <div class="cal-body">
+                  <span class="cal-type-pill ${typClass}">${escapeHTML(typ)}</span>
+                  <div class="cal-title">${escapeHTML(ev.title)}</div>
+                  <div class="cal-subtitle">${escapeHTML(ev.game_title || 'Event')}</div>
+                  <div class="cal-meta">
+                    <div class="cal-meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                    <div class="cal-meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                    <div class="cal-meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
+                    <div class="cal-meta-item">${ICONS.fee} ${fee}</div>
+                  </div>
+                  ${ev.description ? `<div class="cal-description">${escapeHTML(ev.description)}</div>` : ''}
+                  <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
+                </div>
+              </article>`;
+          }).join('');
+          lazyMountBanners();
+        }else{
+          grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments, game nights & special events.');
         }
+      }catch(e){
+        grid.innerHTML = networkError('Could not load calendar. Please refresh.');
+      }
     }
-    
 
     /* ---------------- Utility Functions ---------------- */
-    function escapeHTML(s){
-      return String(s||'').replace(/[&<>"']/g, m=>({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      }[m]));
-    }
-    
-    function emptyState(title,subtitle){
-      return `<div class="loading"><h3 style="color:var(--primary);margin-bottom:16px;font-weight:800;font-size:1.5rem">${title}</h3><p style="font-weight:500;font-size:1rem">${subtitle}</p></div>`;
-    }
-    
-    function networkError(msg){
-      return `<div class="loading" style="color:#ff9a78"><h3 style="font-weight:800;margin-bottom:16px;font-size:1.5rem">Connection Error</h3><p style="font-weight:500;font-size:1rem">${msg}</p><button onclick="location.reload()" class="q-btn" style="margin-top:20px">Retry</button></div>`;
-    }
+    function escapeHTML(s){ return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function emptyState(title,subtitle){ return `<div class="loading"><h3 style="color:var(--primary);margin-bottom:16px;font-weight:800;font-size:1.5rem">${title}</h3><p style="font-weight:500;font-size:1rem">${subtitle}</p></div>`; }
+    function networkError(msg){ return `<div class="loading" style="color:#ff9a78"><h3 style="font-weight:800;margin-bottom:16px;font-size:1.5rem">Connection Error</h3><p style="font-weight:500;font-size:1rem">${msg}</p><button onclick="location.reload()" class="q-btn" style="margin-top:20px">Retry</button></div>`; }
 
-    // Enhanced lazy loading
     function lazyMountBanners(){
       const els = document.querySelectorAll('.lazy-banner[data-src]');
-      if(!('IntersectionObserver' in window)){ 
-        els.forEach(e=>{
-          e.style.backgroundImage=`url('${e.dataset.src}')`;
-          e.style.transition='all 0.6s ease';
-        }); 
-        return; 
-      }
-      
+      if(!('IntersectionObserver' in window)){ els.forEach(e=>{ e.style.backgroundImage=`url('${e.dataset.src}')`; e.style.transition='all 0.6s ease';}); return; }
       const io = new IntersectionObserver((entries,obs)=>{
         entries.forEach(ent=>{
           if(ent.isIntersecting){
@@ -10029,22 +9605,15 @@ def events_overview_page():
           }
         });
       },{rootMargin:'400px'});
-      
       els.forEach(e=>io.observe(e));
     }
-
-    // Card animations
     function triggerCardAnimations(){
       setTimeout(() => {
         document.querySelectorAll('.card:not(.visible)').forEach((card, i) => {
-          setTimeout(() => {
-            card.classList.add('visible');
-          }, i * 100);
+          setTimeout(() => { card.classList.add('visible'); }, i * 100);
         });
       }, 100);
     }
-
-    // Enhanced card HTML generator
     function cardHTML({banner,pillText,pillClass,name,sub,dt,reg,cap,fee,id,description}){
       return `
         <article class="card fade-in">
@@ -10067,34 +9636,25 @@ def events_overview_page():
         </article>`;
     }
 
-    /* ---------------- Intersection Observer for Scroll Animations ---------------- */
-    function initScrollAnimations(){
-      if(!('IntersectionObserver' in window)) return;
-      
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if(entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      }, {
-        threshold: 0.1,
-        rootMargin: '50px'
-      });
-
-      document.querySelectorAll('.fade-in').forEach(el => {
-        observer.observe(el);
-      });
+    /* ---------------- Visibility-aware polling ---------------- */
+    function bootPolling(){
+      window.__evtPoll = setInterval(()=>{ 
+        const active = document.querySelector('.panel.active');
+        if(active && active.id === 'panel-tournaments') loadTournaments();
+        if(active && active.id === 'panel-special')     loadSpecialEvents();
+        if(active && active.id === 'panel-games')       loadGamesNights();
+        if(active && active.id === 'panel-calendar')    loadCalendar();
+      }, 180000);
+      window.__statPoll = setInterval(loadStats, 90000);
     }
-
+    document.addEventListener('visibilitychange',()=>{
+      if(document.hidden){ clearInterval(window.__evtPoll); clearInterval(window.__statPoll); }
+      else{ bootPolling(); }
+    });
 
     /* ---------------- Boot sequence ---------------- */
     document.addEventListener('DOMContentLoaded', ()=>{
-      // Initialize animations
       initScrollAnimations();
-      
-      // Initialize tab listeners
       tabButtons.forEach(btn=>{
         btn.addEventListener('click', ()=>activateTab(btn));
         btn.addEventListener('keydown', e=>{
@@ -10104,51 +9664,18 @@ def events_overview_page():
           if(e.key==='Enter' || e.key===' ') activateTab(btn);
         });
       });
-
-      // Start reveal animation
       startRevealSequence();
-      
-      // Enhanced periodic refresh
-      setTimeout(()=>{
-            if(!revealComplete) return;
-            loadTournaments();
-            
-            setInterval(()=>{ 
-                const active = document.querySelector('.panel.active');
-                if(active && active.id === 'panel-tournaments') loadTournaments();
-                if(active && active.id === 'panel-special') loadSpecialEvents();
-                if(active && active.id === 'panel-games') loadGamesNights();
-                if(active && active.id === 'panel-calendar') loadCalendar();
-            }, 3*60*1000);
-            
-            setInterval(loadStats, 90*1000);
-        },2500); // Reduced from 6500 to 2500ms
 
       // Preload critical images
-      const criticalImages = [
-        '/static/games/valorant.jpg',
-        '/static/games/cs2.jpg',
-        '/static/games/generic.jpg'
-      ];
-      
-      criticalImages.forEach(src=>{
-        const img = new Image();
-        img.src = src;
-      });
+      ['/static/games/valorant.jpg','/static/games/cs2.jpg','/static/games/generic.jpg'].forEach(src=>{ const img=new Image(); img.src=src; });
     });
 
-    /* ---------------- Performance Optimizations ---------------- */
-    // Reduce motion for performance-sensitive devices
-    if(navigator.hardwareConcurrency <= 2 || navigator.deviceMemory <= 2){
-      document.documentElement.style.setProperty('--marquee-speed', '60s');
-    }
-
-    // Connection-aware loading
-    if('connection' in navigator){
-      const conn = navigator.connection;
-      if(conn && (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g')){
-        document.documentElement.style.setProperty('--marquee-speed', '80s');
-      }
+    function initScrollAnimations(){
+      if(!('IntersectionObserver' in window)) return;
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => { if(entry.isIntersecting){ entry.target.classList.add('visible'); observer.unobserve(entry.target);} });
+      }, { threshold: 0.1, rootMargin: '50px' });
+      document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
     }
   </script>
 </body>
@@ -10156,6 +9683,7 @@ def events_overview_page():
     resp = make_response(events_html)
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return resp
+
 
 # =============================
 # Main

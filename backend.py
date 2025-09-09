@@ -8794,7 +8794,7 @@ def events_overview_page():
 
     /* Opening reveal animation */
     .reveal-overlay{position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1s ease,visibility 1s ease}
-    .reveal-overlay.hide{opacity:0;visibility:hidden}
+    .reveal-overlay.hide{opacity:0;visibility:hidden;display:none} /* ensure it's gone */
     .reveal-logo{width:400px;height:auto;opacity:0;transform:scale(0.8);animation:logoReveal 2s ease-out forwards}
     .reveal-tagline{font-size:1.2rem;color:var(--muted);margin-top:20px;opacity:0;animation:fadeInUp 1s ease-out 1.5s forwards}
     .reveal-loader{margin-top:30px;width:200px;height:2px;background:rgba(255,255,255,.1);border-radius:1px;overflow:hidden;opacity:0;animation:fadeIn 0.5s ease 2s forwards}
@@ -8805,10 +8805,7 @@ def events_overview_page():
       50%{opacity:1;transform:scale(1.05) translateY(-10px)}
       100%{opacity:1;transform:scale(1) translateY(0)}
     }
-    @keyframes fadeInUp{
-      from{opacity:0;transform:translateY(20px)}
-      to{opacity:1;transform:translateY(0)}
-    }
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
     @keyframes loadProgress{from{width:0}to{width:100%}}
 
@@ -8851,7 +8848,7 @@ def events_overview_page():
     .hero{min-height:92vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,rgba(255,215,0,.05) 0%,transparent 70%)}
     .hero-bg{position:absolute;inset:0;overflow:hidden}
 
-    /* NEW: Parallax layers (subtle) */
+    /* Parallax layers (subtle) */
     .parallax{position:absolute;inset:0;overflow:hidden;pointer-events:none}
     .parallax-layer{
       position:absolute;inset:-10%;
@@ -8916,7 +8913,7 @@ def events_overview_page():
     .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--primary),transparent);opacity:0;transition:opacity .3s ease}
     .card:hover{transform:translateY(-6px) rotateX(.6deg) rotateY(.6deg);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
     .card:hover::before{opacity:1}
-    /* NEW: subtle shimmer film */
+    /* Shimmer film */
     .card::after{
       content:"";position:absolute;inset:0;border-radius:18px;pointer-events:none;
       background:linear-gradient(120deg,transparent 0%, rgba(255,255,255,.06) 25%, transparent 50%, transparent 100%);
@@ -8945,7 +8942,7 @@ def events_overview_page():
     .btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
     .btn:disabled:hover{box-shadow:none}
     .btn:disabled::before{display:none}
-    /* NEW: restrained diagonal shine for buttons */
+    /* Diagonal shine for buttons */
     .btn::after,.cal-btn::after,.q-btn::after{
       content:"";position:absolute;top:0;bottom:0;left:-120%;width:40%;
       background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);
@@ -8953,19 +8950,17 @@ def events_overview_page():
     }
     .btn:hover::after,.cal-btn:hover::after,.q-btn:hover::after{opacity:.7;left:140%}
 
-    /* Calendar - Vertical card layout like Special Events */
+    /* Calendar */
     .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px}
     .cal-item{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease;position:relative}
     .cal-item::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--primary),transparent);opacity:0;transition:opacity .3s ease}
     .cal-item:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
     .cal-item:hover::before{opacity:1}
-    
     .cal-banner{position:relative;height:210px;background:#111 center/cover no-repeat}
     .cal-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 60%)}
     .cal-date-overlay{position:absolute;top:16px;left:16px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;padding:12px 16px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:70px;z-index:2}
     .cal-date-overlay .month{font-size:.7rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;opacity:.9;line-height:1}
     .cal-date-overlay .day{font-size:1.8rem;line-height:.9;font-weight:900;margin-top:2px}
-    
     .cal-body{padding:22px}
     .cal-type-pill{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.75rem;font-weight:900;letter-spacing:.06em;margin-bottom:12px}
     .cal-type-pill.tournament{background:rgba(255,215,0,.18);color:#ffd86a}
@@ -8996,11 +8991,11 @@ def events_overview_page():
     .q-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(255,215,0,.25)}
     .q-btn:hover::before{left:100%}
 
-    /* NEW: in-view fade-up */
+    /* In-view fade-up */
     .reveal-inview{opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease;}
     .reveal-inview.in{opacity:1; transform:translateY(0)}
 
-    /* NEW: soft glow ring following cursor on cards */
+    /* Soft glow ring following cursor on cards */
     .card,.q-card,.cal-item{
       background:
         radial-gradient(400px 200px at var(--mouse-x,50%) var(--mouse-y,50%), rgba(255,215,0,.045), transparent 60%),
@@ -9056,7 +9051,7 @@ def events_overview_page():
     <!-- Hero -->
     <section class="hero reveal-element" aria-label="Events hero">
       <div class="hero-bg">
-        <!-- NEW: PARALLAX LAYERS -->
+        <!-- Parallax layers -->
         <div class="parallax">
           <div class="parallax-layer l-back" data-depth="0.08"></div>
           <div class="parallax-layer l-mid" data-depth="0.14"></div>
@@ -9163,7 +9158,7 @@ def events_overview_page():
       <section id="panel-calendar" class="panel" role="tabpanel" aria-labelledby="tab-calendar">
         <div class="section-head">
           <h2 class="section-title">Public Event Calendar</h2>
-          <p class="section-sub">Upcoming tournaments, game nights & special events. Birthdays hidden for privacy.</p>
+        <p class="section-sub">Upcoming tournaments, game nights & special events. Birthdays hidden for privacy.</p>
         </div>
         <div id="cal-grid" class="cal-grid">
           <div class="loading"><div class="spin"></div>Loading calendar…</div>
@@ -9190,6 +9185,28 @@ def events_overview_page():
     </main>
   </div>
 
+  <!-- Failsafe: never get stuck on overlay -->
+  <script>
+    (function(){
+      // If any unhandled JS error happens, try to skip the reveal so the page is usable
+      window.addEventListener('error', function(){
+        try { if (typeof skipReveal === 'function') skipReveal(); } catch(e){}
+      });
+      // Absolute fallback: if reveal didn't complete in 6s, nuke it
+      setTimeout(function(){
+        try {
+          if (!window.revealComplete) {
+            var overlay = document.getElementById('revealOverlay');
+            var pageContent = document.getElementById('pageContent');
+            if (overlay) overlay.style.display = 'none';
+            if (pageContent) pageContent.classList.add('revealed');
+            window.revealComplete = true;
+          }
+        } catch(e){}
+      }, 6000);
+    })();
+  </script>
+
   <script>
     /* ---------------- Opening Reveal Animation ---------------- */
     let revealComplete = false;
@@ -9197,50 +9214,33 @@ def events_overview_page():
     function startRevealSequence(){
       const overlay = document.getElementById('revealOverlay');
       const pageContent = document.getElementById('pageContent');
-      
-      if(!overlay || !pageContent) {
-        console.log('Reveal elements not found, skipping animation');
-        return;
-      }
-      
-      // Start hiding overlay after logo animation
+      if(!overlay || !pageContent) return;
       setTimeout(()=>{
         overlay.classList.add('hide');
         pageContent.classList.add('revealed');
         revealComplete = true;
-        
-        // Trigger page element animations
         setTimeout(()=>{
           document.querySelectorAll('.reveal-element').forEach((el,i)=>{
             setTimeout(()=>el.classList.add('animate'),i*100);
           });
-          
-          // Animate stats with delay
           setTimeout(()=>{
             document.querySelectorAll('.stat').forEach((el,i)=>{
               setTimeout(()=>el.classList.add('animate'),i*100);
             });
-            // Start stats counting after stats animate in
             setTimeout(loadStats,400);
           },600);
         },500);
-      },3800); // Total reveal time
+      },3800);
     }
 
     // Skip animation on click/key during reveal
-    document.addEventListener('click',()=>{
-      if(!revealComplete) skipReveal();
-    });
-    document.addEventListener('keydown',(e)=>{
-      if(!revealComplete && (e.key===' '||e.key==='Enter'||e.key==='Escape')) skipReveal();
-    });
-    
+    document.addEventListener('click',()=>{ if(!revealComplete) skipReveal(); });
+    document.addEventListener('keydown',(e)=>{ if(!revealComplete && (e.key===' '||e.key==='Enter'||e.key==='Escape')) skipReveal(); });
     function skipReveal(){
       if(revealComplete) return;
       revealComplete = true;
       const overlay = document.getElementById('revealOverlay');
       const pageContent = document.getElementById('pageContent');
-      
       if(overlay) overlay.style.display = 'none';
       if(pageContent) pageContent.classList.add('revealed');
       document.querySelectorAll('.reveal-element,.stat').forEach(el=>el.classList.add('animate'));
@@ -9340,7 +9340,6 @@ def events_overview_page():
         }
       }catch(e){ console.warn('stats err', e); }
     }
-    // Mechanical flip counter animation (kept)
     function flipNumber(element, target, duration = 1500){
       const digits = target.toString().length;
       element.style.fontFamily = 'monospace';
@@ -9353,7 +9352,6 @@ def events_overview_page():
           currentNumber = Math.floor(Math.random() * Math.pow(10, digits));
         } else if (progress < 0.98) {
           const targetStr = target.toString().padStart(digits, '0');
-          const currentStr = currentNumber.toString().padStart(digits, '0');
           let newNumber = '';
           for (let i = 0; i < digits; i++) newNumber += (Math.random() > 0.1) ? targetStr[i] : Math.floor(Math.random()*10);
           currentNumber = parseInt(newNumber) || 0;
@@ -9532,11 +9530,11 @@ def events_overview_page():
     // Lazy mount banners for .lazy-banner elements
     function lazyMountBanners(){
       const els = document.querySelectorAll('.lazy-banner[data-src]');
-      if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=`url('${e.dataset.src}')`); return; }
+      if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=\`url('\${e.dataset.src}')\`); return; }
       const io = new IntersectionObserver((entries,obs)=>{
         entries.forEach(ent=>{
           if(ent.isIntersecting){
-            const el=ent.target; el.style.backgroundImage=`url('${el.dataset.src}')`; el.removeAttribute('data-src'); obs.unobserve(el);
+            const el=ent.target; el.style.backgroundImage=\`url('\${el.dataset.src}')\`; el.removeAttribute('data-src'); obs.unobserve(el);
           }
         });
       },{rootMargin:'200px'});
@@ -9547,8 +9545,8 @@ def events_overview_page():
     (function(){
       const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-f');
       if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
-      document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
-      (function follow(){fx+=(mx-fx)*.12;fy+=(my-fy)*.12;f.style.transform=`translate(${fx-20}px,${fy-20}px)`;requestAnimationFrame(follow)})();
+      document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;c.style.transform=\`translate(\${mx-10}px,\${my-10}px)\`;});
+      (function follow(){fx+=(mx-fx)*.12;fy+=(my-fy)*.12;f.style.transform=\`translate(\${fx-20}px,\${fy-20}px)\`;requestAnimationFrame(follow)})();
       document.querySelectorAll('a,button,.card,.cal-item').forEach(el=>{
         el.addEventListener('mouseenter',()=>c.classList.add('active'));
         el.addEventListener('mouseleave',()=>c.classList.remove('active'));
@@ -9578,7 +9576,7 @@ def events_overview_page():
         </article>`;
     }
 
-    // Floating particles system (kept)
+    // Particles (optional safe no-op if container absent)
     function createParticles(){
       const container = document.getElementById('heroParticles');
       if(!container) return;
@@ -9594,7 +9592,7 @@ def events_overview_page():
       setInterval(addParticle, 3000);
     }
 
-    // Magnetic hover effects (kept)
+    // Magnetic hover + glow coords
     function addMagneticEffects(){
       document.querySelectorAll('.card,.q-card,.cal-item').forEach(card=>{
         card.addEventListener('mousemove',e=>{
@@ -9611,7 +9609,7 @@ def events_overview_page():
       });
     }
 
-    // Enhanced button ripple effect (kept)
+    // Button ripple
     function addRippleEffect(){
       document.querySelectorAll('.btn,.cal-btn,.q-btn').forEach(btn=>{
         btn.addEventListener('click',e=>{
@@ -9632,7 +9630,7 @@ def events_overview_page():
       document.head.appendChild(style);
     }
 
-    /* ---------------- NEW: Parallax controller ---------------- */
+    /* ---------------- Parallax controller ---------------- */
     function initParallax(){
       const layers = document.querySelectorAll('.parallax-layer');
       if(!layers.length) return;
@@ -9656,7 +9654,7 @@ def events_overview_page():
       raf();
     }
 
-    /* ---------------- NEW: In-view fade-up ---------------- */
+    /* ---------------- In-view fade-up ---------------- */
     function initInView(){
       const els = document.querySelectorAll('.card, .cal-item, .q-card');
       els.forEach(el => el.classList.add('reveal-inview'));
@@ -9675,52 +9673,45 @@ def events_overview_page():
       els.forEach(el => io.observe(el));
     }
 
-    /* ---------------- NEW: Extend magnetic hover (kept compatible) ---------------- */
-    function extendMagneticHover(){
-      document.querySelectorAll('.card,.q-card,.cal-item').forEach(card=>{
-        card.addEventListener('mousemove',e=>{
-          const rect = card.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width) * 100;
-          const y = ((e.clientY - rect.top) / rect.height) * 100;
-          card.style.setProperty('--mouse-x', x + '%');
-          card.style.setProperty('--mouse-y', y + '%');
-        });
-        card.addEventListener('mouseleave',()=>{
-          card.style.removeProperty('--mouse-x');
-          card.style.removeProperty('--mouse-y');
-        });
+    /* ---------------- Boot sequence (hardened) ---------------- */
+    (function boot(){
+      function initAll(){
+        try { startRevealSequence(); } catch(e){ console.warn('startRevealSequence failed', e); }
+        // Enhancements after reveal timeline
+        setTimeout(()=>{
+          try { createParticles(); } catch(e){}
+          try { addMagneticEffects(); } catch(e){}
+          try { addRippleEffect(); } catch(e){}
+          try { initParallax(); } catch(e){}
+          try { initInView(); } catch(e){}
+        }, 4200);
+        // Data loaders (don’t depend on revealComplete)
+        setTimeout(()=>{
+          try { loadTournaments(); } catch(e){}
+          setInterval(()=>{ 
+            try {
+              const active = document.querySelector('.panel.active');
+              if(active && active.id === 'panel-tournaments') loadTournaments();
+              if(active && active.id === 'panel-special') loadSpecialEvents();
+            } catch(e){}
+          }, 5*60*1000);
+          setInterval(()=>{ try { loadStats(); } catch(e){} }, 2*60*1000);
+        }, 4000);
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAll, { once:true });
+      } else {
+        initAll();
+      }
+      // Secondary safety: if nothing ran by 2s after load, run again
+      window.addEventListener('load', function(){
+        setTimeout(()=>{
+          if (!window.revealComplete) {
+            try { initAll(); } catch(e){}
+          }
+        }, 2000);
       });
-    }
-
-    // Boot sequence
-    document.addEventListener('DOMContentLoaded', ()=>{
-      // Start reveal animation immediately
-      startRevealSequence();
-      
-      // Initialize enhancement effects after reveal finishes
-      setTimeout(()=>{
-        createParticles();
-        addMagneticEffects();
-        addRippleEffect();
-
-        // NEW enhancers
-        initParallax();
-        initInView();
-        extendMagneticHover();
-      }, 4200);
-      
-      // Initialize data loaders after reveal
-      setTimeout(()=>{
-        loadTournaments();
-        // Gentle auto-refresh
-        setInterval(()=>{ 
-          const active = document.querySelector('.panel.active');
-          if(active && active.id === 'panel-tournaments') loadTournaments();
-          if(active && active.id === 'panel-special') loadSpecialEvents();
-        }, 5*60*1000);
-        setInterval(loadStats, 2*60*1000);
-      },4000);
-    });
+    })();
   </script>
 </body>
 </html>'''

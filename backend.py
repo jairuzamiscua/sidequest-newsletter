@@ -8771,509 +8771,424 @@ def birthday_booking_page():
 
 @app.route('/events', methods=['GET'])
 def events_overview_page():
-    """Public events overview page – tournaments, birthdays, and a public calendar"""
+    """SideQuest Events – single-scroll, Webflow-inspired aesthetic, no mask bugs"""
     events_html = '''<!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en" class="no-js">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Events & Tournaments – SideQuest Canterbury</title>
+  <meta name="theme-color" content="#0a0a0a"/>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box}
     :root{
-      --primary:#FFD700;
-      --accent:#FF6B35;
-      --dark:#0a0a0a;
-      --dark-2:#141414;
-      --text:#ffffff;
-      --muted:#9a9a9a;
-      --border:rgba(255,255,255,.06);
+      --bg:#0a0a0a; --panel:#131316; --text:#fafafa; --muted:#9a9a9a;
+      --primary:#FFD700; --accent:#FF6B35; --purple:#8B5FBF; --border:rgba(255,255,255,.08);
+      --ring: rgba(255,215,0,.18); --radius:22px; --wrap:min(1400px,92vw); --space:clamp(48px,7vw,110px);
     }
-    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;cursor:none}
+    *{box-sizing:border-box} html{scroll-behavior:smooth}
+    body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden;cursor:auto}
+    img{max-width:100%;display:block}
 
-    /* Reduced motion respect */
-    @media (prefers-reduced-motion: reduce){
-      *{animation:none!important;transition:none!important}
-    }
+    /* Top bar */
+    .bar{position:sticky;top:0;z-index:1000;backdrop-filter:blur(10px);
+      background:linear-gradient(180deg,rgba(10,10,10,.75),rgba(10,10,10,.55));border-bottom:1px solid var(--border)}
+    .bar-inner{width:var(--wrap);margin:auto;display:flex;align-items:center;gap:16px;justify-content:space-between;padding:12px 0}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:900}
+    .brand img{width:28px;height:28px}
+    .links{display:flex;gap:8px;flex-wrap:wrap}
+    .links a{padding:8px 12px;border-radius:999px;color:var(--muted);text-decoration:none;border:1px solid var(--border);font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:.78rem;transition:all .2s ease}
+    .links a.active,.links a:hover{color:#141414;background:linear-gradient(135deg,var(--primary),var(--accent));border-color:transparent}
 
-    /* Cursor */
-    .cursor{width:20px;height:20px;border:2px solid var(--primary);border-radius:50%;position:fixed;pointer-events:none;transition:all .1s ease;z-index:9999;mix-blend-mode:difference}
-    .cursor-f{width:40px;height:40px;background:rgba(255,215,0,.1);border-radius:50%;position:fixed;pointer-events:none;transition:all .3s ease;z-index:9998}
-    .cursor.active{transform:scale(.5);background:var(--primary)}
+    /* Gradient mesh backdrop */
+    .mesh{position:fixed;inset:-20vmax;z-index:-1;filter:blur(50px) saturate(110%);opacity:.7;pointer-events:none}
+    .blob{position:absolute;width:60vmax;height:60vmax;border-radius:50%;
+      background:radial-gradient(closest-side, rgba(255,215,0,.18), transparent 70%);animation:floaty 12s ease-in-out infinite}
+    .blob.b2{right:-12vmax;top:10vmax;background:radial-gradient(closest-side, rgba(255,107,53,.16), transparent 70%)}
+    .blob.b3{left:20vmax;bottom:-14vmax;background:radial-gradient(closest-side, rgba(139,95,191,.16), transparent 70%)}
+    @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(3%)}}
 
-    /* Noise overlay */
-    body::before{content:'';position:fixed;inset:0;background:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.03"/%3E%3C/svg%3E');pointer-events:none;z-index:1}
-
-    /* Hero */
-    .hero{min-height:92vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,rgba(255,215,0,.05) 0%,transparent 70%)}
-    .hero-bg{position:absolute;inset:0;overflow:hidden}
-    .hero-bg::before{content:'';position:absolute;width:200%;height:200%;top:-50%;left:-50%;background:conic-gradient(from 0deg at 50% 50%,var(--primary) 0deg,transparent 60deg,transparent 300deg,var(--accent) 360deg);animation:spin 30s linear infinite;opacity:.1}
-    @keyframes spin{100%{transform:rotate(360deg)}}
-    .floating-shapes{position:absolute;inset:0}
-    .shape{position:absolute;border:1px solid rgba(255,215,0,0.2);animation:float 20s infinite ease-in-out}
-    .shape:nth-child(1){width:300px;height:300px;top:10%;left:10%;border-radius:30% 70% 70% 30%/30% 30% 70% 70%}
-    .shape:nth-child(2){width:220px;height:220px;top:60%;right:10%;border-radius:63% 37% 54% 46%/55% 48% 52% 45%}
-    .shape:nth-child(3){width:160px;height:160px;bottom:10%;left:30%;border-radius:40% 60% 60% 40%/60% 30% 70% 40%}
-    @keyframes float{0%,100%{transform:translate(0,0) rotate(0) scale(1)}33%{transform:translate(30px,-30px) rotate(120deg) scale(1.1)}66%{transform:translate(-20px,20px) rotate(240deg) scale(.9)}}
-
-    .hero-content{position:relative;z-index:10;text-align:center;padding:0 20px}
-    .title{font-size:clamp(3rem,9vw,7rem);font-weight:900;letter-spacing:-.03em;line-height:.9;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
-    .subtitle{color:var(--muted);max-width:760px;margin:0 auto}
-    .stats{display:flex;gap:42px;justify-content:center;margin-top:42px}
-    .stat{text-align:center}
-    .stat .num{font-size:2.6rem;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    .stat .lbl{font-size:.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:8px}
-
-    .scroll{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);animation:bounce 2s infinite}
-    .scroll::before{content:'';display:block;width:20px;height:30px;border:2px solid var(--primary);border-radius:15px}
-    .scroll::after{content:'';display:block;width:4px;height:8px;background:var(--primary);border-radius:2px;position:absolute;top:8px;left:50%;transform:translateX(-50%);animation:scroll 2s infinite}
-    @keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(10px)}}
-    @keyframes scroll{0%{opacity:0;transform:translateX(-50%) translateY(0)}50%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
-
-    /* Main */
-    .wrap{max-width:1400px;margin:0 auto;padding:90px 20px}
-
-    /* Tabs */
-    .tabs{display:flex;justify-content:center;gap:8px;margin-bottom:64px;position:relative;flex-wrap:wrap}
-    .tabs::before{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:100%;max-width:700px;height:1px;background:linear-gradient(90deg,transparent,var(--muted),transparent);opacity:.2}
-    .tab{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:999px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:12px 20px;cursor:pointer;transition:all .2s ease}
-    .tab[aria-selected="true"]{color:#141414;background:linear-gradient(135deg,var(--primary),var(--accent));border-color:transparent}
-    .tab:focus-visible{outline:3px solid var(--primary)}
-    .panel{display:none}
-    .panel.active{display:block}
+    /* Loader (failsafed) */
+    .reveal{position:fixed;inset:0;background:#0a0a0a;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity .8s ease,visibility .8s ease}
+    .reveal.hide{opacity:0;visibility:hidden;display:none}
+    .reveal-logo{width:260px;opacity:0;transform:translateY(8px) scale(.94);animation:logo .8s ease-out forwards}
+    .reveal-tag{opacity:0;color:var(--muted);margin-top:10px;animation:fade .6s ease .4s forwards}
+    .reveal-bar{width:160px;height:2px;background:rgba(255,255,255,.12);overflow:hidden;border-radius:2px;margin-top:14px;opacity:0;animation:fade .4s ease .6s forwards}
+    .reveal-prog{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));width:0;animation:grow 1s ease .7s forwards}
+    @keyframes logo{to{opacity:1;transform:translateY(0) scale(1)}} @keyframes fade{to{opacity:1}} @keyframes grow{to{width:100%}}
 
     /* Sections */
-    .section-head{text-align:center;margin-bottom:44px}
-    .section-title{font-size:clamp(2.4rem,5vw,3.8rem);font-weight:900;letter-spacing:-.02em;margin-bottom:10px;display:inline-block;position:relative}
-    .section-title::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:64px;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:2px}
-    .section-sub{color:var(--muted);max-width:680px;margin:0 auto}
+    .section{width:var(--wrap);margin:auto;padding:var(--space) 0;position:relative}
+    .divider{height:110px;position:relative}
+    .divider::before{content:'';position:absolute;inset:0;background:
+      radial-gradient(60% 120% at 50% 0%, rgba(255,215,0,.10), transparent 60%),
+      radial-gradient(40% 120% at 50% 100%, rgba(255,107,53,.08), transparent 60%);opacity:.6;filter:blur(8px)}
 
-    /* Cards */
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px}
-    .card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease}
-    .card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
-    .banner{position:relative;height:210px;background:#111 center/cover no-repeat}
-    .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 60%)}
+    .hero{min-height:88vh;display:flex;align-items:center;justify-content:center;text-align:center}
+    .halo{position:absolute;inset:-30vh;opacity:.12;background:conic-gradient(from 0deg at 50% 50%,var(--primary),transparent 50%,transparent 85%,var(--accent));border-radius:50%;filter:blur(90px)}
+    .title-xl{font-size:clamp(3.2rem,8.5vw,8rem);line-height:.88;font-weight:900;letter-spacing:-.03em;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 18px}
+    .lead{color:var(--muted);max-width:800px;margin:0 auto}
+    .stats{display:flex;gap:28px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+    .stat{text-align:center}
+    .stat .num{font-size:clamp(1.8rem,3.6vw,3rem);font-weight:900;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .stat .lbl{font-size:.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;margin-top:6px}
+
+    /* Section heads */
+    .head{margin-bottom:26px;text-align:center}
+    .h2{font-size:clamp(2.1rem,4.8vw,3.6rem);font-weight:900;letter-spacing:-.02em;margin:0 0 10px}
+    .sub{color:var(--muted);max-width:680px;margin:0 auto}
+
+    /* Grids & cards (NO MASKS) */
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:22px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.02),transparent), var(--panel);
+      border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:transform .3s ease,box-shadow .3s ease,border-color .3s ease}
+    .card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.22);box-shadow:0 20px 40px rgba(255,215,0,.10)}
     .body{padding:22px}
-    .pill{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.75rem;font-weight:900;letter-spacing:.06em;margin-bottom:12px}
-    .ok{background:rgba(255,215,0,.18);color:#ffd86a}
-    .warn{background:rgba(255,107,53,.18);color:#ff9a78}
-    .soon{background:rgba(255,215,0,.18);color:#ffd86a}
-    .name{font-size:1.45rem;font-weight:850;margin-bottom:6px}
-    .sub{color:#ff8d6a;font-weight:700;margin-bottom:16px}
-    .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px;margin-bottom:18px}
-    .meta-item{display:flex;align-items:center;gap:8px;color:var(--muted);white-space:nowrap}
-    .btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}
-    .btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(255,215,0,.28)}
-    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .pill{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.72rem;font-weight:900;letter-spacing:.08em;margin-bottom:12px;background:var(--ring);color:#141414}
+    .warn{background:rgba(255,107,53,.18)!important;color:#ff9a78}
+    .soon{background:var(--ring)!important}
+    .name{font-size:1.28rem;font-weight:850;margin-bottom:6px}
+    .subtle{color:#ff8d6a;font-weight:700;margin-bottom:14px}
+    .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 14px;margin-bottom:16px}
+    .meta-item{color:var(--muted)}
+    .btn{width:100%;padding:14px 16px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:.9rem;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(255,215,0,.28)}
+    .btn:active{transform:translateY(0);box-shadow:0 6px 16px rgba(255,215,0,.22)}
+    .btn:disabled{opacity:.6;cursor:not-allowed;box-shadow:none}
+
+    /* Banners (image-only reveal; no text dim) */
+    .banner{position:relative;height:210px;background:#111 center/cover no-repeat;overflow:hidden}
+    .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.35),transparent 55%)} /* lighter overlay */
+    .img-reveal{transform:scale(1.04) translateY(8px);clip-path:inset(6% round 16px);transition:transform .8s cubic-bezier(.2,.6,.2,1),clip-path .8s cubic-bezier(.2,.6,.2,1)}
+    .is-in .img-reveal{transform:scale(1) translateY(0);clip-path:inset(0% round 16px)}
 
     /* Calendar */
-    .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px}
-    .cal-item{display:grid;grid-template-columns:140px 1fr;background:var(--dark-2);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:transform .2s ease,border-color .2s ease}
-    .cal-item:hover{transform:translateY(-3px);border-color:rgba(255,215,0,.25)}
-    .date{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--primary),var(--accent));color:#141414;flex-direction:column;padding:22px}
-    .date .m{font-size:.85rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;opacity:.9}
-    .date .d{font-size:2.6rem;line-height:1;font-weight:900}
-    .info{padding:20px 24px}
-    .info .title{font-size:1.2rem;font-weight:800;margin-bottom:6px;-webkit-text-fill-color:initial;background:none}
-    .chips{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0}
-    .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.02);font-weight:600;color:var(--muted)}
-    .thumb{height:44px;min-width:140px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#111 center/cover no-repeat}
+    .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:22px}
+    .cal-item{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:transform .3s ease,border-color .3s ease,box-shadow .3s ease}
+    .cal-item:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.22);box-shadow:0 20px 40px rgba(255,215,0,.10)}
+    .cal-banner{position:relative;height:210px;background:#111 center/cover no-repeat}
+    .cal-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.35),transparent 55%)}
+    .cal-date{position:absolute;top:14px;left:14px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;padding:10px 14px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:64px}
+    .cal-date .m{font-size:.66rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+    .cal-date .d{font-size:1.6rem;font-weight:900;line-height:.9;margin-top:2px}
+    .cal-body{padding:20px}
+    .cal-type{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.72rem;font-weight:900;letter-spacing:.08em;margin-bottom:12px;background:var(--ring);color:#141414}
+    .cal-title{font-size:1.22rem;font-weight:850;margin:4px 0 6px}
+    .cal-sub{color:#ff8d6a;font-weight:700;margin-bottom:12px}
+    .cal-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 14px;margin-bottom:14px}
+    .cal-cta{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:14px 16px;background:linear-gradient(135deg,var(--primary),var(--accent));border:none;border-radius:12px;color:#141414;font-weight:800;letter-spacing:.06em;text-decoration:none}
 
-    /* Loading / helpers */
-    .loading{grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)}
-    .spin{width:48px;height:48px;border:3px solid rgba(255,215,0,.12);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
-    @keyframes spin{100%{transform:rotate(360deg)}}
+    /* Proof: pills + marquee */
+    .pill-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:18px}
+    .pill-badge{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:999px;padding:8px 14px;color:var(--muted);font-weight:800;font-size:.8rem;letter-spacing:.06em}
+    .marquee{overflow:hidden;mask-image:linear-gradient(90deg,transparent 0, #000 8%, #000 92%, transparent 100%);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:14px 0;margin-top:14px}
+    .marquee .track{display:flex;gap:42px;align-items:center;animation:slide 24s linear infinite;will-change:transform}
+    .marquee img{height:28px;opacity:.9;filter:grayscale(100%);transition:opacity .2s ease}
+    .marquee img:hover{opacity:1}
+    @keyframes slide{to{transform:translateX(-50%)}}
 
-    /* Quick actions */
-    .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;margin-top:64px}
-    .q-card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;padding:36px;text-align:center;transition:all .3s ease;cursor:pointer}
-    .q-card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.3);box-shadow:0 20px 40px rgba(255,215,0,.08)}
-    .q-title{font-size:1.1rem;font-weight:900;color:var(--primary);margin-bottom:10px}
-    .q-text{color:var(--muted);margin-bottom:18px}
-    .q-btn{padding:12px 24px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:10px;font-weight:900;cursor:pointer}
+    /* In-view reveal wrapper */
+    .reveal-in{opacity:1;transform:none;transition:opacity .7s cubic-bezier(.2,.6,.2,1),transform .7s cubic-bezier(.2,.6,.2,1)}
+    .js .reveal-in{opacity:0;transform:translateY(18px)}
+    .js .reveal-in.is-in{opacity:1;transform:translateY(0)}
 
-    @media (max-width:768px){
-      body{cursor:auto}
-      .cursor,.cursor-f{display:none}
-      .grid{grid-template-columns:1fr}
-      .cal-item{grid-template-columns:1fr}
-      .date{flex-direction:row;gap:10px;justify-content:flex-start}
+    /* States */
+    .loading{grid-column:1/-1;text-align:center;padding:54px;color:var(--muted)}
+    .spin{width:44px;height:44px;border:3px solid rgba(255,215,0,.12);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 14px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    @media (max-width:760px){
+      .grid,.cal-grid{grid-template-columns:1fr}
+      .bar-inner{padding:12px 4vw}
     }
   </style>
 </head>
 <body>
-  <div class="cursor"></div><div class="cursor-f"></div>
+  <!-- Background mesh -->
+  <div class="mesh" aria-hidden="true">
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  </div>
 
-  <!-- Hero -->
-  <section class="hero" aria-label="Events hero">
-    <div class="hero-bg">
-      <div class="floating-shapes"><div class="shape"></div><div class="shape"></div><div class="shape"></div></div>
+  <!-- Top bar -->
+  <header class="bar">
+    <div class="bar-inner">
+      <div class="brand"><img src="/static/brand/sidequest-logo.png" alt="SideQuest"/><span>SideQuest Canterbury</span></div>
+      <nav class="links" id="spy">
+        <a href="#hero" class="active">Home</a>
+        <a href="#proof">Trusted</a>
+        <a href="#tournaments">Tournaments</a>
+        <a href="#games">Games Night</a>
+        <a href="#special">Special</a>
+        <a href="#birthdays">Birthdays</a>
+        <a href="#calendar">Calendar</a>
+      </nav>
     </div>
-    <div class="hero-content">
-      <h1 class="title">LEVEL UP YOUR GAME</h1>
-      <p class="subtitle">Elite tournaments, relaxed game nights, unforgettable birthdays — all in one sleek hub.</p>
-      <div class="stats" role="group" aria-label="Live counters">
-        <div class="stat"><div class="num" id="upcomingCount">0</div><div class="lbl">Public Events</div></div>
-        <div class="stat"><div class="num" id="tournamentCount">0</div><div class="lbl">Tournaments</div></div>
-        <div class="stat"><div class="num" id="gamesNightCount">0</div><div class="lbl">Games Nights</div></div>
+  </header>
+
+  <!-- Loader -->
+  <div class="reveal" id="reveal" aria-hidden="true">
+    <img src="/static/brand/sidequest-logo.png" class="reveal-logo" alt="SideQuest"/>
+    <div class="reveal-tag">Canterbury's Premier Gaming Hub</div>
+    <div class="reveal-bar"><div class="reveal-prog"></div></div>
+  </div>
+
+  <!-- Content -->
+  <main id="content">
+    <!-- Hero -->
+    <section class="section hero" id="hero">
+      <div class="halo" aria-hidden="true"></div>
+      <div>
+        <h1 class="title-xl">LEVEL&nbsp;UP<br/>YOUR&nbsp;GAME</h1>
+        <p class="lead">Elite tournaments, relaxed game nights, unforgettable birthdays & special events — all in one sleek hub.</p>
+        <div class="stats" role="group" aria-label="Live counters">
+          <div class="stat"><div class="num" id="upcomingCount">0</div><div class="lbl">Public Events</div></div>
+          <div class="stat"><div class="num" id="tournamentCount">0</div><div class="lbl">Tournaments</div></div>
+          <div class="stat"><div class="num" id="gamesNightCount">0</div><div class="lbl">Games Nights</div></div>
+          <div class="stat"><div class="num" id="specialEventCount">0</div><div class="lbl">Special Events</div></div>
+        </div>
       </div>
-    </div>
-    <div class="scroll" aria-hidden="true"></div>
-  </section>
+    </section>
 
-  <!-- Main -->
-  <main class="wrap">
-    <!-- Tabs -->
-    <div class="tabs" role="tablist" aria-label="Events navigation">
-      <button class="tab" role="tab" aria-selected="true" id="tab-tournaments" aria-controls="panel-tournaments">Tournaments</button>
-      <button class="tab" role="tab" aria-selected="false" id="tab-games" aria-controls="panel-games">Games Nights</button>
-      <button class="tab" role="tab" aria-selected="false" id="tab-birthdays" aria-controls="panel-birthdays">Birthday Parties</button>
-      <button class="tab" role="tab" aria-selected="false" id="tab-calendar" aria-controls="panel-calendar">Calendar</button>
-    </div>
+    <!-- Social proof: pills + marquee -->
+    <section class="section reveal-in" id="proof">
+      <div class="pill-row">
+        <div class="pill-badge">★ 4.9/5 · 320+ local reviews</div>
+        <div class="pill-badge">Trusted by schools & uni societies</div>
+        <div class="pill-badge">Real prizes · Pro admins</div>
+      </div>
+      <div class="marquee" aria-label="Partners and sponsors">
+        <div class="track">
+          <img src="/static/brands/google.svg" alt="Google">
+          <img src="/static/brands/riot.svg" alt="Riot Games">
+          <img src="/static/brands/unikentsu.svg" alt="Uni of Kent SU">
+          <img src="/static/brands/ea.svg" alt="EA">
+          <img src="/static/brands/discord.svg" alt="Discord">
+          <img src="/static/brands/google.svg" alt>
+          <img src="/static/brands/riot.svg" alt>
+          <img src="/static/brands/unikentsu.svg" alt>
+          <img src="/static/brands/ea.svg" alt>
+          <img src="/static/brands/discord.svg" alt>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
 
     <!-- Tournaments -->
-    <section id="panel-tournaments" class="panel active" role="tabpanel" aria-labelledby="tab-tournaments">
-      <div class="section-head">
-        <h2 class="section-title">Tournament Arena</h2>
-        <p class="section-sub">Compete in polished, high-stakes brackets. Real prizes. Pro vibes.</p>
+    <section id="tournaments" class="section reveal-in">
+      <div class="head">
+        <h2 class="h2">Tournament Arena</h2>
+        <p class="sub">Compete in polished, high-stakes brackets. Real prizes. Pro vibes.</p>
       </div>
-      <div id="tournaments-grid" class="grid">
-        <div class="loading"><div class="spin"></div>Loading tournaments…</div>
-      </div>
+      <div id="tournaments-grid" class="grid"><div class="loading"><div class="spin"></div>Loading tournaments…</div></div>
     </section>
 
-    <!-- Games Nights -->
-    <section id="panel-games" class="panel" role="tabpanel" aria-labelledby="tab-games">
-      <div class="section-head">
-        <h2 class="section-title">Games Night</h2>
-        <p class="section-sub">Casual sessions, open tables, great atmosphere. Bring friends or meet new ones.</p>
+    <div class="divider"></div>
+
+    <!-- Games Night -->
+    <section id="games" class="section reveal-in">
+      <div class="head">
+        <h2 class="h2">Games Night</h2>
+        <p class="sub">Casual sessions, open tables, great atmosphere. Bring friends or meet new ones.</p>
       </div>
-      <div id="games-grid" class="grid">
-        <div class="loading"><div class="spin"></div>Loading games nights…</div>
-      </div>
+      <div id="games-grid" class="grid"><div class="loading"><div class="spin"></div>Loading games nights…</div></div>
     </section>
+
+    <div class="divider"></div>
+
+    <!-- Special Events -->
+    <section id="special" class="section reveal-in">
+      <div class="head">
+        <h2 class="h2">Special Events</h2>
+        <p class="sub">Unique experiences, themed nights, and exclusive gatherings. Don't miss out.</p>
+      </div>
+      <div id="special-grid" class="grid"><div class="loading"><div class="spin"></div>Loading special events…</div></div>
+    </section>
+
+    <div class="divider"></div>
 
     <!-- Birthdays -->
-    <section id="panel-birthdays" class="panel" role="tabpanel" aria-labelledby="tab-birthdays">
-      <div class="section-head">
-        <h2 class="section-title">Birthday Experiences</h2>
-        <p class="section-sub">Two packages. Same premium energy. Pick your playstyle.</p>
+    <section id="birthdays" class="section reveal-in">
+      <div class="head">
+        <h2 class="h2">Birthday Experiences</h2>
+        <p class="sub">Two packages. Same premium energy. Pick your playstyle.</p>
       </div>
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
+      <div class="grid">
         <article class="card">
-          <div class="banner lazy-banner" data-src="/static/games/party-consoles.jpg"></div>
+          <div class="banner img-reveal lazy-banner" data-src="/static/games/party-consoles.jpg"></div>
           <div class="body">
-            <span class="pill ok">Available</span>
+            <span class="pill">Available</span>
             <div class="name">Console Ultimate</div>
-            <div class="sub">Premium birthday session</div>
-            <div class="meta">
-              <div class="meta-item" title="Players"><span class="i users"></span>Up to 12 players</div>
-              <div class="meta-item" title="Perks"><span class="i check"></span>Decorations + gift pack</div>
-            </div>
+            <div class="subtle">Premium birthday session</div>
+            <div class="meta"><div class="meta-item">Up to 12 players</div><div class="meta-item">Decorations + gift pack</div></div>
             <button class="btn" onclick="location.href='/birthday-booking'">Reserve Package</button>
           </div>
         </article>
-
         <article class="card">
-          <div class="banner lazy-banner" data-src="/static/games/flex-gaming.jpg"></div>
+          <div class="banner img-reveal lazy-banner" data-src="/static/games/flex-gaming.jpg"></div>
           <div class="body">
-            <span class="pill ok">Available</span>
+            <span class="pill">Available</span>
             <div class="name">Flex Gaming</div>
-            <div class="sub">Pay &amp; Play access</div>
-            <div class="meta">
-              <div class="meta-item"><span class="i clock"></span>Flexible time</div>
-              <div class="meta-item"><span class="i list"></span>Custom lineup</div>
-            </div>
+            <div class="subtle">Pay &amp; Play access</div>
+            <div class="meta"><div class="meta-item">Flexible time</div><div class="meta-item">Custom lineup</div></div>
             <button class="btn" onclick="location.href='/birthday-booking'">Book Now</button>
           </div>
         </article>
       </div>
     </section>
 
-    <!-- Calendar -->
-    <section id="panel-calendar" class="panel" role="tabpanel" aria-labelledby="tab-calendar">
-      <div class="section-head">
-        <h2 class="section-title">Public Event Calendar</h2>
-        <p class="section-sub">Upcoming tournaments & game nights. Birthdays hidden for privacy.</p>
-      </div>
-      <div id="cal-grid" class="cal-grid">
-        <div class="loading"><div class="spin"></div>Loading calendar…</div>
-      </div>
+    <div class="divider"></div>
 
-      <div class="quick">
-        <div class="q-card" onclick="location.href='/signup'">
-          <div class="q-title">Join Our Community</div>
-          <div class="q-text">Get notified about new tournaments and game nights.</div>
-          <button class="q-btn">Subscribe to Updates</button>
+    <!-- Calendar -->
+    <section id="calendar" class="section reveal-in">
+      <div class="head">
+        <h2 class="h2">Public Event Calendar</h2>
+        <p class="sub">Upcoming tournaments, game nights & special events. Birthdays hidden for privacy.</p>
+      </div>
+      <div id="cal-grid" class="cal-grid"><div class="loading"><div class="spin"></div>Loading calendar…</div></div>
+
+      <div class="grid" style="margin-top:28px">
+        <div class="card" onclick="location.href='/signup'" style="text-align:center;cursor:pointer">
+          <div class="body">
+            <div class="name" style="color:var(--primary)">Join Our Community</div>
+            <p class="sub" style="margin:8px auto 16px;max-width:520px">Get notified about new tournaments and game nights.</p>
+            <button class="btn">Subscribe to Updates</button>
+          </div>
         </div>
-        <div class="q-card" onclick="window.open('https://discord.gg/CuwQM7Zwuk','_blank')">
-          <div class="q-title">Tournament Discord</div>
-          <div class="q-text">Connect with players, teams, and admins in real time.</div>
-          <button class="q-btn">Open Discord</button>
-        </div>
-        <div class="q-card" onclick="location.href='tel:012279915058'">
-          <div class="q-title">Need Help?</div>
-          <div class="q-text">Questions about events or bookings? We’re here for you.</div>
-          <button class="q-btn">01227 915058</button>
+        <a class="card" href="https://discord.gg/CuwQM7Zwuk" target="_blank" rel="noopener" style="text-decoration:none">
+          <div class="body" style="text-align:center">
+            <div class="name" style="color:var(--primary)">Tournament Discord</div>
+            <p class="sub" style="margin:8px auto 16px;max-width:520px">Connect with players, teams, and admins in real time.</p>
+            <div class="btn" style="display:inline-flex;justify-content:center">Open Discord</div>
+          </div>
+        </a>
+        <div class="card" onclick="location.href='tel:012279915058'" style="text-align:center;cursor:pointer">
+          <div class="body">
+            <div class="name" style="color:var(--primary)">Need Help?</div>
+            <p class="sub" style="margin:8px auto 16px;max-width:520px">Questions about events or bookings? We're here for you.</p>
+            <div class="btn" style="display:inline-flex;justify-content:center">01227 915058</div>
+          </div>
         </div>
       </div>
     </section>
+
+    <div class="divider"></div>
+
+    <!-- Testimonials -->
+    <section class="section reveal-in" id="testimonials">
+      <div class="head"><h2 class="h2">Players love SideQuest</h2><p class="sub">A few words from our community</p></div>
+      <div class="grid">
+        <figure class="card"><div class="body"><blockquote style="font-size:1.05rem;line-height:1.5">“Most professional LAN vibe in Canterbury. Admins know their stuff, matches run on time.”</blockquote><figcaption style="margin-top:10px;color:var(--muted)">Luca T. · CS2 Captain</figcaption></div></figure>
+        <figure class="card"><div class="body"><blockquote>“Booked my son’s birthday—flawless setup and the team handled everything. 10/10.”</blockquote><figcaption style="margin-top:10px;color:var(--muted)">Amira K. · Parent</figcaption></div></figure>
+        <figure class="card"><div class="body"><blockquote>“Great mix of casual nights and sweaty brackets. Found my ranked duo here.”</blockquote><figcaption style="margin-top:10px;color:var(--muted)">Josh P. · Valorant Gold</figcaption></div></figure>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- Hall of Fame -->
+    <section class="section reveal-in" id="hof">
+      <div class="head"><h2 class="h2">Hall of Fame</h2><p class="sub">Winners of recent brackets</p></div>
+      <div class="grid">
+        <div class="card"><div class="body"><div class="name">CS2 – Summer Cup</div><div class="subtle">Team: Kent Kings · Prize £500</div><p class="sub" style="margin-top:6px">MVP: <strong>@FragMatic</strong> – 1.32 K/D</p></div></div>
+        <div class="card"><div class="body"><div class="name">Valorant – Open #12</div><div class="subtle">Team: Aces High · Prize £300</div><p class="sub" style="margin-top:6px">MVP: <strong>@sova_mains</strong> – 28 avg</p></div></div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- FAQ -->
+    <section class="section reveal-in" id="faq">
+      <div class="head"><h2 class="h2">FAQ</h2><p class="sub">Everything you might want to know</p></div>
+      <details class="card"><summary class="body"><strong>Can beginners join tournaments?</strong></summary><div class="body" style="border-top:1px solid var(--border)">Yes—many brackets have casual divisions. Games Night is perfect to warm up.</div></details>
+      <details class="card" style="margin-top:12px"><summary class="body"><strong>What’s your refund policy?</strong></summary><div class="body" style="border-top:1px solid var(--border)">Full refund up to 48h before the event. Within 48h, we can move you to the next bracket.</div></details>
+      <details class="card" style="margin-top:12px"><summary class="body"><strong>Do you host private bookings?</strong></summary><div class="body" style="border-top:1px solid var(--border)">Yes—teams, corporate, and birthdays. See “Birthday Experiences” or call 01227 915058.</div></details>
+    </section>
   </main>
 
+  <!-- Scripts -->
   <script>
-    /* ---------------- Icons (inline SVG) ---------------- */
-    const ICONS = {
-      date:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M8 2v4M16 2v4M3 10h18" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
+    // enable JS class
+    (function(){try{document.documentElement.classList.remove('no-js');document.documentElement.classList.add('js');}catch(e){}})();
+    // loader failsafe
+    (function(){const ov=document.getElementById('reveal'); const done=()=>{ if(ov) ov.classList.add('hide'); };
+      window.addEventListener('error',done); setTimeout(done,1200);})();
+
+    /* Icons & helpers */
+    const ICONS={date:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M8 2v4M16 2v4M3 10h18" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
       time:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#9a9a9a" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
       users:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="3" stroke="#9a9a9a" stroke-width="2"/></svg>',
-      fee:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M7 10h10M7 14h6" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
-      list:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
-      check:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m20 6-11 11L4 12" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      clock:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#9a9a9a" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
-      tag:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.59 13.41 12 22l-8-8 8-8 8.59 7.41Z" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-    };
+      fee:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M7 10h10M7 14h6" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>'};
+    const GAME_IMAGES={'valorant':'/static/games/valorant.jpg','horror':'/static/games/horror.jpg','cs2':'/static/games/cs2.jpg','counter-strike 2':'/static/games/cs2.jpg','league of legends':'/static/games/lol.jpg','dota 2':'/static/games/dota2.jpg','rocket league':'/static/games/rocket-league.jpg','overwatch 2':'/static/games/overwatch2.jpg','apex legends':'/static/games/apex.jpg','rainbow six siege':'/static/games/r6.jpg','minecraft':'/static/games/minecraft.jpg','tekken 8':'/static/games/tekken8.jpg','street fighter 6':'/static/games/sf6.jpg','ea fc 24':'/static/games/eafc.jpg','ea fc 25':'/static/games/eafc25.jpg','f1':'/static/games/f1.jpg','special':'/static/games/special-event.jpg','themed':'/static/games/themed-night.jpg','community':'/static/games/community.jpg','cosplay':'/static/games/cosplay.jpg','retro':'/static/games/retro.jpg','generic':'/static/games/generic.jpg'};
+    function bannerFor(title){if(!title) return GAME_IMAGES['generic']; const k=String(title).toLowerCase().trim(); if(GAME_IMAGES[k]) return GAME_IMAGES[k]; for(const t of Object.keys(GAME_IMAGES)){ if(k.includes(t)) return GAME_IMAGES[t]; } return GAME_IMAGES['generic'];}
+    function escapeHTML(s){return String(s||'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+    function emptyState(t,s){return `<div class="loading"><div class="spin"></div><h3 style="color:var(--primary);margin:8px 0">${t}</h3><p>${s}</p></div>`;}
+    function networkError(msg){return `<div class="loading" style="color:#ff9a78"><h3>Connection Error</h3><p>${msg}</p><button onclick="location.reload()" class="btn" style="margin-top:12px">Retry</button></div>`;}
 
-    /* ---------------- Local-first game banners ---------------- */
-    const GAME_IMAGES = {
-      'valorant':'/static/games/valorant.jpg',
-      'horror': '/static/games/horror.jpg',
-      'cs2':'/static/games/cs2.jpg',
-      'counter-strike 2':'/static/games/cs2.jpg',
-      'league of legends':'/static/games/lol.jpg',
-      'dota 2':'/static/games/dota2.jpg',
-      'rocket league':'/static/games/rocket-league.jpg',
-      'overwatch 2':'/static/games/overwatch2.jpg',
-      'apex legends':'/static/games/apex.jpg',
-      'rainbow six siege':'/static/games/r6.jpg',
-      'minecraft':'/static/games/minecraft.jpg',
-      'tekken 8':'/static/games/tekken8.jpg',
-      'street fighter 6':'/static/games/sf6.jpg',
-      'ea fc 24':'/static/games/eafc.jpg',
-      'ea fc 25':'/static/games/eafc25.jpg',
-      'generic':'/static/games/generic.jpg'
-      'f1':'/static/games/f1.jpg'
-    };
-    function bannerFor(title){
-      if(!title) return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
-      const key = String(title).toLowerCase().trim();
-      if(GAME_IMAGES[key]) return GAME_IMAGES[key];
-      for(const k of Object.keys(GAME_IMAGES)){ if(key.includes(k)) return GAME_IMAGES[k]; }
-      return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
-    }
-
-    /* ---------------- Tabs (click + keyboard) ---------------- */
-    const tabButtons = Array.from(document.querySelectorAll('.tab'));
-    const panels = {
-      tournaments: document.getElementById('panel-tournaments'),
-      games: document.getElementById('panel-games'),
-      birthdays: document.getElementById('panel-birthdays'),
-      calendar: document.getElementById('panel-calendar')
-    };
-    tabButtons.forEach(btn=>{
-      btn.addEventListener('click', ()=>activateTab(btn));
-      btn.addEventListener('keydown', e=>{
-        const i = tabButtons.indexOf(btn);
-        if(e.key==='ArrowRight') tabButtons[(i+1)%tabButtons.length].focus();
-        if(e.key==='ArrowLeft') tabButtons[(i-1+tabButtons.length)%tabButtons.length].focus();
-        if(e.key==='Enter' || e.key===' ') activateTab(btn);
-      });
-    });
-    function activateTab(btn){
-      tabButtons.forEach(b=>b.setAttribute('aria-selected','false'));
-      Object.values(panels).forEach(p=>p.classList.remove('active'));
-      btn.setAttribute('aria-selected','true');
-      const id = btn.id.replace('tab-','');
-      panels[id].classList.add('active');
-      if(id==='tournaments') loadTournaments();
-      if(id==='games') loadGamesNights();
-      if(id==='calendar') loadCalendar();
-    }
-
-    /* ---------------- Stats ---------------- */
-    async function loadStats(){
-      try{
-        const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
-        const j = await r.json();
-        if(j.success){
-          const publics = j.events.filter(e=>e.event_type!=='birthday');
-          const tourns  = publics.filter(e=>e.event_type==='tournament');
-          const games   = publics.filter(e=>e.event_type==='games_night' || /games?\s*night/i.test(e.title||''));
-          animate('#upcomingCount', publics.length);
-          animate('#tournamentCount', tourns.length);
-          animate('#gamesNightCount', games.length);
-        }
-      }catch(e){ console.warn('stats err', e); }
-    }
-    function animate(sel, target){
-      const el=document.querySelector(sel); const dur=900, steps=24, inc=(+target)/steps; let cur=0;
-      const t=setInterval(()=>{cur+=inc; if(cur>=target){el.textContent=target;clearInterval(t)} else {el.textContent=Math.floor(cur)}}, dur/steps);
-    }
-
-    /* ---------------- Tournaments loader ---------------- */
-    async function loadTournaments(){
-      const grid = document.getElementById('tournaments-grid');
-      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading tournaments…</div>';
-      try{
-        const r = await fetch('/api/events?type=tournament&upcoming=true',{credentials:'same-origin'});
-        const j = await r.json();
-        if(j.success && j.events.length){
-          grid.innerHTML = j.events.map(ev=>{
-            const dt=new Date(ev.date_time), reg=ev.registration_count||0, cap=(ev.capacity||0)>0?ev.capacity:null;
-            const spots = cap?Math.max(cap-reg,0):null;
-            let pill='ok', text='Open Registration';
-            if(spots!==null){ if(spots===0){pill='warn'; text='Full'} else if(spots<=3){pill='soon'; text=spots+' Spots Left'} }
-            const banner=bannerFor(ev.game_title||ev.title||'generic');
-            return cardHTML({banner, pillText:text, pillClass:pill, name:ev.title, sub:ev.game_title||'Game',
-              dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
-          }).join('');
-          lazyMountBanners();
-        }else{
-          grid.innerHTML = emptyState('No upcoming tournaments','New tournaments will be announced soon.');
-        }
-      }catch(e){
-        grid.innerHTML = networkError('Couldn\\'t load tournaments. Please refresh.');
-      }
-    }
-
-    /* ---------------- Games Nights loader ---------------- */
-    async function loadGamesNights(){
-      const grid = document.getElementById('games-grid');
-      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading games nights…</div>';
-      try{
-        // Primary: explicit type
-        let r = await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'});
-        let j = await r.json();
-        // Fallback: filter by title if API doesn’t support type
-        let events = (j.success ? j.events : []).filter(Boolean);
-        if(!events.length){
-          const all = await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
-          if(all.success) events = all.events.filter(e => e.event_type!=='birthday' && /games?\s*night/i.test(e.title||''));
-        }
-        if(events.length){
-          grid.innerHTML = events.map(ev=>{
-            const dt=new Date(ev.date_time);
-            const banner=bannerFor(ev.game_title||ev.title||'generic');
-            const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-            const cap = (ev.capacity||0)>0?ev.capacity:null;
-            const reg = ev.registration_count||0;
-            return `
-              <article class="card">
-                <div class="banner lazy-banner" data-src="${banner}"></div>
-                <div class="body">
-                  <span class="pill ok">Open</span>
-                  <div class="name">${escapeHTML(ev.title)}</div>
-                  <div class="sub">${escapeHTML(ev.game_title || 'Casual Session')}</div>
-                  <div class="meta">
-                    <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
-                    <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                    <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} attending</div>
-                    <div class="meta-item">${ICONS.fee} ${fee}</div>
-                  </div>
-                  ${ev.description ? `<p class="sub" style="color:var(--muted);font-weight:600;margin-bottom:16px">${escapeHTML(ev.description)}</p>` : ''}
-                  <button class="btn" onclick="window.open('/signup/event/${ev.id}','_blank')">Save My Spot</button>
-                </div>
-              </article>`;
-          }).join('');
-          lazyMountBanners();
-        }else{
-          grid.innerHTML = emptyState('No upcoming games nights','Follow our socials and check back soon.');
-        }
-      }catch(e){
-        grid.innerHTML = networkError('Couldn\\'t load games nights. Please refresh.');
-      }
-    }
-
-    /* ---------------- Calendar loader ---------------- */
-    async function loadCalendar(){
-      const grid = document.getElementById('cal-grid');
-      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading calendar…</div>';
-      try{
-        const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
-        const j = await r.json();
-        if(j.success && j.events.length){
-          const items = j.events
-            .filter(e=>e.event_type!=='birthday')
-            .sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
-          if(!items.length){ grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.'); return; }
-          grid.innerHTML = items.map(ev=>{
-            const dt=new Date(ev.date_time);
-            const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
-            const banner=bannerFor(ev.game_title||ev.title||'generic');
-            const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-            const cap = (ev.capacity||0)>0?ev.capacity:null;
-            const reg = ev.registration_count||0;
-            const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : 'Event');
-            return `
-              <article class="cal-item">
-                <div class="date" aria-hidden="true"><div class="m">${m}</div><div class="d">${d}</div></div>
-                <div class="info">
-                  <div class="title">${escapeHTML(ev.title)}</div>
-                  <div class="chips">
-                    <span class="chip">${ICONS.tag} ${escapeHTML(typ)}</span>
-                    <span class="chip">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</span>
-                    <span class="chip">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
-                    <span class="chip">${ICONS.users} ${reg}${cap?`/${cap}`:''}</span>
-                    <span class="chip">${ICONS.fee} ${fee}</span>
-                  </div>
-                  ${ev.description ? `<p style="color:var(--muted);margin-top:12px">${escapeHTML(ev.description)}</p>` : ''}
-                  <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                    <a href="/signup/event/${ev.id}" style="text-decoration:none"><button class="btn">View Details</button></a>
-                    <div class="thumb lazy-banner" data-src="${banner}"></div>
-                  </div>
-                </div>
-              </article>`;
-          }).join('');
-          lazyMountBanners();
-        }else{
-          grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments and game nights.');
-        }
-      }catch(e){
-        grid.innerHTML = networkError('Couldn\\'t load calendar. Please refresh.');
-      }
-    }
-
-    /* ---------------- Helpers ---------------- */
-    function escapeHTML(s){return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-    function emptyState(t,s){return `<div class="loading"><h3 style="color:var(--primary);margin-bottom:10px">${t}</h3><p>${s}</p></div>`;}
-    function networkError(msg){return `<div class="loading" style="color:#ff9a78"><h3>Connection Error</h3><p>${msg}</p><button onclick="location.reload()" class="q-btn" style="margin-top:12px">Retry</button></div>`;}
-
-    // Lazy mount banners for .lazy-banner elements
-    function lazyMountBanners(){
-      const els = document.querySelectorAll('.lazy-banner[data-src]');
-      if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=`url('${e.dataset.src}')`); return; }
-      const io = new IntersectionObserver((entries,obs)=>{
-        entries.forEach(ent=>{
-          if(ent.isIntersecting){
-            const el=ent.target; el.style.backgroundImage=`url('${el.dataset.src}')`; el.removeAttribute('data-src'); obs.unobserve(el);
+    /* Scrollspy */
+    (function(){
+      const links=[...document.querySelectorAll('#spy a')];
+      const secs=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+      if(!('IntersectionObserver' in window)) return;
+      const io=new IntersectionObserver((es)=>{
+        es.forEach(e=>{
+          if(e.isIntersecting){
+            const id='#'+e.target.id;
+            links.forEach(l=>l.classList.toggle('active', l.getAttribute('href')===id));
           }
         });
-      },{rootMargin:'200px'});
+      },{rootMargin:'-40% 0px -50% 0px',threshold:0});
+      secs.forEach(s=>io.observe(s));
+    })();
+
+    /* In-view reveals (also triggers image reveal by class) */
+    (function(){
+      const els=document.querySelectorAll('.reveal-in');
+      if(!('IntersectionObserver' in window)){ els.forEach(el=>el.classList.add('is-in')); return; }
+      const io=new IntersectionObserver((es,o)=>{ es.forEach(ent=>{ if(ent.isIntersecting){ ent.target.classList.add('is-in'); o.unobserve(ent.target);} }); },{rootMargin:'0px 0px -10% 0px',threshold:.12});
+      els.forEach(el=>io.observe(el));
+    })();
+
+    /* Lazy banners */
+    function lazyBanners(){
+      const els=document.querySelectorAll('.lazy-banner[data-src]');
+      if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=`url('${e.dataset.src}')`); return; }
+      const io=new IntersectionObserver((en,ob)=>{en.forEach(x=>{if(x.isIntersecting){const el=x.target;el.style.backgroundImage=`url('${el.dataset.src}')`;el.removeAttribute('data-src');ob.unobserve(el);}});},{rootMargin:'200px'});
       els.forEach(e=>io.observe(e));
     }
 
-    // Cursor polish
-    (function(){
-      const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-f');
-      if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
-      document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
-      (function follow(){fx+=(mx-fx)*.12;fy+=(my-fy)*.12;f.style.transform=`translate(${fx-20}px,${fy-20}px)`;requestAnimationFrame(follow)})();
-      document.querySelectorAll('a,button,.card,.cal-item').forEach(el=>{
-        el.addEventListener('mouseenter',()=>c.classList.add('active'));
-        el.addEventListener('mouseleave',()=>c.classList.remove('active'));
-      });
-    })();
+    /* Stats */
+    async function loadStats(){
+      try{
+        const r=await fetch('/api/events?upcoming=true',{credentials:'same-origin'}); const j=await r.json();
+        if(j.success){
+          const publics=j.events.filter(e=>e.event_type!=='birthday');
+          const tourns=publics.filter(e=>e.event_type==='tournament');
+          const games=publics.filter(e=>e.event_type==='games_night' || /games?\\s*night/i.test(e.title||''));
+          const special=publics.filter(e=>e.event_type==='special');
+          flip('#upcomingCount',publics.length); flip('#tournamentCount',tourns.length); flip('#gamesNightCount',games.length); flip('#specialEventCount',special.length);
+        }
+      }catch(e){}
+    }
+    function flip(sel,n,ms=900){
+      const el=document.querySelector(sel); if(!el) return;
+      const digits=Math.max(1, String(n).length); let cur=0; const speed=16, total=ms/speed; let k=0;
+      const t=setInterval(()=>{k++; const p=k/total;
+        if(p<.8){ cur=Math.floor(Math.random()*Math.pow(10,digits)); }
+        else if(p<.95){ const ts=String(n).padStart(digits,'0'); let m=''; for(let i=0;i<digits;i++) m+=(Math.random()>.2)?ts[i]:Math.floor(Math.random()*10); cur=parseInt(m)||0; }
+        else { cur=n; clearInterval(t); }
+        el.textContent=cur;
+      },speed);
+    }
 
-    // Reusable card HTML
+    /* Shared card builder */
     function cardHTML({banner,pillText,pillClass,name,sub,dt,reg,cap,fee,id,description}){
       return `
-        <article class="card">
-          <div class="banner lazy-banner" data-src="${banner}"></div>
+        <article class="card reveal-in">
+          <div class="banner img-reveal lazy-banner" data-src="${banner}"></div>
           <div class="body">
-            <span class="pill ${pillClass}">${pillText}</span>
+            <span class="pill ${pillClass||''}">${pillText}</span>
             <div class="name">${escapeHTML(name)}</div>
-            <div class="sub">${escapeHTML(sub||'')}</div>
+            <div class="subtle">${escapeHTML(sub||'')}</div>
             <div class="meta">
               <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
               <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
@@ -9288,20 +9203,154 @@ def events_overview_page():
         </article>`;
     }
 
-    // Boot
-    document.addEventListener('DOMContentLoaded', ()=>{
+    /* Loaders */
+    async function loadTournaments(){
+      const grid=document.getElementById('tournaments-grid');
+      try{
+        const r=await fetch('/api/events?type=tournament&upcoming=true',{credentials:'same-origin'}); const j=await r.json();
+        if(j.success && j.events.length){
+          grid.innerHTML=j.events.map(ev=>{
+            const dt=new Date(ev.date_time),reg=ev.registration_count||0,cap=(ev.capacity||0)>0?ev.capacity:null;
+            const spots=cap?Math.max(cap-reg,0):null; let pill='',text='Open Registration';
+            if(spots!==null){ if(spots===0){pill='warn';text='Full'} else if(spots<=3){pill='soon';text=spots+' Spots Left'} }
+            const banner=bannerFor(ev.game_title||ev.title||'generic');
+            return cardHTML({banner,pillText:text,pillClass:pill,name:ev.title,sub:ev.game_title||'Game',dt,reg,cap,fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE',id:ev.id,description:ev.description});
+          }).join('');
+        }else{ grid.innerHTML=emptyState('No upcoming tournaments','New tournaments will be announced soon.'); }
+      }catch(e){ grid.innerHTML=networkError('Couldn\\'t load tournaments. Please refresh.'); }
+      lazyBanners();
+    }
+
+    async function loadGamesNights(){
+      const grid=document.getElementById('games-grid');
+      try{
+        let r=await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'}); let j=await r.json();
+        let events=(j.success?j.events:[]).filter(Boolean);
+        if(!events.length){
+          const all=await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
+          if(all.success) events=all.events.filter(e=>e.event_type!=='birthday' && /games?\\s*night/i.test(e.title||''));
+        }
+        if(events.length){
+          grid.innerHTML=events.map(ev=>{
+            const dt=new Date(ev.date_time),banner=bannerFor(ev.game_title||ev.title||'generic');
+            const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE'; const cap=(ev.capacity||0)>0?ev.capacity:null; const reg=ev.registration_count||0;
+            return `
+              <article class="card reveal-in">
+                <div class="banner img-reveal lazy-banner" data-src="${banner}"></div>
+                <div class="body">
+                  <span class="pill">Open</span>
+                  <div class="name">${escapeHTML(ev.title)}</div>
+                  <div class="subtle">${escapeHTML(ev.game_title || 'Casual Session')}</div>
+                  <div class="meta">
+                    <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                    <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                    <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} attending</div>
+                    <div class="meta-item">${ICONS.fee} ${fee}</div>
+                  </div>
+                  ${ev.description ? `<p style="color:var(--muted);margin:6px 0 14px">${escapeHTML(ev.description)}</p>` : ''}
+                  <button class="btn" onclick="window.open('/signup/event/${ev.id}','_blank')">Save My Spot</button>
+                </div>
+              </article>`;
+          }).join('');
+        }else{ grid.innerHTML=emptyState('No upcoming games nights','Follow our socials and check back soon.'); }
+      }catch(e){ grid.innerHTML=networkError('Couldn\\'t load games nights. Please refresh.'); }
+      lazyBanners();
+    }
+
+    async function loadSpecialEvents(){
+      const grid=document.getElementById('special-grid');
+      try{
+        const r=await fetch('/api/events?type=special&upcoming=true',{credentials:'same-origin'}); const j=await r.json();
+        if(j.success && j.events.length){
+          grid.innerHTML=j.events.map(ev=>{
+            const dt=new Date(ev.date_time),reg=ev.registration_count||0,cap=(ev.capacity||0)>0?ev.capacity:null;
+            const spots=cap?Math.max(cap-reg,0):null; let pill='',text='Available';
+            if(spots!==null){ if(spots===0){pill='warn';text='Full'} else if(spots<=3){pill='soon';text=spots+' Spots Left'} }
+            const banner=bannerFor(ev.game_title||ev.title||'special');
+            return cardHTML({banner,pillText:text,pillClass:pill,name:ev.title,sub:ev.game_title||'Special Event',dt,reg,cap,fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE',id:ev.id,description:ev.description});
+          }).join('');
+        }else{ grid.innerHTML=emptyState('No upcoming special events','New special events will be announced soon.'); }
+      }catch(e){ grid.innerHTML=networkError('Couldn\\'t load special events. Please refresh.'); }
+      lazyBanners();
+    }
+
+    async function loadCalendar(){
+      const grid=document.getElementById('cal-grid');
+      try{
+        const r=await fetch('/api/events?upcoming=true',{credentials:'same-origin'}); const j=await r.json();
+        if(j.success && j.events.length){
+          const items=j.events.filter(e=>e.event_type!=='birthday').sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
+          if(!items.length){ grid.innerHTML=emptyState('No upcoming public events','New events will appear here soon.'); return; }
+          grid.innerHTML=items.map(ev=>{
+            const dt=new Date(ev.date_time); const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
+            const banner=bannerFor(ev.game_title||ev.title||'generic'); const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE'; const cap=(ev.capacity||0)>0?ev.capacity:null; const reg=ev.registration_count||0;
+            const typ=ev.event_type==='tournament'?'Tournament':(ev.event_type==='games_night'?'Games Night':(ev.event_type==='special'?'Special':'Event'));
+            return `
+              <article class="cal-item reveal-in">
+                <div class="cal-banner img-reveal lazy-banner" data-src="${banner}">
+                  <div class="cal-date"><span class="m">${m}</span><span class="d">${d}</span></div>
+                </div>
+                <div class="cal-body">
+                  <span class="cal-type">${escapeHTML(typ)}</span>
+                  <div class="cal-title">${escapeHTML(ev.title)}</div>
+                  <div class="cal-sub">${escapeHTML(ev.game_title || 'Event')}</div>
+                  <div class="cal-meta">
+                    <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                    <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                    <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
+                    <div class="meta-item">${ICONS.fee} ${fee}</div>
+                  </div>
+                  <a class="cal-cta" href="/signup/event/${ev.id}">View Details</a>
+                </div>
+              </article>`;
+          }).join('');
+        }else{ grid.innerHTML=emptyState('No upcoming public events','Check back soon for new tournaments, game nights & special events.'); }
+      }catch(e){ grid.innerHTML=networkError('Couldn\\'t load calendar. Please refresh.'); }
+      lazyBanners();
+    }
+
+    /* Stats boot + initial loads */
+    (function boot(){
       loadStats();
-      loadTournaments();
-      // Gentle auto-refresh
-      setInterval(()=>{ if(document.getElementById('panel-tournaments').classList.contains('active')) loadTournaments(); }, 5*60*1000);
-      setInterval(loadStats, 2*60*1000);
-    });
+      loadTournaments(); // first fold
+      // lazy-load other sections as they come into view
+      const todo = new Map([
+        ['#games', loadGamesNights],
+        ['#special', loadSpecialEvents],
+        ['#calendar', loadCalendar]
+      ]);
+      if('IntersectionObserver' in window){
+        const io=new IntersectionObserver((es,o)=>{
+          es.forEach(ent=>{
+            if(ent.isIntersecting){
+              const id='#'+ent.target.id;
+              if(todo.has(id)){ todo.get(id)(); todo.delete(id); }
+              o.unobserve(ent.target);
+            }
+          });
+        },{rootMargin:'0px 0px -10% 0px',threshold:.12});
+        for(const id of todo.keys()){ const el=document.querySelector(id); if(el) io.observe(el); }
+      }else{
+        for(const fn of todo.values()) fn();
+      }
+      setInterval(loadStats, 120000);
+    })();
+  </script>
+
+  <!-- FAQ schema (SEO) -->
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+    {"@type":"Question","name":"Can beginners join tournaments?","acceptedAnswer":{"@type":"Answer","text":"Yes—many brackets have casual divisions. Games Night is perfect to warm up."}},
+    {"@type":"Question","name":"What’s your refund policy?","acceptedAnswer":{"@type":"Answer","text":"Full refund up to 48h before the event. Within 48h, we can move you to the next bracket."}},
+    {"@type":"Question","name":"Do you host private bookings?","acceptedAnswer":{"@type":"Answer","text":"Yes—teams, corporate, and birthdays. See “Birthday Experiences” or call 01227 915058."}}
+  ]}
   </script>
 </body>
 </html>'''
     resp = make_response(events_html)
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return resp
+
 
 # =============================
 # Main

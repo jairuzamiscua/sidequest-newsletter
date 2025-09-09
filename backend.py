@@ -9362,7 +9362,7 @@ def events_overview_page():
     display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
     gap:40px;margin-top:120px;
     }
-    
+
    .q-card{
      background:var(--dark-3);border:1px solid var(--border);
      border-radius:32px;padding:48px;text-align:center;
@@ -9839,28 +9839,6 @@ def events_overview_page():
        }
      }, duration / steps);
    }
-
-   /* ---------------- Trust strip init ---------------- */
-   (function initTrustStrip(){
-     try{
-       fetch('/api/metrics',{credentials:'same-origin'})
-         .then(r=>r.ok?r.json():null)
-         .then(m=>{
-           if(!m) return;
-           const chips = document.querySelectorAll('.trust-strip .chip');
-           if(m.rating && m.reviews && chips[0]){
-             chips[0].innerHTML = '<span class="dot"></span> ⭐ '+(m.rating.toFixed?m.rating.toFixed(1):m.rating)+'/5 from '+m.reviews+'+ reviews';
-           }
-           if(m.uni_societies && chips[1]){ 
-             chips[1].innerHTML = '<span class="dot"></span> 🤝 Collaboration with '+m.uni_societies+' uni societies'; 
-           }
-           if(m.tournaments_hosted && chips[2]){ 
-             chips[2].innerHTML = '<span class="dot"></span> 🏆 '+m.tournaments_hosted+'+ tournaments hosted'; 
-           }
-         })
-         .catch(()=>{});
-     }catch(e){}
-   })();
 
    /* ---------------- Event Loaders ---------------- */
    async function loadSpecialEvents(){

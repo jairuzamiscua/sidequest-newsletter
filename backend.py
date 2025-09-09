@@ -8807,21 +8807,15 @@ def events_overview_page():
     
     html{scroll-behavior:smooth;scroll-snap-type:y proximity}
     body{
-      font-family:'Inter',system-ui,-apple-system,sans-serif;
-      background:var(--dark);color:var(--text);line-height:1.65;overflow-x:hidden;
-      font-feature-settings:"cv02","cv03","cv04","cv11";
-      background-image:var(--noise);
+        font-family:'Inter',system-ui,-apple-system,sans-serif;
+        background:var(--dark);color:var(--text);line-height:1.65;overflow-x:hidden;
+        font-feature-settings:"cv02","cv03","cv04","cv11";
+        background-image:
+            radial-gradient(circle at 1px 1px, rgba(255,215,0,0.15) 1px, transparent 0),
+            var(--noise);
+        background-size:20px 20px, auto;
     }
 
-    /* Cursor */
-    * {cursor:none !important}
-    body::after{
-      content:'';position:fixed;width:20px;height:20px;
-      background:var(--gradient-1);border-radius:50%;
-      pointer-events:none;z-index:10000;
-      mix-blend-mode:difference;
-      transition:transform 0.1s ease;
-    }
 
     /* Simple reveal animation - 2 seconds max */
     .reveal-overlay{position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 0.8s ease,visibility 0.8s ease}
@@ -8856,7 +8850,7 @@ def events_overview_page():
     /* Hero section - Awwwards style */
     .hero{
       min-height:100vh;display:flex;align-items:center;justify-content:center;
-      position:relative;overflow:hidden;scroll-snap-align:start;
+      position:relative;overflow:hidden;
       background:
         radial-gradient(ellipse 100% 60% at 50% -10%, rgba(255,215,0,.12) 0%, transparent 50%),
         radial-gradient(ellipse 80% 50% at 20% 90%, rgba(255,107,53,.08) 0%, transparent 50%),
@@ -9011,7 +9005,7 @@ def events_overview_page():
 
     /* Trust strip - seamless scroll */
     .trust-strip{
-      position:relative;z-index:9;scroll-snap-align:start;
+      position:relative;z-index:9;
       background:
         linear-gradient(180deg,var(--glass),rgba(255,255,255,.01)),
         linear-gradient(90deg,
@@ -9075,7 +9069,6 @@ def events_overview_page():
     /* Main content */
     .wrap{
       max-width:1600px;margin:0 auto;padding:120px 32px;
-      scroll-snap-align:start;
     }
 
     /* Tabs - modern pill design */
@@ -10095,34 +10088,11 @@ def events_overview_page():
       });
     }
 
-    /* ---------------- Enhanced Cursor Following ---------------- */
-    let mouseX = 0, mouseY = 0;
-    let cursorX = 0, cursorY = 0;
-    
-    document.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-    });
-    
-    function animateCursor() {
-      cursorX += (mouseX - cursorX) * 0.1;
-      cursorY += (mouseY - cursorY) * 0.1;
-      
-      document.body.style.setProperty('--cursor-x', cursorX + 'px');
-      document.body.style.setProperty('--cursor-y', cursorY + 'px');
-      
-      if(document.body.querySelector('::after')) {
-        document.body.style.setProperty('transform', `translate(${cursorX - 10}px, ${cursorY - 10}px)`);
-      }
-      
-      requestAnimationFrame(animateCursor);
-    }
 
     /* ---------------- Boot sequence ---------------- */
     document.addEventListener('DOMContentLoaded', ()=>{
       // Initialize animations
       initScrollAnimations();
-      animateCursor();
       
       // Initialize tab listeners
       tabButtons.forEach(btn=>{

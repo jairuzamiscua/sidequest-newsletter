@@ -8823,48 +8823,21 @@ def events_overview_page():
       transition:transform 0.1s ease;
     }
 
-    /* Enhanced reveal */
-    .reveal-overlay{
-      position:fixed;inset:0;z-index:9999;
-      background:radial-gradient(circle at center, var(--dark-2) 0%, var(--dark) 100%);
-      display:flex;align-items:center;justify-content:center;flex-direction:column;
-      transition:all 1.5s cubic-bezier(0.77,0,0.175,1);
-    }
-    .reveal-overlay.hide{
-      opacity:0;visibility:hidden;
-      transform:scale(1.1);
-    }
-    .reveal-logo{
-      width:min(500px,90vw);height:auto;opacity:0;
-      transform:scale(0.8) translateY(40px) rotateX(20deg);
-      animation:logoEntrance 3s cubic-bezier(0.34,1.56,0.64,1) forwards;
-      filter:drop-shadow(0 20px 40px rgba(255,215,0,.3));
-    }
-    .reveal-tagline{
-      font-size:clamp(1.1rem,3vw,1.5rem);color:var(--muted);
-      margin-top:32px;opacity:0;font-weight:300;letter-spacing:0.05em;
-      animation:fadeInUp 1.8s cubic-bezier(0.25,0.46,0.45,0.94) 2.2s forwards;
-    }
-    .reveal-loader{
-      margin-top:48px;width:300px;height:4px;
-      background:var(--border);border-radius:2px;overflow:hidden;
-      opacity:0;position:relative;
-      animation:fadeIn 0.8s ease 3s forwards;
-    }
-    .reveal-progress{
-      height:100%;background:var(--gradient-1);width:0;border-radius:2px;
-      animation:loadProgress 2.5s cubic-bezier(0.25,0.46,0.45,0.94) 3.5s forwards;
-      box-shadow:0 0 20px var(--glow);
-    }
+    /* Simple reveal animation - 2 seconds max */
+    .reveal-overlay{position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 0.8s ease,visibility 0.8s ease}
+    .reveal-overlay.hide{opacity:0;visibility:hidden}
+    .reveal-logo{width:400px;height:auto;opacity:0;transform:scale(0.9);animation:logoReveal 1.2s ease-out forwards}
+    .reveal-tagline{font-size:1.2rem;color:var(--muted);margin-top:20px;opacity:0;animation:fadeInUp 0.6s ease-out 0.8s forwards}
+    .reveal-loader{margin-top:30px;width:200px;height:2px;background:rgba(255,255,255,.1);border-radius:1px;overflow:hidden;opacity:0;animation:fadeIn 0.3s ease 1.2s forwards}
+    .reveal-progress{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));width:0;animation:loadProgress 0.6s ease-out 1.5s forwards}
 
-    @keyframes logoEntrance{
-      0%{opacity:0;transform:scale(0.8) translateY(40px) rotateX(20deg)}
-      60%{opacity:1;transform:scale(1.05) translateY(-10px) rotateX(-5deg)}
-      100%{opacity:1;transform:scale(1) translateY(0) rotateX(0)}
+    @keyframes logoReveal{
+    0%{opacity:0;transform:scale(0.9) translateY(20px)}
+    100%{opacity:1;transform:scale(1) translateY(0)}
     }
-    @keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-    @keyframes loadProgress{from{width:0}to{width:100%}}
+    @keyframes loadProgress{from{width:0}to{width:100
 
     /* Page transitions */
     .page-content{
@@ -9710,27 +9683,27 @@ def events_overview_page():
  <script>
    /* ---------------- Opening Reveal Animation ---------------- */
    let revealComplete = false;
-   function startRevealSequence(){
-     const overlay = document.getElementById('revealOverlay');
-     const pageContent = document.getElementById('pageContent');
-     if(!overlay || !pageContent){ return; }
-     setTimeout(()=>{
-       overlay.classList.add('hide');
-       pageContent.classList.add('revealed');
-       revealComplete = true;
-       setTimeout(()=>{
-         document.querySelectorAll('.reveal-element').forEach((el,i)=>{ 
-           setTimeout(()=>el.classList.add('animate'),i*200); 
-         });
-         setTimeout(()=>{
-           document.querySelectorAll('.stat').forEach((el,i)=>{ 
-             setTimeout(()=>el.classList.add('animate'),i*150); 
-           });
-           setTimeout(loadStats,600);
-         },1000);
-       },800);
-     },6000);
-   }
+    function startRevealSequence(){
+        const overlay = document.getElementById('revealOverlay');
+        const pageContent = document.getElementById('pageContent');
+        if(!overlay || !pageContent){ return; }
+        setTimeout(()=>{
+            overlay.classList.add('hide');
+            pageContent.classList.add('revealed');
+            revealComplete = true;
+            setTimeout(()=>{
+            document.querySelectorAll('.reveal-element').forEach((el,i)=>{ 
+                setTimeout(()=>el.classList.add('animate'),i*100); 
+            });
+            setTimeout(()=>{
+                document.querySelectorAll('.stat').forEach((el,i)=>{ 
+                setTimeout(()=>el.classList.add('animate'),i*80); 
+                });
+                setTimeout(loadStats,300);
+            },400);
+            },300);
+        },2200); // Reduced from 6000 to 2200ms
+    }
    
    document.addEventListener('click',()=>{ if(!revealComplete) skipReveal(); });
    document.addEventListener('keydown',(e)=>{ 
@@ -10189,21 +10162,19 @@ def events_overview_page():
       
       // Enhanced periodic refresh
       setTimeout(()=>{
-        if(!revealComplete) return;
-        loadTournaments();
-        
-        // Refresh intervals
-        setInterval(()=>{ 
-          const active = document.querySelector('.panel.active');
-          if(active && active.id === 'panel-tournaments') loadTournaments();
-          if(active && active.id === 'panel-special') loadSpecialEvents();
-          if(active && active.id === 'panel-games') loadGamesNights();
-          if(active && active.id === 'panel-calendar') loadCalendar();
-        }, 4*60*1000); // 4 minutes
-        
-        // Stats refresh
-        setInterval(loadStats, 2*60*1000); // 2 minutes
-      },6500);
+            if(!revealComplete) return;
+            loadTournaments();
+            
+            setInterval(()=>{ 
+                const active = document.querySelector('.panel.active');
+                if(active && active.id === 'panel-tournaments') loadTournaments();
+                if(active && active.id === 'panel-special') loadSpecialEvents();
+                if(active && active.id === 'panel-games') loadGamesNights();
+                if(active && active.id === 'panel-calendar') loadCalendar();
+            }, 3*60*1000);
+            
+            setInterval(loadStats, 90*1000);
+        },2500); // Reduced from 6500 to 2500ms
 
       // Preload critical images
       const criticalImages = [

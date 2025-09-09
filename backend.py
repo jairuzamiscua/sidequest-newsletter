@@ -9039,7 +9039,7 @@ def events_overview_page():
     .q-card:hover::before{opacity:0.05}
     .q-title{font-size:1.5rem;font-weight:800;color:var(--primary);margin-bottom:16px;letter-spacing:-0.02em;position:relative;z-index:2}
     .q-text{color:var(--text-muted);margin-bottom:32px;font-size:1rem;line-height:1.6;position:relative;z-index:2}
-    .q-btn{padding:18px 36px;background:var(--gradient-1);color:var(--dark);border:none;border-radius:16px;font-weight:800;cursor:pointer;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.05em;transition:all 0.4s cubic-bezier(0.77,0,0.175,1);position:relative;overflow:hidden;z-index:2;box-shadow:0 8px 24px rgba(255,215,0,.3)}
+    .q-btn{padding:18px 36px;background:var(--gradient-1);color:var(--dark);border:none;border-radius:16px;font-weight:800;cursor:pointer;font-size:0.9rem;text-transform:uppercase;letter-spacing:0.05em;transition:all 0.4s cubic-bezier(0.77,0,0.175,1);position:relative;overflow:hidden;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,.15)}
     .q-btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transition:left 0.8s ease}
     .q-btn:hover{transform:translateY(-4px) scale(1.05);box-shadow:0 16px 40px rgba(255,215,0,.4)}
     .q-btn:hover::before{left:100%}

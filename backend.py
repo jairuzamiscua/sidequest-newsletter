@@ -8984,7 +8984,7 @@ def events_overview_page():
 
     .banner{position:relative;height:280px;background:#000 center/cover no-repeat;overflow:hidden}
     .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8),transparent 70%)}
-    .body{padding:32px;position:relative;display:flex-direction:column;flex;flex:1;z-index:2}
+    .body{padding:32px;position:relative;z-index:2;flex:1;display:flex;flex-direction:column}
     
     .pill{display:inline-block;padding:10px 20px;border-radius:60px;font-size:0.75rem;font-weight:800;letter-spacing:0.06em;margin-bottom:20px;text-transform:uppercase;backdrop-filter:blur(10px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
     .ok{background:rgba(255,215,0,.2);color:#ffd86a;border:1px solid rgba(255,215,0,.4)}
@@ -9385,7 +9385,7 @@ def events_overview_page():
      'community':'/static/games/community.jpg',
      'cosplay':'/static/games/cosplay.jpg',
      'retro':'/static/games/retro.jpg',
-     'mortal kombat':'/static/games/mk.jpg
+     'mortal kombat':'/static/games/mk.jpg,
      'generic':'/static/games/generic.jpg'
    };
    function bannerFor(title){
@@ -9535,21 +9535,19 @@ def events_overview_page():
                 <article class="card fade-in">
                     <div class="banner lazy-banner" data-src="${banner}"></div>
                     <div class="body">
-                        <div class="card-content">
-                        <span class="pill ${pillClass}">${pillText}</span>
-                        <div class="name">${escapeHTML(name)}</div>
-                        <div class="sub">${escapeHTML(sub||'')}</div>
+                    <div class="card-content">
+                        <span class="pill ok">Open</span>
+                        <div class="name">${escapeHTML(ev.title)}</div>
+                        <div class="sub">${escapeHTML(ev.game_title || 'Casual Session')}</div>
                         <div class="meta">
-                            <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
-                            <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                            <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} players</div>
-                            <div class="meta-item">${ICONS.fee} ${fee}</div>
+                        <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                        <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                        <div class="meta-item">${ICONS.users} ${reg}${cap?\`/\${cap}\`:''}attending</div>
+                        <div class="meta-item">${ICONS.fee} ${fee}</div>
                         </div>
-                        ${description ? `<p style="color:var(--text-muted);margin:12px 0 20px;font-size:1rem;line-height:1.5">${escapeHTML(description)}</p>` : ''}
-                        </div>
-                        <button class="btn" onclick="window.open('/signup/event/${id}','_blank')" ${pillClass==='warn'?'disabled':''}>
-                        ${pillClass==='warn'?'Full':'Register Now'}
-                        </button>
+                        ${ev.description ? `<p style="color:var(--text-muted);font-weight:600;margin-bottom:16px">${escapeHTML(ev.description)}</p>` : ''}
+                    </div>
+                    <button class="btn" onclick="window.open('/signup/event/${ev.id}','_blank')">Save My Spot</button>
                     </div>
                 </article>`;
           }).join('');
@@ -9760,6 +9758,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

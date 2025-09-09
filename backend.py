@@ -8789,8 +8789,12 @@ def events_overview_page():
       --muted:#9a9a9a;
       --border:rgba(255,255,255,.06);
       --special:#8B5FBF;
+      --marquee-speed:36s;
     }
-    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;cursor:none}
+    body{
+      font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;
+    }
 
     /* Opening reveal animation */
     .reveal-overlay{position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1s ease,visibility 1s ease}
@@ -8805,18 +8809,9 @@ def events_overview_page():
       50%{opacity:1;transform:scale(1.05) translateY(-10px)}
       100%{opacity:1;transform:scale(1) translateY(0)}
     }
-    @keyframes fadeInUp{
-      from{opacity:0;transform:translateY(20px)}
-      to{opacity:1;transform:translateY(0)}
-    }
-    @keyframes fadeIn{
-      from{opacity:0}
-      to{opacity:1}
-    }
-    @keyframes loadProgress{
-      from{width:0}
-      to{width:100%}
-    }
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes loadProgress{from{width:0}to{width:100%}}
 
     /* Page content initially hidden */
     .page-content{opacity:0;transform:translateY(30px);transition:all 1s ease}
@@ -8844,11 +8839,6 @@ def events_overview_page():
       .reveal-overlay{display:none}
       .page-content,.reveal-element,.stat{opacity:1!important;transform:none!important}
     }
-
-    /* Cursor */
-    .cursor{width:20px;height:20px;border:2px solid var(--primary);border-radius:50%;position:fixed;pointer-events:none;transition:all .1s ease;z-index:9999;mix-blend-mode:difference}
-    .cursor-f{width:40px;height:40px;background:rgba(255,215,0,.1);border-radius:50%;position:fixed;pointer-events:none;transition:all .3s ease;z-index:9998}
-    .cursor.active{transform:scale(.5);background:var(--primary)}
 
     /* Noise overlay */
     body::before{content:'';position:fixed;inset:0;background:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.03"/%3E%3C/svg%3E');pointer-events:none;z-index:1}
@@ -8878,6 +8868,28 @@ def events_overview_page():
     .scroll::after{content:'';display:block;width:4px;height:8px;background:var(--primary);border-radius:2px;position:absolute;top:8px;left:50%;transform:translateX(-50%);animation:scroll 2s infinite}
     @keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(10px)}}
     @keyframes scroll{0%{opacity:0;transform:translateX(-50%) translateY(0)}50%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
+
+    /* Trust strip (social proof marquee) */
+    .trust-strip{position:relative;z-index:9;background:
+      linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01)),
+      radial-gradient(1200px 200px at 10% 50%,rgba(255,215,0,.08),transparent 60%),
+      radial-gradient(1200px 200px at 90% 50%,rgba(255,107,53,.08),transparent 60%);
+      border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+      padding:14px 0;overflow:hidden}
+    .trust-inner{max-width:1400px;margin:0 auto;position:relative}
+    .trust-track{display:flex;gap:14px;align-items:center;animation:marquee var(--marquee-speed) linear infinite}
+    .trust-strip:hover .trust-track{animation-play-state:paused}
+    .chip{display:inline-flex;gap:8px;align-items:center;white-space:nowrap;
+      padding:10px 16px;border-radius:999px;font-weight:800;font-size:.9rem;letter-spacing:.04em;
+      background:rgba(255,255,255,.03);border:1px solid var(--border);color:#e9e9e9}
+    .chip .dot{width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:inline-block}
+    @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    @media (prefers-reduced-motion: reduce){
+      .trust-track{animation:none}
+      .trust-inner{overflow:auto;padding-bottom:6px}
+      .chip{scroll-snap-align:start}
+      .trust-inner{scroll-snap-type:x mandatory}
+    }
 
     /* Main */
     .wrap{max-width:1400px;margin:0 auto;padding:90px 20px}
@@ -8970,8 +8982,6 @@ def events_overview_page():
     .q-btn:hover::before{left:100%}
 
     @media (max-width:768px){
-      body{cursor:auto}
-      .cursor,.cursor-f{display:none!important}
       .grid{grid-template-columns:1fr;gap:16px}
       .stats{gap:16px;flex-wrap:wrap}
       .stat .num{font-size:2.2rem}
@@ -8992,12 +9002,6 @@ def events_overview_page():
       .cal-meta{grid-template-columns:1fr;gap:8px}
       .cal-meta-item{font-size:.85rem}
     }
-
-    /* Disable custom cursor on problematic browsers */
-    @supports not (mix-blend-mode: difference) {
-      body{cursor:auto!important}
-      .cursor,.cursor-f{display:none!important}
-    }
   </style>
 </head>
 <body>
@@ -9005,15 +9009,11 @@ def events_overview_page():
   <div class="reveal-overlay" id="revealOverlay">
     <img src="/static/brand/sidequest-logo.png" alt="SideQuest" class="reveal-logo" />
     <div class="reveal-tagline">Canterbury's Premier Gaming Hub</div>
-    <div class="reveal-loader">
-      <div class="reveal-progress"></div>
-    </div>
+    <div class="reveal-loader"><div class="reveal-progress"></div></div>
   </div>
 
   <!-- Page Content -->
   <div class="page-content" id="pageContent">
-    <div class="cursor"></div><div class="cursor-f"></div>
-
     <!-- Hero -->
     <section class="hero reveal-element" aria-label="Events hero">
       <div class="hero-bg">
@@ -9030,6 +9030,22 @@ def events_overview_page():
         </div>
       </div>
       <div class="scroll" aria-hidden="true"></div>
+    </section>
+
+    <!-- TRUST STRIP -->
+    <section class="trust-strip reveal-element" aria-label="Social proof">
+      <div class="trust-inner">
+        <div class="trust-track" id="trustTrack">
+          <span class="chip"><span class="dot"></span> ⭐ 4.7/5 from 50+ reviews</span>
+          <span class="chip"><span class="dot"></span> 🤝 Collaboration with 5 uni societies</span>
+          <span class="chip"><span class="dot"></span> 🏆 20+ tournaments hosted</span>
+          <span class="chip"><span class="dot"></span> 🎮 Regular games nights</span>
+          <span class="chip"><span class="dot"></span> 🥇 Prize-supported events</span>
+          <span class="chip"><span class="dot"></span> 👪 Birthday party packages</span>
+          <span class="chip"><span class="dot"></span> 👥 All skill levels welcome</span>
+          <span class="chip"><span class="dot"></span> 🛡️ Safe, moderated environment</span>
+        </div>
+      </div>
     </section>
 
     <!-- Main -->
@@ -9090,8 +9106,8 @@ def events_overview_page():
               <div class="name">Console Ultimate</div>
               <div class="sub">Premium birthday session</div>
               <div class="meta">
-                <div class="meta-item" title="Players"><span class="i users"></span>Up to 12 players</div>
-                <div class="meta-item" title="Perks"><span class="i check"></span>Decorations + gift pack</div>
+                <div class="meta-item" title="Players">Up to 12 players</div>
+                <div class="meta-item" title="Perks">Decorations + gift pack</div>
               </div>
               <button class="btn" onclick="location.href='/birthday-booking'">Reserve Package</button>
             </div>
@@ -9104,8 +9120,8 @@ def events_overview_page():
               <div class="name">Flex Gaming</div>
               <div class="sub">Pay &amp; Play access</div>
               <div class="meta">
-                <div class="meta-item"><span class="i clock"></span>Flexible time</div>
-                <div class="meta-item"><span class="i list"></span>Custom lineup</div>
+                <div class="meta-item">Flexible time</div>
+                <div class="meta-item">Custom lineup</div>
               </div>
               <button class="btn" onclick="location.href='/birthday-booking'">Book Now</button>
             </div>
@@ -9147,54 +9163,30 @@ def events_overview_page():
   <script>
     /* ---------------- Opening Reveal Animation ---------------- */
     let revealComplete = false;
-    
     function startRevealSequence(){
       const overlay = document.getElementById('revealOverlay');
       const pageContent = document.getElementById('pageContent');
-      
-      if(!overlay || !pageContent) {
-        console.log('Reveal elements not found, skipping animation');
-        return;
-      }
-      
-      // Start hiding overlay after logo animation
+      if(!overlay || !pageContent){ return; }
       setTimeout(()=>{
         overlay.classList.add('hide');
         pageContent.classList.add('revealed');
         revealComplete = true;
-        
-        // Trigger page element animations
         setTimeout(()=>{
-          document.querySelectorAll('.reveal-element').forEach((el,i)=>{
-            setTimeout(()=>el.classList.add('animate'),i*100);
-          });
-          
-          // Animate stats with delay
+          document.querySelectorAll('.reveal-element').forEach((el,i)=>{ setTimeout(()=>el.classList.add('animate'),i*100); });
           setTimeout(()=>{
-            document.querySelectorAll('.stat').forEach((el,i)=>{
-              setTimeout(()=>el.classList.add('animate'),i*100);
-            });
-            // Start stats counting after stats animate in
+            document.querySelectorAll('.stat').forEach((el,i)=>{ setTimeout(()=>el.classList.add('animate'),i*100); });
             setTimeout(loadStats,400);
           },600);
         },500);
-      },3800); // Total reveal time: logo(2s) + tagline(1s) + loader(1.5s) + buffer(0.3s)
+      },3800);
     }
-
-    // Skip animation on click/key during reveal
-    document.addEventListener('click',()=>{
-      if(!revealComplete) skipReveal();
-    });
-    document.addEventListener('keydown',(e)=>{
-      if(!revealComplete && (e.key===' '||e.key==='Enter'||e.key==='Escape')) skipReveal();
-    });
-    
+    document.addEventListener('click',()=>{ if(!revealComplete) skipReveal(); });
+    document.addEventListener('keydown',(e)=>{ if(!revealComplete && (e.key===' '||e.key==='Enter'||e.key==='Escape')) skipReveal(); });
     function skipReveal(){
       if(revealComplete) return;
       revealComplete = true;
       const overlay = document.getElementById('revealOverlay');
       const pageContent = document.getElementById('pageContent');
-      
       if(overlay) overlay.style.display = 'none';
       if(pageContent) pageContent.classList.add('revealed');
       document.querySelectorAll('.reveal-element,.stat').forEach(el=>el.classList.add('animate'));
@@ -9299,6 +9291,37 @@ def events_overview_page():
       const t=setInterval(()=>{cur+=inc; if(cur>=target){el.textContent=target;clearInterval(t)} else {el.textContent=Math.floor(cur)}}, dur/steps);
     }
 
+    /* ---------------- Trust strip init (optional dynamic) ---------------- */
+    (function initTrustStrip(){
+      // Clone the track for seamless marquee
+      const track=document.getElementById('trustTrack');
+      if(track){
+        const clone=track.cloneNode(true);
+        clone.setAttribute('aria-hidden','true');
+        clone.style.position='absolute';
+        clone.style.left='100%';
+        clone.style.top='0';
+        clone.style.whiteSpace='nowrap';
+        track.parentNode.appendChild(clone);
+      }
+      // Optional dynamic metrics if you add /api/metrics
+      try{
+        fetch('/api/metrics',{credentials:'same-origin'})
+          .then(r=>r.ok?r.json():null)
+          .then(m=>{
+            if(!m) return;
+            // Expecting { rating:4.7, reviews:50, uni_societies:5, tournaments_hosted:20 }
+            const chips=document.querySelectorAll('.trust-strip .chip');
+            if(m.rating && m.reviews){
+              chips[0].innerHTML = '<span class="dot"></span> ⭐ '+(m.rating.toFixed?m.rating.toFixed(1):m.rating)+'/5 from '+m.reviews+'+ reviews';
+            }
+            if(m.uni_societies){ chips[1].innerHTML = '<span class="dot"></span> 🤝 Collaboration with '+m.uni_societies+' uni societies'; }
+            if(m.tournaments_hosted){ chips[2].innerHTML = '<span class="dot"></span> 🏆 '+m.tournaments_hosted+'+ tournaments hosted'; }
+          })
+          .catch(()=>{});
+      }catch(e){}
+    })();
+
     /* ---------------- Special Events loader ---------------- */
     async function loadSpecialEvents(){
       const grid = document.getElementById('special-grid');
@@ -9360,10 +9383,8 @@ def events_overview_page():
       const grid = document.getElementById('games-grid');
       grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading games nights…</div>';
       try{
-        // Primary: explicit type
         let r = await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'});
         let j = await r.json();
-        // Fallback: filter by title if API doesn't support type
         let events = (j.success ? j.events : []).filter(Boolean);
         if(!events.length){
           const all = await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
@@ -9475,18 +9496,6 @@ def events_overview_page():
       els.forEach(e=>io.observe(e));
     }
 
-    // Cursor polish
-    (function(){
-      const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-f');
-      if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
-      document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
-      (function follow(){fx+=(mx-fx)*.12;fy+=(my-fy)*.12;f.style.transform=`translate(${fx-20}px,${fy-20}px)`;requestAnimationFrame(follow)})();
-      document.querySelectorAll('a,button,.card,.cal-item').forEach(el=>{
-        el.addEventListener('mouseenter',()=>c.classList.add('active'));
-        el.addEventListener('mouseleave',()=>c.classList.remove('active'));
-      });
-    })();
-
     // Reusable card HTML
     function cardHTML({banner,pillText,pillClass,name,sub,dt,reg,cap,fee,id,description}){
       return `
@@ -9510,152 +9519,12 @@ def events_overview_page():
         </article>`;
     }
 
-    // Mechanical flip counter animation (like old clocks)
-    function flipNumber(element, target, duration = 1500){
-      const digits = target.toString().length;
-      element.style.fontFamily = 'monospace';
-      
-      let currentNumber = 0;
-      const flipSpeed = 15; // Much faster - 15ms between flips
-      const totalFlips = duration / flipSpeed;
-      let flipsCompleted = 0;
-      
-      const flipInterval = setInterval(() => {
-        flipsCompleted++;
-        
-        // Calculate how close we are to the end
-        const progress = flipsCompleted / totalFlips;
-        
-        if (progress < 0.85) {
-          // Fast random flipping phase - really rapid
-          currentNumber = Math.floor(Math.random() * Math.pow(10, digits));
-        } else if (progress < 0.98) {
-          // Quick settling phase
-          const targetStr = target.toString().padStart(digits, '0');
-          const currentStr = currentNumber.toString().padStart(digits, '0');
-          let newNumber = '';
-          
-          for (let i = 0; i < digits; i++) {
-            if (Math.random() > 0.1) { // Much higher chance to settle
-              newNumber += targetStr[i];
-            } else {
-              newNumber += Math.floor(Math.random() * 10);
-            }
-          }
-          currentNumber = parseInt(newNumber) || 0;
-        } else {
-          // Final lock
-          currentNumber = target;
-          clearInterval(flipInterval);
-        }
-        
-        element.textContent = currentNumber;
-      }, flipSpeed);
-    }
-
-    // Enhanced animate function with mechanical flipping
-    function animate(sel, target){
-      const el = document.querySelector(sel);
-      if(!el) return;
-      
-      // Add mechanical flip effect
-      flipNumber(el, target);
-    }
-
-    // Floating particles system
-    function createParticles(){
-      const container = document.getElementById('heroParticles');
-      if(!container) return;
-      
-      function addParticle(){
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.animationDelay = Math.random() * 2 + 's';
-        container.appendChild(particle);
-        
-        // Remove after animation
-        setTimeout(()=>particle.remove(), 20000);
-      }
-      
-      // Create initial particles
-      for(let i=0;i<8;i++){
-        setTimeout(addParticle, i*2000);
-      }
-      
-      // Continue creating particles
-      setInterval(addParticle, 3000);
-    }
-
-    // Magnetic hover effects
-    function addMagneticEffects(){
-      document.querySelectorAll('.card,.q-card,.cal-item').forEach(card=>{
-        card.addEventListener('mousemove',e=>{
-          const rect = card.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width) * 100;
-          const y = ((e.clientY - rect.top) / rect.height) * 100;
-          card.style.setProperty('--mouse-x', x + '%');
-          card.style.setProperty('--mouse-y', y + '%');
-        });
-        
-        card.addEventListener('mouseleave',()=>{
-          card.style.removeProperty('--mouse-x');
-          card.style.removeProperty('--mouse-y');
-        });
-      });
-    }
-
-    // Enhanced button ripple effect
-    function addRippleEffect(){
-      document.querySelectorAll('.btn,.cal-btn,.q-btn').forEach(btn=>{
-        btn.addEventListener('click',e=>{
-          const rect = btn.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          
-          const ripple = document.createElement('span');
-          ripple.style.cssText = `
-            position:absolute;
-            border-radius:50%;
-            background:rgba(255,255,255,.6);
-            transform:scale(0);
-            animation:ripple 0.6s linear;
-            left:${x}px;
-            top:${y}px;
-            width:40px;
-            height:40px;
-            margin-left:-20px;
-            margin-top:-20px;
-          `;
-          
-          btn.appendChild(ripple);
-          setTimeout(()=>ripple.remove(), 600);
-        });
-      });
-      
-      // Add ripple animation
-      const style = document.createElement('style');
-      style.textContent = '@keyframes ripple{to{transform:scale(4);opacity:0}}';
-      document.head.appendChild(style);
-    }
-
     // Boot sequence
     document.addEventListener('DOMContentLoaded', ()=>{
-      // Start reveal animation immediately
       startRevealSequence();
-      
-      // Initialize enhancement effects
       setTimeout(()=>{
-        createParticles();
-        addMagneticEffects();
-        addRippleEffect();
-      }, 4200);
-      
-      // Initialize other functionality after reveal
-      setTimeout(()=>{
-        if(!revealComplete) return; // Only if reveal was skipped
+        if(!revealComplete) return;
         loadTournaments();
-        // Gentle auto-refresh
         setInterval(()=>{ 
           const active = document.querySelector('.panel.active');
           if(active && active.id === 'panel-tournaments') loadTournaments();
@@ -9670,6 +9539,7 @@ def events_overview_page():
     resp = make_response(events_html)
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return resp
+
 
 # =============================
 # Main

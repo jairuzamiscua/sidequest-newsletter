@@ -8837,7 +8837,7 @@ def events_overview_page():
     }
     @keyframes fadeInUp{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-    @keyframes loadProgress{from{width:0}to{width:100
+    @keyframes loadProgress{from{width:0}to{width:100%}}
 
     /* Page transitions */
     .page-content{
@@ -9359,10 +9359,10 @@ def events_overview_page():
 
     /* Quick actions */
     .quick{
-      display:grid;grid-template-columns:repeat(auto-fit,minmax(360.quick{
-     display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
-     gap:40px;margin-top:120px;
-   }
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
+    gap:40px;margin-top:120px;
+    }
+    
    .q-card{
      background:var(--dark-3);border:1px solid var(--border);
      border-radius:32px;padding:48px;text-align:center;
@@ -9930,7 +9930,7 @@ def events_overview_page():
          const all = await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
          if(all.success) events = all.events.filter(e => e.event_type!=='birthday' && /games?\s*night/i.test(e.title||''));
        }
-       if(events.if(events.length){
+       if(events.length){
           grid.innerHTML = events.map(ev=>{
             const dt=new Date(ev.date_time);
             const banner=bannerFor(ev.game_title||ev.title||'generic');

@@ -8789,9 +8789,12 @@ def events_overview_page():
       --muted:#9a9a9a;
       --border:rgba(255,255,255,.06);
       --special:#8B5FBF;
-      --purple:#3b2f4f;
+      --marquee-speed:36s;
     }
-    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden}
+    body{
+      font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;
+    }
 
     /* Opening reveal animation */
     .reveal-overlay{position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1s ease,visibility 1s ease}
@@ -8811,24 +8814,46 @@ def events_overview_page():
     @keyframes loadProgress{from{width:0}to{width:100%}}
 
     /* Page content initially hidden */
-    .page-content{opacity:0;transform:translateY(30px);transition:all 1s ease;position:relative;z-index:1}
+    .page-content{opacity:0;transform:translateY(30px);transition:all 1s ease}
     .page-content.revealed{opacity:1;transform:translateY(0)}
 
+    /* Staggered reveal animations for page elements */
+    .reveal-element{opacity:0;transform:translateY(30px);transition:all 0.8s ease}
+    .reveal-element.animate{opacity:1;transform:translateY(0)}
+    .reveal-element:nth-child(1){transition-delay:0.1s}
+    .reveal-element:nth-child(2){transition-delay:0.2s}
+    .reveal-element:nth-child(3){transition-delay:0.3s}
+    .reveal-element:nth-child(4){transition-delay:0.4s}
+
+    /* Enhanced stats animation */
+    .stat{opacity:0;transform:translateY(30px);transition:all 0.6s ease}
+    .stat.animate{opacity:1;transform:translateY(0)}
+    .stat:nth-child(1){transition-delay:0.2s}
+    .stat:nth-child(2){transition-delay:0.3s}
+    .stat:nth-child(3){transition-delay:0.4s}
+    .stat:nth-child(4){transition-delay:0.5s}
+
+    /* Reduced motion respect */
     @media (prefers-reduced-motion: reduce){
       *{animation:none!important;transition:none!important}
       .reveal-overlay{display:none}
-      .page-content{opacity:1!important;transform:none!important}
+      .page-content,.reveal-element,.stat{opacity:1!important;transform:none!important}
     }
+
+    /* Noise overlay */
+    body::before{content:'';position:fixed;inset:0;background:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.03"/%3E%3C/svg%3E');pointer-events:none;z-index:1}
 
     /* Hero */
     .hero{min-height:92vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,rgba(255,215,0,.05) 0%,transparent 70%)}
     .hero-bg{position:absolute;inset:0;overflow:hidden}
-    /* subtle rotating wash */
-    .hero-bg::before{content:'';position:absolute;width:200%;height:200%;top:-50%;left:-50%;background:conic-gradient(from 0deg at 50% 50%,var(--primary) 0deg,transparent 60deg,transparent 300deg,var(--accent) 360deg);animation:spin 30s linear infinite;opacity:.08}
+    .hero-bg::before{content:'';position:absolute;width:200%;height:200%;top:-50%;left:-50%;background:conic-gradient(from 0deg at 50% 50%,var(--primary) 0deg,transparent 60deg,transparent 300deg,var(--accent) 360deg);animation:spin 30s linear infinite;opacity:.1}
     @keyframes spin{100%{transform:rotate(360deg)}}
-
-    /* removed floating shapes to prevent rings behind numbers */
-    .floating-shapes{display:none}
+    .floating-shapes{position:absolute;inset:0}
+    .shape{position:absolute;border:1px solid rgba(255,215,0,0.2);animation:float 20s infinite ease-in-out}
+    .shape:nth-child(1){width:300px;height:300px;top:10%;left:10%;border-radius:30% 70% 70% 30%/30% 30% 70% 70%}
+    .shape:nth-child(2){width:220px;height:220px;top:60%;right:10%;border-radius:63% 37% 54% 46%/55% 48% 52% 45%}
+    .shape:nth-child(3){width:160px;height:160px;bottom:10%;left:30%;border-radius:40% 60% 60% 40%/60% 30% 70% 40%}
+    @keyframes float{0%,100%{transform:translate(0,0) rotate(0) scale(1)}33%{transform:translate(30px,-30px) rotate(120deg) scale(1.1)}66%{transform:translate(-20px,20px) rotate(240deg) scale(.9)}}
 
     .hero-content{position:relative;z-index:10;text-align:center;padding:0 20px}
     .title{font-size:clamp(3rem,9vw,7rem);font-weight:900;letter-spacing:-.03em;line-height:.9;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
@@ -8838,20 +8863,33 @@ def events_overview_page():
     .stat .num{font-size:2.6rem;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
     .stat .lbl{font-size:.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:8px}
 
-    .scroll{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);animation:bounce 2s infinite;z-index:11}
+    .scroll{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);animation:bounce 2s infinite}
     .scroll::before{content:'';display:block;width:20px;height:30px;border:2px solid var(--primary);border-radius:15px}
     .scroll::after{content:'';display:block;width:4px;height:8px;background:var(--primary);border-radius:2px;position:absolute;top:8px;left:50%;transform:translateX(-50%);animation:scroll 2s infinite}
     @keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(10px)}}
     @keyframes scroll{0%{opacity:0;transform:translateX(-50%) translateY(0)}50%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
 
-    /* TRUST BAR – full width band */
-    .trust-bar{width:100vw;margin:0;position:relative;left:50%;transform:translateX(-50%);background:linear-gradient(180deg,rgba(139,95,191,.22),rgba(139,95,191,.14));border-top:1px solid rgba(139,95,191,.35);border-bottom:1px solid rgba(139,95,191,.35);backdrop-filter:blur(8px)}
-    .trust-inner{white-space:nowrap;overflow:hidden}
-    .trust-track{display:inline-flex;gap:40px;align-items:center;padding:14px 32px;animation:trust 32s linear infinite}
-    .trust-bar:hover .trust-track{animation-play-state:paused}
-    @keyframes trust{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-    .trust-item{font-weight:800;letter-spacing:.02em;color:#e9def7}
-    .trust-sep{opacity:.4}
+    /* Trust strip (social proof marquee) */
+    .trust-strip{position:relative;z-index:9;background:
+      linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01)),
+      radial-gradient(1200px 200px at 10% 50%,rgba(255,215,0,.08),transparent 60%),
+      radial-gradient(1200px 200px at 90% 50%,rgba(255,107,53,.08),transparent 60%);
+      border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+      padding:14px 0;overflow:hidden}
+    .trust-inner{max-width:1400px;margin:0 auto;position:relative}
+    .trust-track{display:flex;gap:14px;align-items:center;animation:marquee var(--marquee-speed) linear infinite}
+    .trust-strip:hover .trust-track{animation-play-state:paused}
+    .chip{display:inline-flex;gap:8px;align-items:center;white-space:nowrap;
+      padding:10px 16px;border-radius:999px;font-weight:800;font-size:.9rem;letter-spacing:.04em;
+      background:rgba(255,255,255,.03);border:1px solid var(--border);color:#e9e9e9}
+    .chip .dot{width:6px;height:6px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:inline-block}
+    @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    @media (prefers-reduced-motion: reduce){
+      .trust-track{animation:none}
+      .trust-inner{overflow:auto;padding-bottom:6px}
+      .chip{scroll-snap-align:start}
+      .trust-inner{scroll-snap-type:x mandatory}
+    }
 
     /* Main */
     .wrap{max-width:1400px;margin:0 auto;padding:90px 20px}
@@ -8864,6 +8902,9 @@ def events_overview_page():
     .tab:focus-visible{outline:3px solid var(--primary)}
     .panel{display:none}
     .panel.active{display:block}
+
+    /* Special pill styles */
+    .special{background:rgba(139,95,191,.18);color:#b68dd8}
 
     /* Sections */
     .section-head{text-align:center;margin-bottom:44px}
@@ -8897,17 +8938,19 @@ def events_overview_page():
     .btn:disabled:hover{box-shadow:none}
     .btn:disabled::before{display:none}
 
-    /* Calendar cards */
+    /* Calendar - Vertical card layout like Special Events */
     .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px}
     .cal-item{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease;position:relative}
     .cal-item::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--primary),transparent);opacity:0;transition:opacity .3s ease}
     .cal-item:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
     .cal-item:hover::before{opacity:1}
+    
     .cal-banner{position:relative;height:210px;background:#111 center/cover no-repeat}
     .cal-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 60%)}
     .cal-date-overlay{position:absolute;top:16px;left:16px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;padding:12px 16px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:70px;z-index:2}
     .cal-date-overlay .month{font-size:.7rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;opacity:.9;line-height:1}
     .cal-date-overlay .day{font-size:1.8rem;line-height:.9;font-weight:900;margin-top:2px}
+    
     .cal-body{padding:22px}
     .cal-type-pill{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.75rem;font-weight:900;letter-spacing:.06em;margin-bottom:12px}
     .cal-type-pill.tournament{background:rgba(255,215,0,.18);color:#ffd86a}
@@ -8926,7 +8969,6 @@ def events_overview_page():
     /* Loading / helpers */
     .loading{grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)}
     .spin{width:48px;height:48px;border:3px solid rgba(255,215,0,.12);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
-    @keyframes spin{to{transform:rotate(360deg)}}
 
     /* Quick actions */
     .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;margin-top:64px}
@@ -8972,35 +9014,44 @@ def events_overview_page():
 
   <!-- Page Content -->
   <div class="page-content" id="pageContent">
-
     <!-- Hero -->
-    <section class="hero" aria-label="Events hero">
-      <div class="hero-bg"><div class="floating-shapes"></div></div>
+    <section class="hero reveal-element" aria-label="Events hero">
+      <div class="hero-bg">
+        <div class="floating-shapes"><div class="shape"></div><div class="shape"></div><div class="shape"></div></div>
+      </div>
       <div class="hero-content">
-        <h1 class="title">LEVEL UP YOUR GAME</h1>
-        <p class="subtitle">Elite tournaments, relaxed game nights, unforgettable birthdays & special events — all in one sleek hub.</p>
-        <div class="stats" role="group" aria-label="Live counters">
+        <h1 class="title reveal-element">LEVEL UP YOUR GAME</h1>
+        <p class="subtitle reveal-element">Elite tournaments, relaxed game nights, unforgettable birthdays & special events — all in one sleek hub.</p>
+        <div class="stats reveal-element" role="group" aria-label="Live counters">
           <div class="stat"><div class="num" id="upcomingCount">0</div><div class="lbl">Public Events</div></div>
           <div class="stat"><div class="num" id="tournamentCount">0</div><div class="lbl">Tournaments</div></div>
           <div class="stat"><div class="num" id="gamesNightCount">0</div><div class="lbl">Games Nights</div></div>
           <div class="stat"><div class="num" id="specialEventCount">0</div><div class="lbl">Special Events</div></div>
         </div>
-        <div class="scroll" aria-hidden="true"></div>
       </div>
+      <div class="scroll" aria-hidden="true"></div>
     </section>
 
-    <!-- TRUST BAR (full width) -->
-    <section class="trust-bar" aria-label="Highlights">
+    <!-- TRUST STRIP -->
+    <section class="trust-strip reveal-element" aria-label="Social proof">
       <div class="trust-inner">
-        <div class="trust-track" id="trustTrackA"></div>
-        <div class="trust-track" id="trustTrackB" aria-hidden="true"></div>
+        <div class="trust-track" id="trustTrack">
+          <span class="chip"><span class="dot"></span> ⭐ 4.7/5 from 50+ reviews</span>
+          <span class="chip"><span class="dot"></span> 🤝 Collaboration with 5 uni societies</span>
+          <span class="chip"><span class="dot"></span> 🏆 20+ tournaments hosted</span>
+          <span class="chip"><span class="dot"></span> 🎮 Regular games nights</span>
+          <span class="chip"><span class="dot"></span> 🥇 Prize-supported events</span>
+          <span class="chip"><span class="dot"></span> 👪 Birthday party packages</span>
+          <span class="chip"><span class="dot"></span> 👥 All skill levels welcome</span>
+          <span class="chip"><span class="dot"></span> 🛡️ Safe, moderated environment</span>
+        </div>
       </div>
     </section>
 
     <!-- Main -->
-    <main class="wrap">
+    <main class="wrap reveal-element">
       <!-- Tabs -->
-      <div class="tabs" role="tablist" aria-label="Events navigation">
+      <div class="tabs reveal-element" role="tablist" aria-label="Events navigation">
         <button class="tab" role="tab" aria-selected="true" id="tab-tournaments" aria-controls="panel-tournaments">Tournaments</button>
         <button class="tab" role="tab" aria-selected="false" id="tab-games" aria-controls="panel-games">Games Nights</button>
         <button class="tab" role="tab" aria-selected="false" id="tab-special" aria-controls="panel-special">Special Events</button>
@@ -9055,8 +9106,8 @@ def events_overview_page():
               <div class="name">Console Ultimate</div>
               <div class="sub">Premium birthday session</div>
               <div class="meta">
-                <div class="meta-item">Up to 12 players</div>
-                <div class="meta-item">Decorations + gift pack</div>
+                <div class="meta-item" title="Players">Up to 12 players</div>
+                <div class="meta-item" title="Perks">Decorations + gift pack</div>
               </div>
               <button class="btn" onclick="location.href='/birthday-booking'">Reserve Package</button>
             </div>
@@ -9110,54 +9161,107 @@ def events_overview_page():
   </div>
 
   <script>
-    /* -------- Loader with fail-safe -------- */
-    let revealComplete=false;
+    /* ---------------- Opening Reveal Animation ---------------- */
+    let revealComplete = false;
     function startRevealSequence(){
-      const overlay=document.getElementById('revealOverlay');
-      const pageContent=document.getElementById('pageContent');
-      if(!overlay||!pageContent){return;}
-      const finish=()=>{overlay.classList.add('hide');pageContent.classList.add('revealed');revealComplete=true;loadStats();}
-      setTimeout(finish, 3800);
-      setTimeout(()=>{if(!revealComplete) finish();}, 5000);
-      document.addEventListener('click',()=>{if(!revealComplete) finish();},{once:true});
-      document.addEventListener('keydown',(e)=>{if(!revealComplete && (e.key===' '||e.key==='Enter'||e.key==='Escape')) finish();},{once:true});
+      const overlay = document.getElementById('revealOverlay');
+      const pageContent = document.getElementById('pageContent');
+      if(!overlay || !pageContent){ return; }
+      setTimeout(()=>{
+        overlay.classList.add('hide');
+        pageContent.classList.add('revealed');
+        revealComplete = true;
+        setTimeout(()=>{
+          document.querySelectorAll('.reveal-element').forEach((el,i)=>{ setTimeout(()=>el.classList.add('animate'),i*100); });
+          setTimeout(()=>{
+            document.querySelectorAll('.stat').forEach((el,i)=>{ setTimeout(()=>el.classList.add('animate'),i*100); });
+            setTimeout(loadStats,400);
+          },600);
+        },500);
+      },3800);
+    }
+    document.addEventListener('click',()=>{ if(!revealComplete) skipReveal(); });
+    document.addEventListener('keydown',(e)=>{ if(!revealComplete && (e.key===' '||e.key==='Enter'||e.key==='Escape')) skipReveal(); });
+    function skipReveal(){
+      if(revealComplete) return;
+      revealComplete = true;
+      const overlay = document.getElementById('revealOverlay');
+      const pageContent = document.getElementById('pageContent');
+      if(overlay) overlay.style.display = 'none';
+      if(pageContent) pageContent.classList.add('revealed');
+      document.querySelectorAll('.reveal-element,.stat').forEach(el=>el.classList.add('animate'));
+      loadStats();
     }
 
-    /* -------- Icons (inline SVG minimal set) -------- */
-    const ICONS={
+    /* ---------------- Icons (inline SVG) ---------------- */
+    const ICONS = {
       date:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M8 2v4M16 2v4M3 10h18" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
       time:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#9a9a9a" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
       users:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="3" stroke="#9a9a9a" stroke-width="2"/></svg>',
-      fee:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M7 10h10M7 14h6" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>'
+      fee:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M7 10h10M7 14h6" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
+      list:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
+      check:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m20 6-11 11L4 12" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      clock:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="#9a9a9a" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
+      tag:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.59 13.41 12 22l-8-8 8-8 8.59 7.41Z" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      star:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2Z" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     };
 
-    /* -------- Images map -------- */
-    const GAME_IMAGES={'valorant':'/static/games/valorant.jpg','horror':'/static/games/horror.jpg','cs2':'/static/games/cs2.jpg','counter-strike 2':'/static/games/cs2.jpg','league of legends':'/static/games/lol.jpg','dota 2':'/static/games/dota2.jpg','rocket league':'/static/games/rocket-league.jpg','overwatch 2':'/static/games/overwatch2.jpg','apex legends':'/static/games/apex.jpg','rainbow six siege':'/static/games/r6.jpg','minecraft':'/static/games/minecraft.jpg','tekken 8':'/static/games/tekken8.jpg','street fighter 6':'/static/games/sf6.jpg','ea fc 24':'/static/games/eafc.jpg','ea fc 25':'/static/games/eafc25.jpg','f1':'/static/games/f1.jpg','special':'/static/games/special-event.jpg','themed':'/static/games/themed-night.jpg','community':'/static/games/community.jpg','cosplay':'/static/games/cosplay.jpg','retro':'/static/games/retro.jpg','generic':'/static/games/generic.jpg'};
+    /* ---------------- Local-first game banners ---------------- */
+    const GAME_IMAGES = {
+      'valorant':'/static/games/valorant.jpg',
+      'horror': '/static/games/horror.jpg',
+      'cs2':'/static/games/cs2.jpg',
+      'counter-strike 2':'/static/games/cs2.jpg',
+      'league of legends':'/static/games/lol.jpg',
+      'dota 2':'/static/games/dota2.jpg',
+      'rocket league':'/static/games/rocket-league.jpg',
+      'overwatch 2':'/static/games/overwatch2.jpg',
+      'apex legends':'/static/games/apex.jpg',
+      'rainbow six siege':'/static/games/r6.jpg',
+      'minecraft':'/static/games/minecraft.jpg',
+      'tekken 8':'/static/games/tekken8.jpg',
+      'street fighter 6':'/static/games/sf6.jpg',
+      'ea fc 24':'/static/games/eafc.jpg',
+      'ea fc 25':'/static/games/eafc25.jpg',
+      'f1':'/static/games/f1.jpg',
+      'special':'/static/games/special-event.jpg',
+      'themed':'/static/games/themed-night.jpg',
+      'community':'/static/games/community.jpg',
+      'cosplay':'/static/games/cosplay.jpg',
+      'retro':'/static/games/retro.jpg',
+      'generic':'/static/games/generic.jpg'
+    };
     function bannerFor(title){
-      if(!title) return GAME_IMAGES['generic']||'/static/games/generic.jpg';
-      const key=String(title).toLowerCase().trim();
+      if(!title) return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
+      const key = String(title).toLowerCase().trim();
       if(GAME_IMAGES[key]) return GAME_IMAGES[key];
       for(const k of Object.keys(GAME_IMAGES)){ if(key.includes(k)) return GAME_IMAGES[k]; }
-      return GAME_IMAGES['generic']||'/static/games/generic.jpg';
+      return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
     }
 
-    /* -------- Tabs -------- */
-    const tabButtons=[...document.querySelectorAll('.tab')];
-    const panels={tournaments:document.getElementById('panel-tournaments'),games:document.getElementById('panel-games'),special:document.getElementById('panel-special'),birthdays:document.getElementById('panel-birthdays'),calendar:document.getElementById('panel-calendar')};
+    /* ---------------- Tabs (click + keyboard) ---------------- */
+    const tabButtons = Array.from(document.querySelectorAll('.tab'));
+    const panels = {
+      tournaments: document.getElementById('panel-tournaments'),
+      games: document.getElementById('panel-games'),
+      special: document.getElementById('panel-special'),
+      birthdays: document.getElementById('panel-birthdays'),
+      calendar: document.getElementById('panel-calendar')
+    };
     tabButtons.forEach(btn=>{
-      btn.addEventListener('click',()=>activateTab(btn));
-      btn.addEventListener('keydown',e=>{
-        const i=tabButtons.indexOf(btn);
+      btn.addEventListener('click', ()=>activateTab(btn));
+      btn.addEventListener('keydown', e=>{
+        const i = tabButtons.indexOf(btn);
         if(e.key==='ArrowRight') tabButtons[(i+1)%tabButtons.length].focus();
         if(e.key==='ArrowLeft') tabButtons[(i-1+tabButtons.length)%tabButtons.length].focus();
-        if(e.key==='Enter'||e.key===' ') activateTab(btn);
+        if(e.key==='Enter' || e.key===' ') activateTab(btn);
       });
     });
     function activateTab(btn){
       tabButtons.forEach(b=>b.setAttribute('aria-selected','false'));
       Object.values(panels).forEach(p=>p.classList.remove('active'));
       btn.setAttribute('aria-selected','true');
-      const id=btn.id.replace('tab-','');
+      const id = btn.id.replace('tab-','');
       panels[id].classList.add('active');
       if(id==='tournaments') loadTournaments();
       if(id==='games') loadGamesNights();
@@ -9165,16 +9269,16 @@ def events_overview_page():
       if(id==='calendar') loadCalendar();
     }
 
-    /* -------- Stats -------- */
+    /* ---------------- Stats ---------------- */
     async function loadStats(){
       try{
-        const r=await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
-        const j=await r.json();
+        const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
+        const j = await r.json();
         if(j.success){
-          const publics=j.events.filter(e=>e.event_type!=='birthday');
-          const tourns=publics.filter(e=>e.event_type==='tournament');
-          const games=publics.filter(e=>e.event_type==='games_night' || /games?\\s*night/i.test(e.title||''));
-          const special=publics.filter(e=>e.event_type==='special');
+          const publics = j.events.filter(e=>e.event_type!=='birthday');
+          const tourns  = publics.filter(e=>e.event_type==='tournament');
+          const games   = publics.filter(e=>e.event_type==='games_night' || /games?\s*night/i.test(e.title||''));
+          const special = publics.filter(e=>e.event_type==='special');
           animate('#upcomingCount', publics.length);
           animate('#tournamentCount', tourns.length);
           animate('#gamesNightCount', games.length);
@@ -9182,78 +9286,117 @@ def events_overview_page():
         }
       }catch(e){ console.warn('stats err', e); }
     }
-    function animate(sel,target){
-      const el=document.querySelector(sel); const dur=900,steps=24,inc=(+target)/steps; let cur=0;
+    function animate(sel, target){
+      const el=document.querySelector(sel); const dur=900, steps=24, inc=(+target)/steps; let cur=0;
       const t=setInterval(()=>{cur+=inc; if(cur>=target){el.textContent=target;clearInterval(t)} else {el.textContent=Math.floor(cur)}}, dur/steps);
     }
 
-    /* -------- Data loaders (unchanged) -------- */
-    async function loadSpecialEvents(){
-      const grid=document.getElementById('special-grid');
-      grid.innerHTML='<div class="loading"><div class="spin"></div>Loading special events…</div>';
+    /* ---------------- Trust strip init (optional dynamic) ---------------- */
+    (function initTrustStrip(){
+      // Clone the track for seamless marquee
+      const track=document.getElementById('trustTrack');
+      if(track){
+        const clone=track.cloneNode(true);
+        clone.setAttribute('aria-hidden','true');
+        clone.style.position='absolute';
+        clone.style.left='100%';
+        clone.style.top='0';
+        clone.style.whiteSpace='nowrap';
+        track.parentNode.appendChild(clone);
+      }
+      // Optional dynamic metrics if you add /api/metrics
       try{
-        const r=await fetch('/api/events?type=special&upcoming=true',{credentials:'same-origin'});
-        const j=await r.json();
+        fetch('/api/metrics',{credentials:'same-origin'})
+          .then(r=>r.ok?r.json():null)
+          .then(m=>{
+            if(!m) return;
+            // Expecting { rating:4.7, reviews:50, uni_societies:5, tournaments_hosted:20 }
+            const chips=document.querySelectorAll('.trust-strip .chip');
+            if(m.rating && m.reviews){
+              chips[0].innerHTML = '<span class="dot"></span> ⭐ '+(m.rating.toFixed?m.rating.toFixed(1):m.rating)+'/5 from '+m.reviews+'+ reviews';
+            }
+            if(m.uni_societies){ chips[1].innerHTML = '<span class="dot"></span> 🤝 Collaboration with '+m.uni_societies+' uni societies'; }
+            if(m.tournaments_hosted){ chips[2].innerHTML = '<span class="dot"></span> 🏆 '+m.tournaments_hosted+'+ tournaments hosted'; }
+          })
+          .catch(()=>{});
+      }catch(e){}
+    })();
+
+    /* ---------------- Special Events loader ---------------- */
+    async function loadSpecialEvents(){
+      const grid = document.getElementById('special-grid');
+      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading special events…</div>';
+      try{
+        const r = await fetch('/api/events?type=special&upcoming=true',{credentials:'same-origin'});
+        const j = await r.json();
         if(j.success && j.events.length){
-          grid.innerHTML=j.events.map(ev=>{
+          grid.innerHTML = j.events.map(ev=>{
             const dt=new Date(ev.date_time), reg=ev.registration_count||0, cap=(ev.capacity||0)>0?ev.capacity:null;
-            const spots=cap?Math.max(cap-reg,0):null;
+            const spots = cap?Math.max(cap-reg,0):null;
             let pill='special', text='Join Event';
-            if(spots!==null){
-              if(spots===0){pill='warn'; text='Full'}
-              else if(spots<=3){pill='soon'; text=spots+' Spots Left'}
+            if(spots!==null){ 
+              if(spots===0){pill='warn'; text='Full'} 
+              else if(spots<=3){pill='soon'; text=spots+' Spots Left'} 
               else {pill='special'; text='Available'}
             }
             const banner=bannerFor(ev.game_title||ev.title||'special');
-            return cardHTML({banner,pillText:text,pillClass:pill,name:ev.title,sub:ev.game_title||'Special Event',dt,reg,cap,fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE',id:ev.id,description:ev.description});
+            return cardHTML({banner, pillText:text, pillClass:pill, name:ev.title, sub:ev.game_title||'Special Event',
+              dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
           }).join('');
           lazyMountBanners();
         }else{
-          grid.innerHTML=emptyState('No upcoming special events','New special events will be announced soon.');
+          grid.innerHTML = emptyState('No upcoming special events','New special events will be announced soon.');
         }
-      }catch(e){ grid.innerHTML=networkError('Couldn\\'t load special events. Please refresh.'); }
+      }catch(e){
+        grid.innerHTML = networkError('Couldn\\'t load special events. Please refresh.');
+      }
     }
 
+    /* ---------------- Tournaments loader ---------------- */
     async function loadTournaments(){
-      const grid=document.getElementById('tournaments-grid');
-      grid.innerHTML='<div class="loading"><div class="spin"></div>Loading tournaments…</div>';
+      const grid = document.getElementById('tournaments-grid');
+      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading tournaments…</div>';
       try{
-        const r=await fetch('/api/events?type=tournament&upcoming=true',{credentials:'same-origin'});
-        const j=await r.json();
+        const r = await fetch('/api/events?type=tournament&upcoming=true',{credentials:'same-origin'});
+        const j = await r.json();
         if(j.success && j.events.length){
-          grid.innerHTML=j.events.map(ev=>{
+          grid.innerHTML = j.events.map(ev=>{
             const dt=new Date(ev.date_time), reg=ev.registration_count||0, cap=(ev.capacity||0)>0?ev.capacity:null;
-            const spots=cap?Math.max(cap-reg,0):null;
+            const spots = cap?Math.max(cap-reg,0):null;
             let pill='ok', text='Open Registration';
             if(spots!==null){ if(spots===0){pill='warn'; text='Full'} else if(spots<=3){pill='soon'; text=spots+' Spots Left'} }
             const banner=bannerFor(ev.game_title||ev.title||'generic');
-            return cardHTML({banner,pillText:text,pillClass:pill,name:ev.title,sub:ev.game_title||'Game',dt,reg,cap,fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE',id:ev.id,description:ev.description});
+            return cardHTML({banner, pillText:text, pillClass:pill, name:ev.title, sub:ev.game_title||'Game',
+              dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
           }).join('');
           lazyMountBanners();
         }else{
-          grid.innerHTML=emptyState('No upcoming tournaments','New tournaments will be announced soon.');
+          grid.innerHTML = emptyState('No upcoming tournaments','New tournaments will be announced soon.');
         }
-      }catch(e){ grid.innerHTML=networkError('Couldn\\'t load tournaments. Please refresh.'); }
+      }catch(e){
+        grid.innerHTML = networkError('Couldn\\'t load tournaments. Please refresh.');
+      }
     }
 
+    /* ---------------- Games Nights loader ---------------- */
     async function loadGamesNights(){
-      const grid=document.getElementById('games-grid');
-      grid.innerHTML='<div class="loading"><div class="spin"></div>Loading games nights…</div>';
+      const grid = document.getElementById('games-grid');
+      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading games nights…</div>';
       try{
-        let r=await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'});
-        let j=await r.json();
-        let events=(j.success?j.events:[]).filter(Boolean);
+        let r = await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'});
+        let j = await r.json();
+        let events = (j.success ? j.events : []).filter(Boolean);
         if(!events.length){
-          const all=await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
-          if(all.success) events=all.events.filter(e=>e.event_type!=='birthday' && /games?\\s*night/i.test(e.title||''));
+          const all = await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
+          if(all.success) events = all.events.filter(e => e.event_type!=='birthday' && /games?\s*night/i.test(e.title||''));
         }
         if(events.length){
-          grid.innerHTML=events.map(ev=>{
+          grid.innerHTML = events.map(ev=>{
             const dt=new Date(ev.date_time);
             const banner=bannerFor(ev.game_title||ev.title||'generic');
-            const fee=ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-            const cap=(ev.capacity||0)>0?ev.capacity:null;
-            const reg=ev.registration_count||0;
+            const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
+            const cap = (ev.capacity||0)>0?ev.capacity:null;
+            const reg = ev.registration_count||0;
             return `
               <article class="card">
                 <div class="banner lazy-banner" data-src="${banner}"></div>
@@ -9274,19 +9417,76 @@ def events_overview_page():
           }).join('');
           lazyMountBanners();
         }else{
-          grid.innerHTML=emptyState('No upcoming games nights','Follow our socials and check back soon.');
+          grid.innerHTML = emptyState('No upcoming games nights','Follow our socials and check back soon.');
         }
-      }catch(e){ grid.innerHTML=networkError('Couldn\\'t load games nights. Please refresh.'); }
+      }catch(e){
+        grid.innerHTML = networkError('Couldn\\'t load games nights. Please refresh.');
+      }
     }
 
-    /* -------- Helpers -------- */
-    function escapeHTML(s){return String(s||'').replace(/[&<>\"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+    /* ---------------- Calendar loader ---------------- */
+    async function loadCalendar(){
+      const grid = document.getElementById('cal-grid');
+      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading calendar…</div>';
+      try{
+        const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
+        const j = await r.json();
+        if(j.success && j.events.length){
+          const items = j.events
+            .filter(e=>e.event_type!=='birthday')
+            .sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
+          if(!items.length){ grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.'); return; }
+          grid.innerHTML = items.map(ev=>{
+            const dt=new Date(ev.date_time);
+            const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
+            const banner=bannerFor(ev.game_title||ev.title||'generic');
+            const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
+            const cap = (ev.capacity||0)>0?ev.capacity:null;
+            const reg = ev.registration_count||0;
+            const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : (ev.event_type==='special' ? 'Special Event' : 'Event'));
+            const typClass = ev.event_type==='tournament' ? 'tournament' : (ev.event_type==='games_night' ? 'games_night' : (ev.event_type==='special' ? 'special' : 'tournament'));
+            return `
+              <article class="cal-item">
+                <div class="cal-banner lazy-banner" data-src="${banner}">
+                  <div class="cal-date-overlay">
+                    <span class="month">${m}</span>
+                    <span class="day">${d}</span>
+                  </div>
+                </div>
+                <div class="cal-body">
+                  <span class="cal-type-pill ${typClass}">${escapeHTML(typ)}</span>
+                  <div class="cal-title">${escapeHTML(ev.title)}</div>
+                  <div class="cal-subtitle">${escapeHTML(ev.game_title || 'Event')}</div>
+                  <div class="cal-meta">
+                    <div class="cal-meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                    <div class="cal-meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                    <div class="cal-meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
+                    <div class="cal-meta-item">${ICONS.fee} ${fee}</div>
+                  </div>
+                  ${ev.description ? `<div class="cal-description">${escapeHTML(ev.description)}</div>` : ''}
+                  <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
+                </div>
+              </article>`;
+          }).join('');
+          lazyMountBanners();
+        }else{
+          grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments, game nights & special events.');
+        }
+      }catch(e){
+        grid.innerHTML = networkError('Couldn\\'t load calendar. Please refresh.');
+      }
+    }
+
+    /* ---------------- Helpers ---------------- */
+    function escapeHTML(s){return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
     function emptyState(t,s){return `<div class="loading"><h3 style="color:var(--primary);margin-bottom:10px">${t}</h3><p>${s}</p></div>`;}
     function networkError(msg){return `<div class="loading" style="color:#ff9a78"><h3>Connection Error</h3><p>${msg}</p><button onclick="location.reload()" class="q-btn" style="margin-top:12px">Retry</button></div>`;}
+
+    // Lazy mount banners for .lazy-banner elements
     function lazyMountBanners(){
-      const els=document.querySelectorAll('.lazy-banner[data-src]');
+      const els = document.querySelectorAll('.lazy-banner[data-src]');
       if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=`url('${e.dataset.src}')`); return; }
-      const io=new IntersectionObserver((entries,obs)=>{
+      const io = new IntersectionObserver((entries,obs)=>{
         entries.forEach(ent=>{
           if(ent.isIntersecting){
             const el=ent.target; el.style.backgroundImage=`url('${el.dataset.src}')`; el.removeAttribute('data-src'); obs.unobserve(el);
@@ -9296,7 +9496,7 @@ def events_overview_page():
       els.forEach(e=>io.observe(e));
     }
 
-    /* -------- Reusable card HTML -------- */
+    // Reusable card HTML
     function cardHTML({banner,pillText,pillClass,name,sub,dt,reg,cap,fee,id,description}){
       return `
         <article class="card">
@@ -9319,34 +9519,19 @@ def events_overview_page():
         </article>`;
     }
 
-    /* -------- TRUST BAR content (no emojis) -------- */
-    const REVIEWS={rating:4.7,count:50};
-    const TRUST_ITEMS=[
-      `Rated ${REVIEWS.rating}★ from ${REVIEWS.count}+ local reviews`,
-      'All skill levels welcome',
-      'Birthday packages available',
-      'CAPS discounts',
-      '20+ tournaments hosted',
-      'Collaboration with 5 uni societies'
-    ];
-    function buildTrustBar(){
-      const html = TRUST_ITEMS.map(t=>`<span class="trust-item">${escapeHTML(t)}</span>`).join('<span class="trust-sep">•</span>');
-      const a=document.getElementById('trustTrackA');
-      const b=document.getElementById('trustTrackB');
-      if(a&&b){ a.innerHTML=html; b.innerHTML=html; }
-    }
-
-    /* -------- Boot -------- */
+    // Boot sequence
     document.addEventListener('DOMContentLoaded', ()=>{
       startRevealSequence();
-      buildTrustBar();
-      loadTournaments();
-      setInterval(()=>{
-        const active=document.querySelector('.panel.active');
-        if(active && active.id==='panel-tournaments') loadTournaments();
-        if(active && active.id==='panel-special') loadSpecialEvents();
-      }, 5*60*1000);
-      setInterval(loadStats, 2*60*1000);
+      setTimeout(()=>{
+        if(!revealComplete) return;
+        loadTournaments();
+        setInterval(()=>{ 
+          const active = document.querySelector('.panel.active');
+          if(active && active.id === 'panel-tournaments') loadTournaments();
+          if(active && active.id === 'panel-special') loadSpecialEvents();
+        }, 5*60*1000);
+        setInterval(loadStats, 2*60*1000);
+      },4000);
     });
   </script>
 </body>

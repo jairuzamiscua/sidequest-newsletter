@@ -8775,6 +8775,7 @@ def events_overview_page():
     events_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
+<head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Events & Tournaments – SideQuest Canterbury</title>
@@ -8789,47 +8790,40 @@ def events_overview_page():
       --muted:#9a9a9a;
       --border:rgba(255,255,255,.06);
     }
-    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;perspective:1000px}
+    body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--dark);color:var(--text);line-height:1.6;overflow-x:hidden;cursor:none}
 
     /* Reduced motion respect */
     @media (prefers-reduced-motion: reduce){
-      *{animation:none!important;transition:none!important;transform:none!important}
-      .card-3d,.stat-3d,.hero-3d{transform:none!important}
+      *{animation:none!important;transition:none!important}
     }
+
+    /* Cursor */
+    .cursor{width:20px;height:20px;border:2px solid var(--primary);border-radius:50%;position:fixed;pointer-events:none;transition:all .1s ease;z-index:9999;mix-blend-mode:difference}
+    .cursor-f{width:40px;height:40px;background:rgba(255,215,0,.1);border-radius:50%;position:fixed;pointer-events:none;transition:all .3s ease;z-index:9998}
+    .cursor.active{transform:scale(.5);background:var(--primary)}
 
     /* Noise overlay */
     body::before{content:'';position:fixed;inset:0;background:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.03"/%3E%3C/svg%3E');pointer-events:none;z-index:1}
 
-    /* 3D Hero */
-    .hero{min-height:92vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,rgba(255,215,0,.05) 0%,transparent 70%);transform-style:preserve-3d}
-    .hero-bg{position:absolute;inset:0;overflow:hidden;transform-style:preserve-3d}
+    /* Hero */
+    .hero{min-height:92vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,rgba(255,215,0,.05) 0%,transparent 70%)}
+    .hero-bg{position:absolute;inset:0;overflow:hidden}
     .hero-bg::before{content:'';position:absolute;width:200%;height:200%;top:-50%;left:-50%;background:conic-gradient(from 0deg at 50% 50%,var(--primary) 0deg,transparent 60deg,transparent 300deg,var(--accent) 360deg);animation:spin 30s linear infinite;opacity:.1}
     @keyframes spin{100%{transform:rotate(360deg)}}
-    
-    /* 3D Floating shapes */
-    .floating-shapes{position:absolute;inset:0;transform-style:preserve-3d}
-    .shape{position:absolute;border:1px solid rgba(255,215,0,0.2);animation:float3d 20s infinite ease-in-out;transform-style:preserve-3d}
-    .shape:nth-child(1){width:300px;height:300px;top:10%;left:10%;border-radius:30% 70% 70% 30%/30% 30% 70% 70%;animation-delay:0s}
-    .shape:nth-child(2){width:220px;height:220px;top:60%;right:10%;border-radius:63% 37% 54% 46%/55% 48% 52% 45%;animation-delay:7s}
-    .shape:nth-child(3){width:160px;height:160px;bottom:10%;left:30%;border-radius:40% 60% 60% 40%/60% 30% 70% 40%;animation-delay:14s}
-    @keyframes float3d{
-      0%,100%{transform:translate3d(0,0,0) rotateX(0deg) rotateY(0deg) scale(1)}
-      25%{transform:translate3d(30px,-30px,50px) rotateX(15deg) rotateY(45deg) scale(1.1)}
-      50%{transform:translate3d(-20px,20px,-30px) rotateX(-10deg) rotateY(90deg) scale(.9)}
-      75%{transform:translate3d(40px,-10px,40px) rotateX(20deg) rotateY(135deg) scale(1.05)}
-    }
+    .floating-shapes{position:absolute;inset:0}
+    .shape{position:absolute;border:1px solid rgba(255,215,0,0.2);animation:float 20s infinite ease-in-out}
+    .shape:nth-child(1){width:300px;height:300px;top:10%;left:10%;border-radius:30% 70% 70% 30%/30% 30% 70% 70%}
+    .shape:nth-child(2){width:220px;height:220px;top:60%;right:10%;border-radius:63% 37% 54% 46%/55% 48% 52% 45%}
+    .shape:nth-child(3){width:160px;height:160px;bottom:10%;left:30%;border-radius:40% 60% 60% 40%/60% 30% 70% 40%}
+    @keyframes float{0%,100%{transform:translate(0,0) rotate(0) scale(1)}33%{transform:translate(30px,-30px) rotate(120deg) scale(1.1)}66%{transform:translate(-20px,20px) rotate(240deg) scale(.9)}}
 
-    /* 3D Hero content */
-    .hero-content{position:relative;z-index:10;text-align:center;padding:0 20px;transform-style:preserve-3d}
-    .title{font-size:clamp(3rem,9vw,7rem);font-weight:900;letter-spacing:-.03em;line-height:.9;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px;transform:translateZ(20px)}
-    .subtitle{color:var(--muted);max-width:760px;margin:0 auto;transform:translateZ(10px)}
-    
-    /* 3D Stats */
-    .stats{display:flex;gap:42px;justify-content:center;margin-top:42px;transform-style:preserve-3d}
-    .stat{text-align:center;transform-style:preserve-3d;transition:transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)}
-    .stat:hover{transform:translateZ(30px) rotateY(10deg)}
-    .stat .num{font-size:2.6rem;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;transform:translateZ(15px);transition:transform 0.3s ease}
-    .stat .lbl{font-size:.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:8px;transform:translateZ(5px)}
+    .hero-content{position:relative;z-index:10;text-align:center;padding:0 20px}
+    .title{font-size:clamp(3rem,9vw,7rem);font-weight:900;letter-spacing:-.03em;line-height:.9;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px}
+    .subtitle{color:var(--muted);max-width:760px;margin:0 auto}
+    .stats{display:flex;gap:42px;justify-content:center;margin-top:42px}
+    .stat{text-align:center}
+    .stat .num{font-size:2.6rem;font-weight:900;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .stat .lbl{font-size:.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:8px}
 
     .scroll{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);animation:bounce 2s infinite}
     .scroll::before{content:'';display:block;width:20px;height:30px;border:2px solid var(--primary);border-radius:15px}
@@ -8837,104 +8831,83 @@ def events_overview_page():
     @keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(10px)}}
     @keyframes scroll{0%{opacity:0;transform:translateX(-50%) translateY(0)}50%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(10px)}}
 
-    /* Main with 3D context */
-    .wrap{max-width:1400px;margin:0 auto;padding:90px 20px;transform-style:preserve-3d}
+    /* Main */
+    .wrap{max-width:1400px;margin:0 auto;padding:90px 20px}
 
-    /* 3D Tabs */
-    .tabs{display:flex;justify-content:center;gap:8px;margin-bottom:64px;position:relative;flex-wrap:wrap;transform-style:preserve-3d}
+    /* Tabs */
+    .tabs{display:flex;justify-content:center;gap:8px;margin-bottom:64px;position:relative;flex-wrap:wrap}
     .tabs::before{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:100%;max-width:700px;height:1px;background:linear-gradient(90deg,transparent,var(--muted),transparent);opacity:.2}
-    .tab{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:999px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:12px 20px;cursor:pointer;transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);transform-style:preserve-3d}
-    .tab:hover{transform:translateY(-3px) translateZ(10px);box-shadow:0 10px 25px rgba(255,215,0,.15)}
-    .tab[aria-selected="true"]{color:#141414;background:linear-gradient(135deg,var(--primary),var(--accent));border-color:transparent;transform:translateY(-2px) translateZ(15px);box-shadow:0 8px 20px rgba(255,215,0,.3)}
+    .tab{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:999px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:12px 20px;cursor:pointer;transition:all .2s ease}
+    .tab[aria-selected="true"]{color:#141414;background:linear-gradient(135deg,var(--primary),var(--accent));border-color:transparent}
     .tab:focus-visible{outline:3px solid var(--primary)}
     .panel{display:none}
     .panel.active{display:block}
 
     /* Sections */
-    .section-head{text-align:center;margin-bottom:44px;transform-style:preserve-3d}
-    .section-title{font-size:clamp(2.4rem,5vw,3.8rem);font-weight:900;letter-spacing:-.02em;margin-bottom:10px;display:inline-block;position:relative;transform:translateZ(10px)}
-    .section-title::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%) translateZ(-5px);width:64px;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:2px}
-    .section-sub{color:var(--muted);max-width:680px;margin:0 auto;transform:translateZ(5px)}
+    .section-head{text-align:center;margin-bottom:44px}
+    .section-title{font-size:clamp(2.4rem,5vw,3.8rem);font-weight:900;letter-spacing:-.02em;margin-bottom:10px;display:inline-block;position:relative}
+    .section-title::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:64px;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:2px}
+    .section-sub{color:var(--muted);max-width:680px;margin:0 auto}
 
-    /* 3D Cards */
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px;transform-style:preserve-3d}
-    .card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:all .4s cubic-bezier(0.4, 0, 0.2, 1);position:relative;transform-style:preserve-3d;transform:translateZ(0)}
-    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--primary),transparent);opacity:0;transition:opacity .3s ease;transform:translateZ(1px)}
-    .card:hover{transform:translateY(-8px) translateZ(20px) rotateX(5deg);border-color:rgba(255,215,0,.35);box-shadow:0 25px 50px rgba(255,215,0,.15), 0 10px 30px rgba(0,0,0,.3)}
-    .card:hover::before{opacity:1}
-    .card:hover .banner{transform:translateZ(10px) scale(1.02)}
-    .card:hover .btn{transform:translateZ(15px) translateY(-2px)}
-    
-    .banner{position:relative;height:210px;background:#111 center/cover no-repeat;transition:transform .4s ease;transform-style:preserve-3d}
+    /* Cards */
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:26px}
+    .card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;overflow:hidden;transition:transform .25s ease,border-color .25s ease}
+    .card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.25);box-shadow:0 20px 40px rgba(255,215,0,.08)}
+    .banner{position:relative;height:210px;background:#111 center/cover no-repeat}
     .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 60%)}
-    .body{padding:22px;transform-style:preserve-3d}
-    .pill{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.75rem;font-weight:900;letter-spacing:.06em;margin-bottom:12px;transform:translateZ(5px)}
+    .body{padding:22px}
+    .pill{display:inline-block;padding:6px 12px;border-radius:999px;font-size:.75rem;font-weight:900;letter-spacing:.06em;margin-bottom:12px}
     .ok{background:rgba(255,215,0,.18);color:#ffd86a}
     .warn{background:rgba(255,107,53,.18);color:#ff9a78}
     .soon{background:rgba(255,215,0,.18);color:#ffd86a}
-    .name{font-size:1.45rem;font-weight:850;margin-bottom:6px;transform:translateZ(8px)}
-    .sub{color:#ff8d6a;font-weight:700;margin-bottom:16px;transform:translateZ(6px)}
-    .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px;margin-bottom:18px;transform:translateZ(4px)}
+    .name{font-size:1.45rem;font-weight:850;margin-bottom:6px}
+    .sub{color:#ff8d6a;font-weight:700;margin-bottom:16px}
+    .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px;margin-bottom:18px}
     .meta-item{display:flex;align-items:center;gap:8px;color:var(--muted);white-space:nowrap}
-    .btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);transform-style:preserve-3d;position:relative;overflow:hidden}
-    .btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transition:left .6s ease;transform:translateZ(1px)}
-    .btn:hover{transform:translateZ(10px) translateY(-2px);box-shadow:0 15px 35px rgba(255,215,0,.4)}
-    .btn:hover::before{left:100%}
-    .btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+    .btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(255,215,0,.28)}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
 
-    /* 3D Calendar */
-    .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px;transform-style:preserve-3d}
-    .cal-item{display:grid;grid-template-columns:140px 1fr;background:var(--dark-2);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:all .4s cubic-bezier(0.4, 0, 0.2, 1);transform-style:preserve-3d}
-    .cal-item:hover{transform:translateY(-5px) translateZ(15px) rotateY(2deg);border-color:rgba(255,215,0,.35);box-shadow:0 20px 40px rgba(255,215,0,.12)}
-    .date{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--primary),var(--accent));color:#141414;flex-direction:column;padding:22px;transform:translateZ(10px)}
+    /* Calendar */
+    .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px}
+    .cal-item{display:grid;grid-template-columns:140px 1fr;background:var(--dark-2);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:transform .2s ease,border-color .2s ease}
+    .cal-item:hover{transform:translateY(-3px);border-color:rgba(255,215,0,.25)}
+    .date{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--primary),var(--accent));color:#141414;flex-direction:column;padding:22px}
     .date .m{font-size:.85rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;opacity:.9}
     .date .d{font-size:2.6rem;line-height:1;font-weight:900}
-    .info{padding:20px 24px;transform-style:preserve-3d}
-    .info .title{font-size:1.2rem;font-weight:800;margin-bottom:6px;-webkit-text-fill-color:initial;background:none;transform:translateZ(8px)}
-    .chips{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0;transform:translateZ(6px)}
-    .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.02);font-weight:600;color:var(--muted);transition:transform .2s ease}
-    .chip:hover{transform:translateZ(3px)}
-    .thumb{height:44px;min-width:140px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#111 center/cover no-repeat;transform:translateZ(5px);transition:transform .3s ease}
-    .thumb:hover{transform:translateZ(8px) scale(1.05)}
+    .info{padding:20px 24px}
+    .info .title{font-size:1.2rem;font-weight:800;margin-bottom:6px;-webkit-text-fill-color:initial;background:none}
+    .chips{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0}
+    .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.02);font-weight:600;color:var(--muted)}
+    .thumb{height:44px;min-width:140px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#111 center/cover no-repeat}
 
     /* Loading / helpers */
     .loading{grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)}
-    .spin{width:48px;height:48px;border:3px solid rgba(255,215,0,.12);border-top-color:var(--primary);border-radius:50%;animation:spin3d 1s linear infinite;margin:0 auto 16px}
-    @keyframes spin3d{100%{transform:rotateY(360deg) rotateX(360deg)}}
+    .spin{width:48px;height:48px;border:3px solid rgba(255,215,0,.12);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
+    @keyframes spin{100%{transform:rotate(360deg)}}
 
-    /* 3D Quick actions */
-    .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;margin-top:64px;transform-style:preserve-3d}
-    .q-card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;padding:36px;text-align:center;transition:all .4s cubic-bezier(0.4, 0, 0.2, 1);cursor:pointer;transform-style:preserve-3d}
-    .q-card:hover{transform:translateY(-8px) translateZ(20px) rotateX(5deg);border-color:rgba(255,215,0,.4);box-shadow:0 25px 50px rgba(255,215,0,.15)}
-    .q-title{font-size:1.1rem;font-weight:900;color:var(--primary);margin-bottom:10px;transform:translateZ(10px)}
-    .q-text{color:var(--muted);margin-bottom:18px;transform:translateZ(8px)}
-    .q-btn{padding:12px 24px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:10px;font-weight:900;cursor:pointer;transition:transform .3s ease;transform:translateZ(12px)}
-    .q-btn:hover{transform:translateZ(16px) translateY(-2px)}
-
-    /* 3D Canvas container */
-    #hero3d{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2}
+    /* Quick actions */
+    .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px;margin-top:64px}
+    .q-card{background:var(--dark-2);border:1px solid var(--border);border-radius:18px;padding:36px;text-align:center;transition:all .3s ease;cursor:pointer}
+    .q-card:hover{transform:translateY(-6px);border-color:rgba(255,215,0,.3);box-shadow:0 20px 40px rgba(255,215,0,.08)}
+    .q-title{font-size:1.1rem;font-weight:900;color:var(--primary);margin-bottom:10px}
+    .q-text{color:var(--muted);margin-bottom:18px}
+    .q-btn{padding:12px 24px;background:linear-gradient(135deg,var(--primary),var(--accent));color:#141414;border:none;border-radius:10px;font-weight:900;cursor:pointer}
 
     @media (max-width:768px){
+      body{cursor:auto}
+      .cursor,.cursor-f{display:none}
       .grid{grid-template-columns:1fr}
       .cal-item{grid-template-columns:1fr}
       .date{flex-direction:row;gap:10px;justify-content:flex-start}
-      /* Reduce 3D effects on mobile for performance */
-      .card:hover{transform:translateY(-4px) translateZ(10px)}
-      .shape{animation-duration:30s}
-      .stats{gap:16px;flex-wrap:wrap}
-    }
-
-    /* Performance optimization */
-    @media (max-width: 768px) {
-      .hero-bg::before{animation-duration:60s}
-      .shape{animation-duration:40s}
     }
   </style>
 </head>
 <body>
+  <div class="cursor"></div><div class="cursor-f"></div>
+
   <!-- Hero -->
   <section class="hero" aria-label="Events hero">
-    <canvas id="hero3d"></canvas>
     <div class="hero-bg">
       <div class="floating-shapes"><div class="shape"></div><div class="shape"></div><div class="shape"></div></div>
     </div>
@@ -9042,109 +9015,14 @@ def events_overview_page():
         </div>
         <div class="q-card" onclick="location.href='tel:012279915058'">
           <div class="q-title">Need Help?</div>
-          <div class="q-text">Questions about events or bookings? We're here for you.</div>
+          <div class="q-text">Questions about events or bookings? We’re here for you.</div>
           <button class="q-btn">01227 915058</button>
         </div>
       </div>
     </section>
   </main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
-    /* ---------------- 3D Background Scene ---------------- */
-    let scene, camera, renderer, particles;
-    
-    function init3DBackground() {
-      if (window.innerWidth < 768) return; // Skip on mobile for performance
-      
-      const canvas = document.getElementById('hero3d');
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
-      
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      
-      // Create floating gaming particles
-      const particleCount = 50;
-      const positions = new Float32Array(particleCount * 3);
-      const colors = new Float32Array(particleCount * 3);
-      
-      for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 100;
-        positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
-        
-        // Golden colors
-        colors[i * 3] = 1;     // R
-        colors[i * 3 + 1] = 0.84; // G
-        colors[i * 3 + 2] = 0;     // B
-      }
-      
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      
-      const material = new THREE.PointsMaterial({
-        size: 2,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.6
-      });
-      
-      particles = new THREE.Points(geometry, material);
-      scene.add(particles);
-      
-      camera.position.z = 50;
-      
-      animate3D();
-    }
-    
-    function animate3D() {
-      requestAnimationFrame(animate3D);
-      
-      if (particles) {
-        particles.rotation.x += 0.001;
-        particles.rotation.y += 0.002;
-        
-        // Gentle floating motion
-        const positions = particles.geometry.attributes.position.array;
-        for (let i = 0; i < positions.length; i += 3) {
-          positions[i + 1] += Math.sin(Date.now() * 0.001 + i) * 0.01;
-        }
-        particles.geometry.attributes.position.needsUpdate = true;
-      }
-      
-      renderer.render(scene, camera);
-    }
-
-    /* ---------------- Mouse Interaction for 3D Cards ---------------- */
-    function init3DInteractions() {
-      const cards = document.querySelectorAll('.card, .q-card, .cal-item');
-      
-      cards.forEach(card => {
-        card.addEventListener('mousemove', (e) => {
-          if (window.innerWidth < 768) return; // Skip on mobile
-          
-          const rect = card.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          
-          const centerX = rect.width / 2;
-          const centerY = rect.height / 2;
-          
-          const rotateX = (y - centerY) / centerY * -10;
-          const rotateY = (x - centerX) / centerX * 10;
-          
-          card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px)`;
-        });
-        
-        card.addEventListener('mouseleave', () => {
-          card.style.transform = '';
-        });
-      });
-    }
-
     /* ---------------- Icons (inline SVG) ---------------- */
     const ICONS = {
       date:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="#9a9a9a" stroke-width="2"/><path d="M8 2v4M16 2v4M3 10h18" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round"/></svg>',
@@ -9174,8 +9052,8 @@ def events_overview_page():
       'street fighter 6':'/static/games/sf6.jpg',
       'ea fc 24':'/static/games/eafc.jpg',
       'ea fc 25':'/static/games/eafc25.jpg',
-      'f1':'/static/games/f1.jpg',
       'generic':'/static/games/generic.jpg'
+      'f1':'/static/games/f1.jpg'
     };
     function bannerFor(title){
       if(!title) return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
@@ -9221,7 +9099,7 @@ def events_overview_page():
         if(j.success){
           const publics = j.events.filter(e=>e.event_type!=='birthday');
           const tourns  = publics.filter(e=>e.event_type==='tournament');
-          const games   = publics.filter(e=>e.event_type==='games_night' || /games?\\s*night/i.test(e.title||''));
+          const games   = publics.filter(e=>e.event_type==='games_night' || /games?\s*night/i.test(e.title||''));
           animate('#upcomingCount', publics.length);
           animate('#tournamentCount', tourns.length);
           animate('#gamesNightCount', games.length);
@@ -9251,7 +9129,6 @@ def events_overview_page():
               dt, reg, cap, fee:ev.entry_fee>0?('£'+ev.entry_fee):'FREE', id:ev.id, description:ev.description});
           }).join('');
           lazyMountBanners();
-          init3DInteractions();
         }else{
           grid.innerHTML = emptyState('No upcoming tournaments','New tournaments will be announced soon.');
         }
@@ -9265,12 +9142,14 @@ def events_overview_page():
       const grid = document.getElementById('games-grid');
       grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading games nights…</div>';
       try{
+        // Primary: explicit type
         let r = await fetch('/api/events?type=games_night&upcoming=true',{credentials:'same-origin'});
         let j = await r.json();
+        // Fallback: filter by title if API doesn’t support type
         let events = (j.success ? j.events : []).filter(Boolean);
         if(!events.length){
           const all = await (await fetch('/api/events?upcoming=true',{credentials:'same-origin'})).json();
-          if(all.success) events = all.events.filter(e => e.event_type!=='birthday' && /games?\\s*night/i.test(e.title||''));
+          if(all.success) events = all.events.filter(e => e.event_type!=='birthday' && /games?\s*night/i.test(e.title||''));
         }
         if(events.length){
           grid.innerHTML = events.map(ev=>{
@@ -9279,26 +9158,25 @@ def events_overview_page():
             const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
             const cap = (ev.capacity||0)>0?ev.capacity:null;
             const reg = ev.registration_count||0;
-            return \`
+            return `
               <article class="card">
-                <div class="banner lazy-banner" data-src="\${banner}"></div>
+                <div class="banner lazy-banner" data-src="${banner}"></div>
                 <div class="body">
                   <span class="pill ok">Open</span>
-                  <div class="name">\${escapeHTML(ev.title)}</div>
-                  <div class="sub">\${escapeHTML(ev.game_title || 'Casual Session')}</div>
+                  <div class="name">${escapeHTML(ev.title)}</div>
+                  <div class="sub">${escapeHTML(ev.game_title || 'Casual Session')}</div>
                   <div class="meta">
-                    <div class="meta-item">\${ICONS.date} \${dt.toLocaleDateString('en-GB')}</div>
-                    <div class="meta-item">\${ICONS.time} \${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                    <div class="meta-item">\${ICONS.users} \${reg}\${cap?\`/\${cap}\`:''} attending</div>
-                    <div class="meta-item">\${ICONS.fee} \${fee}</div>
+                    <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                    <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                    <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} attending</div>
+                    <div class="meta-item">${ICONS.fee} ${fee}</div>
                   </div>
-                  \${ev.description ? \`<p class="sub" style="color:var(--muted);font-weight:600;margin-bottom:16px">\${escapeHTML(ev.description)}</p>\` : ''}
-                  <button class="btn" onclick="window.open('/signup/event/\${ev.id}','_blank')">Save My Spot</button>
+                  ${ev.description ? `<p class="sub" style="color:var(--muted);font-weight:600;margin-bottom:16px">${escapeHTML(ev.description)}</p>` : ''}
+                  <button class="btn" onclick="window.open('/signup/event/${ev.id}','_blank')">Save My Spot</button>
                 </div>
-              </article>\`;
+              </article>`;
           }).join('');
           lazyMountBanners();
-          init3DInteractions();
         }else{
           grid.innerHTML = emptyState('No upcoming games nights','Follow our socials and check back soon.');
         }
@@ -9327,28 +9205,27 @@ def events_overview_page():
             const cap = (ev.capacity||0)>0?ev.capacity:null;
             const reg = ev.registration_count||0;
             const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : 'Event');
-            return \`
+            return `
               <article class="cal-item">
-                <div class="date" aria-hidden="true"><div class="m">\${m}</div><div class="d">\${d}</div></div>
+                <div class="date" aria-hidden="true"><div class="m">${m}</div><div class="d">${d}</div></div>
                 <div class="info">
-                  <div class="title">\${escapeHTML(ev.title)}</div>
+                  <div class="title">${escapeHTML(ev.title)}</div>
                   <div class="chips">
-                    <span class="chip">\${ICONS.tag} \${escapeHTML(typ)}</span>
-                    <span class="chip">\${ICONS.date} \${dt.toLocaleDateString('en-GB')}</span>
-                    <span class="chip">\${ICONS.time} \${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
-                    <span class="chip">\${ICONS.users} \${reg}\${cap?\`/\${cap}\`:''}</span>
-                    <span class="chip">\${ICONS.fee} \${fee}</span>
+                    <span class="chip">${ICONS.tag} ${escapeHTML(typ)}</span>
+                    <span class="chip">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</span>
+                    <span class="chip">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+                    <span class="chip">${ICONS.users} ${reg}${cap?`/${cap}`:''}</span>
+                    <span class="chip">${ICONS.fee} ${fee}</span>
                   </div>
-                  \${ev.description ? \`<p style="color:var(--muted);margin-top:12px">\${escapeHTML(ev.description)}</p>\` : ''}
+                  ${ev.description ? `<p style="color:var(--muted);margin-top:12px">${escapeHTML(ev.description)}</p>` : ''}
                   <div style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                    <a href="/signup/event/\${ev.id}" style="text-decoration:none"><button class="btn">View Details</button></a>
-                    <div class="thumb lazy-banner" data-src="\${banner}"></div>
+                    <a href="/signup/event/${ev.id}" style="text-decoration:none"><button class="btn">View Details</button></a>
+                    <div class="thumb lazy-banner" data-src="${banner}"></div>
                   </div>
                 </div>
-              </article>\`;
+              </article>`;
           }).join('');
           lazyMountBanners();
-          init3DInteractions();
         }else{
           grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments and game nights.');
         }
@@ -9359,70 +9236,64 @@ def events_overview_page():
 
     /* ---------------- Helpers ---------------- */
     function escapeHTML(s){return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-    function emptyState(t,s){return \`<div class="loading"><h3 style="color:var(--primary);margin-bottom:10px">\${t}</h3><p>\${s}</p></div>\`;}
-    function networkError(msg){return \`<div class="loading" style="color:#ff9a78"><h3>Connection Error</h3><p>\${msg}</p><button onclick="location.reload()" class="q-btn" style="margin-top:12px">Retry</button></div>\`;}
+    function emptyState(t,s){return `<div class="loading"><h3 style="color:var(--primary);margin-bottom:10px">${t}</h3><p>${s}</p></div>`;}
+    function networkError(msg){return `<div class="loading" style="color:#ff9a78"><h3>Connection Error</h3><p>${msg}</p><button onclick="location.reload()" class="q-btn" style="margin-top:12px">Retry</button></div>`;}
 
+    // Lazy mount banners for .lazy-banner elements
     function lazyMountBanners(){
       const els = document.querySelectorAll('.lazy-banner[data-src]');
-      if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=\`url('\${e.dataset.src}')\`); return; }
+      if(!('IntersectionObserver' in window)){ els.forEach(e=>e.style.backgroundImage=`url('${e.dataset.src}')`); return; }
       const io = new IntersectionObserver((entries,obs)=>{
         entries.forEach(ent=>{
           if(ent.isIntersecting){
-            const el=ent.target; el.style.backgroundImage=\`url('\${el.dataset.src}')\`; el.removeAttribute('data-src'); obs.unobserve(el);
+            const el=ent.target; el.style.backgroundImage=`url('${el.dataset.src}')`; el.removeAttribute('data-src'); obs.unobserve(el);
           }
         });
       },{rootMargin:'200px'});
       els.forEach(e=>io.observe(e));
     }
 
+    // Cursor polish
+    (function(){
+      const c=document.querySelector('.cursor'), f=document.querySelector('.cursor-f');
+      if(!c||!f) return; let mx=0,my=0,fx=0,fy=0;
+      document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;c.style.transform=`translate(${mx-10}px,${my-10}px)`;});
+      (function follow(){fx+=(mx-fx)*.12;fy+=(my-fy)*.12;f.style.transform=`translate(${fx-20}px,${fy-20}px)`;requestAnimationFrame(follow)})();
+      document.querySelectorAll('a,button,.card,.cal-item').forEach(el=>{
+        el.addEventListener('mouseenter',()=>c.classList.add('active'));
+        el.addEventListener('mouseleave',()=>c.classList.remove('active'));
+      });
+    })();
+
+    // Reusable card HTML
     function cardHTML({banner,pillText,pillClass,name,sub,dt,reg,cap,fee,id,description}){
-      return \`
+      return `
         <article class="card">
-          <div class="banner lazy-banner" data-src="\${banner}"></div>
+          <div class="banner lazy-banner" data-src="${banner}"></div>
           <div class="body">
-            <span class="pill \${pillClass}">\${pillText}</span>
-            <div class="name">\${escapeHTML(name)}</div>
-            <div class="sub">\${escapeHTML(sub||'')}</div>
+            <span class="pill ${pillClass}">${pillText}</span>
+            <div class="name">${escapeHTML(name)}</div>
+            <div class="sub">${escapeHTML(sub||'')}</div>
             <div class="meta">
-              <div class="meta-item">\${ICONS.date} \${dt.toLocaleDateString('en-GB')}</div>
-              <div class="meta-item">\${ICONS.time} \${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-              <div class="meta-item">\${ICONS.users} \${reg}\${cap?\`/\${cap}\`:''} players</div>
-              <div class="meta-item">\${ICONS.fee} \${fee}</div>
+              <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+              <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+              <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} players</div>
+              <div class="meta-item">${ICONS.fee} ${fee}</div>
             </div>
-            \${description ? \`<p style="color:var(--muted);margin:6px 0 14px">\${escapeHTML(description)}</p>\` : ''}
-            <button class="btn" onclick="window.open('/signup/event/\${id}','_blank')" \${pillClass==='warn'?'disabled':''}>
-              \${pillClass==='warn'?'Full':'Register Now'}
+            ${description ? `<p style="color:var(--muted);margin:6px 0 14px">${escapeHTML(description)}</p>` : ''}
+            <button class="btn" onclick="window.open('/signup/event/${id}','_blank')" ${pillClass==='warn'?'disabled':''}>
+              ${pillClass==='warn'?'Full':'Register Now'}
             </button>
           </div>
-        </article>\`;
+        </article>`;
     }
 
-    /* ---------------- Window Resize Handler ---------------- */
-    function handleResize() {
-      if (camera && renderer) {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      }
-    }
-
-    // Boot sequence
+    // Boot
     document.addEventListener('DOMContentLoaded', ()=>{
-      // Initialize 3D effects
-      init3DBackground();
-      init3DInteractions();
-      
-      // Load content
       loadStats();
       loadTournaments();
-      
-      // Event listeners
-      window.addEventListener('resize', handleResize);
-      
-      // Auto-refresh
-      setInterval(()=>{ 
-        if(document.getElementById('panel-tournaments').classList.contains('active')) loadTournaments(); 
-      }, 5*60*1000);
+      // Gentle auto-refresh
+      setInterval(()=>{ if(document.getElementById('panel-tournaments').classList.contains('active')) loadTournaments(); }, 5*60*1000);
       setInterval(loadStats, 2*60*1000);
     });
   </script>

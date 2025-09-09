@@ -8805,7 +8805,7 @@ def events_overview_page():
       --noise:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.02"/%3E%3C/svg%3E');
     }
     
-    html{scroll-behavior:smooth;scroll-snap-type:y mandatory}
+    html{scroll-behavior:smooth;scroll-snap-type:y proximity}
     body{
       font-family:'Inter',system-ui,-apple-system,sans-serif;
       background:var(--dark);color:var(--text);line-height:1.65;overflow-x:hidden;
@@ -9944,60 +9944,60 @@ def events_overview_page():
     }
 
     async function loadCalendar(){
-      const grid = document.getElementById('cal-grid');
-      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading calendar…</div>';
-      try{
-        const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
-        const j = await r.json();
-        if(j.success && j.events.length){
-          const items = j.events
-            .filter(e=>e.event_type!=='birthday')
-            .sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
-          if(!items.length){ 
-            grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.'); 
-            return; 
-          }
-          grid.innerHTML = items.map(ev=>{
-            const dt=new Date(ev.date_time);
-            const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
-            const banner=bannerFor(ev.game_title||ev.title||'generic');
-            const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-            const cap = (ev.capacity||0)>0?ev.capacity:null;
-            const reg = ev.registration_count||0;
-            const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : (ev.event_type==='special' ? 'Special Event' : 'Event'));
-            const typClass = ev.event_type==='tournament' ? 'tournament' : (ev.event_type==='games_night' ? 'games_night' : (ev.event_type==='special' ? 'special' : 'tournament'));
-            return `
-              <article class="cal-item fade-in">
-                <div class="cal-banner lazy-banner" data-src="${banner}">
-                  <div class="cal-date-overlay">
-                    <span class="month">${m}</span>
-                    <span class="day">${d}</span>
-                  </div>
-                </div>
-                <div class="cal-body">
-                  <span class="cal-type-pill ${typClass}">${escapeHTML(typ)}</span>
-                  <div class="cal-title">${escapeHTML(ev.title)}</div>
-                  <div class="cal-subtitle">${escapeHTML(ev.game_title || 'Event')}</div>
-                  <div class="cal-meta">
-                    <div class="cal-meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
-                    <div class="cal-meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                    <div class="cal-meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
-                    <div class="cal-meta-item">${ICONS.fee} ${fee}</div>
-                  </div>
-                  ${ev.description ? `<div class="cal-description">${escapeHTML(ev.description)}</div>` : ''}
-                  <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
-                </div>
-              </article>`;
-          }).join('');
-          lazyMountBanners();
-          triggerCardAnimations();
-        }else{
-          grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments, game nights & special events.');
+        const grid = document.getElementById('cal-grid');
+        grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading calendar…</div>';
+        try{
+            const r = await fetch('/api/events?upcoming=true',{credentials:'same-origin'});
+            const j = await r.json();
+            if(j.success && j.events.length){
+            const items = j.events
+                .filter(e=>e.event_type!=='birthday')
+                .sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
+            if(!items.length){ 
+                grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.'); 
+                return; 
+            }
+            grid.innerHTML = items.map(ev=>{
+                const dt=new Date(ev.date_time);
+                const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
+                const banner=bannerFor(ev.game_title||ev.title||'generic');
+                const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
+                const cap = (ev.capacity||0)>0?ev.capacity:null;
+                const reg = ev.registration_count||0;
+                const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : (ev.event_type==='special' ? 'Special Event' : 'Event'));
+                const typClass = ev.event_type==='tournament' ? 'tournament' : (ev.event_type==='games_night' ? 'games_night' : (ev.event_type==='special' ? 'special' : 'tournament'));
+                return `
+                <article class="cal-item">
+                    <div class="cal-banner lazy-banner" data-src="${banner}">
+                    <div class="cal-date-overlay">
+                        <span class="month">${m}</span>
+                        <span class="day">${d}</span>
+                    </div>
+                    </div>
+                    <div class="cal-body">
+                    <span class="cal-type-pill ${typClass}">${escapeHTML(typ)}</span>
+                    <div class="cal-title">${escapeHTML(ev.title)}</div>
+                    <div class="cal-subtitle">${escapeHTML(ev.game_title || 'Event')}</div>
+                    <div class="cal-meta">
+                        <div class="cal-meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                        <div class="cal-meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                        <div class="cal-meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
+                        <div class="cal-meta-item">${ICONS.fee} ${fee}</div>
+                    </div>
+                    ${ev.description ? `<div class="cal-description">${escapeHTML(ev.description)}</div>` : ''}
+                    <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
+                    </div>
+                </article>`;
+            }).join('');
+            lazyMountBanners();
+            }else{
+            grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments, game nights & special events.');
+            }
+        }catch(e){
+            grid.innerHTML = networkError('Could not load calendar. Please refresh.');
         }
-      }catch(e){
-        grid.innerHTML = networkError('Could not load calendar. Please refresh.');
-      }
     }
+    
 
     /* ---------------- Utility Functions ---------------- */
     function escapeHTML(s){

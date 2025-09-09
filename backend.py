@@ -8975,8 +8975,8 @@ def events_overview_page():
     .section-title::after{content:'';position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:120px;height:6px;border-radius:3px;background:var(--gradient-1);box-shadow:0 0 20px var(--glow)}
     .section-sub{color:var(--text-muted);max-width:700px;margin:0 auto;font-size:1.2rem;font-weight:400;letter-spacing:0.01em;line-height:1.6}
 
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:40px}
-    .card{background:var(--dark-3);border:1px solid var(--border);border-radius:32px;overflow:hidden;transition:all 0.6s cubic-bezier(0.77,0,0.175,1);position:relative;backdrop-filter:blur(15px);transform:translateY(20px);opacity:0}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));align-items:stretch;gap:40px}
+    .card{background:var(--dark-3);border:1px solid var(--border);border-radius:32px;overflow:hidden;transition:all 0.6s cubic-bezier(0.77,0,0.175,1);position:relative;backdrop-filter:blur(15px);display:flex;flex-direction:column;height:100%;transform:translateY(20px);opacity:0}
     .card.visible{transform:translateY(0);opacity:1}
     .card::before{content:'';position:absolute;inset:0;background:var(--gradient-1);opacity:0;transition:opacity 0.6s ease;border-radius:32px}
     .card:hover{transform:translateY(-12px) scale(1.02);border-color:rgba(255,215,0,.5);box-shadow:0 32px 64px rgba(0,0,0,.4), 0 0 0 1px rgba(255,215,0,.3)}
@@ -8984,7 +8984,7 @@ def events_overview_page():
 
     .banner{position:relative;height:280px;background:#000 center/cover no-repeat;overflow:hidden}
     .banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8),transparent 70%)}
-    .body{padding:32px;position:relative;z-index:2}
+    .body{padding:32px;position:relative;display:flex-direction:column;flex;flex:1;z-index:2}
     
     .pill{display:inline-block;padding:10px 20px;border-radius:60px;font-size:0.75rem;font-weight:800;letter-spacing:0.06em;margin-bottom:20px;text-transform:uppercase;backdrop-filter:blur(10px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
     .ok{background:rgba(255,215,0,.2);color:#ffd86a;border:1px solid rgba(255,215,0,.4)}
@@ -8998,7 +8998,7 @@ def events_overview_page():
     .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:20px 24px;margin-bottom:32px}
     .meta-item{display:flex;align-items:center;gap:12px;color:var(--text-muted);white-space:nowrap;font-size:0.95rem;font-weight:500}
 
-    .btn{width:100%;padding:20px;background:var(--gradient-1);color:var(--dark);border:none;border-radius:20px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;cursor:pointer;font-size:0.95rem;transition:all 0.4s cubic-bezier(0.77,0,0.175,1);position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(255,215,0,.3)}
+    .btn{width:100%;padding:20px;background:var(--gradient-1);color:var(--dark);border:none;border-radius:20px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;cursor:pointer;font-size:0.95rem;transition:all 0.4s cubic-bezier(0.77,0,0.175,1);position:relative;overflow:hidden;margin-top:auto;box-shadow:0 8px 24px rgba(255,215,0,.3)}
     .btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transition:left 0.8s ease}
     .btn:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 16px 40px rgba(255,215,0,.5)}
     .btn:hover::before{left:100%}
@@ -9364,7 +9364,29 @@ def events_overview_page():
 
    /* ---------------- Game banners ---------------- */
    const GAME_IMAGES = {
-     'valorant':'/static/games/valorant.jpg','horror':'/static/games/horror.jpg','cs2':'/static/games/cs2.jpg','counter-strike 2':'/static/games/cs2.jpg','league of legends':'/static/games/lol.jpg','dota 2':'/static/games/dota2.jpg','rocket league':'/static/games/rocket-league.jpg','overwatch 2':'/static/games/overwatch2.jpg','apex legends':'/static/games/apex.jpg','rainbow six siege':'/static/games/r6.jpg','minecraft':'/static/games/minecraft.jpg','tekken 8':'/static/games/tekken8.jpg','street fighter 6':'/static/games/sf6.jpg','ea fc 24':'/static/games/eafc.jpg','ea fc 25':'/static/games/eafc25.jpg','f1':'/static/games/f1.jpg','special':'/static/games/special-event.jpg','themed':'/static/games/themed-night.jpg','community':'/static/games/community.jpg','cosplay':'/static/games/cosplay.jpg','retro':'/static/games/retro.jpg','generic':'/static/games/generic.jpg'
+     'valorant':'/static/games/valorant.jpg',
+     'horror':'/static/games/horror.jpg',
+     'cs2':'/static/games/cs2.jpg',
+     'counter-strike 2':'/static/games/cs2.jpg',
+     'league of legends':'/static/games/lol.jpg',
+     'dota 2':'/static/games/dota2.jpg',
+     'rocket league':'/static/games/rocket-league.jpg',
+     'overwatch 2':'/static/games/overwatch2.jpg',
+     'apex legends':'/static/games/apex.jpg',
+     'rainbow six siege':'/static/games/r6.jpg',
+     'minecraft':'/static/games/minecraft.jpg',
+     'tekken 8':'/static/games/tekken8.jpg',
+     'street fighter 6':'/static/games/sf6.jpg',
+     'ea fc 24':'/static/games/eafc.jpg',
+     'ea fc 25':'/static/games/eafc25.jpg',
+     'f1':'/static/games/f1.jpg',
+     'special':'/static/games/special-event.jpg',
+     'themed':'/static/games/themed-night.jpg',
+     'community':'/static/games/community.jpg',
+     'cosplay':'/static/games/cosplay.jpg',
+     'retro':'/static/games/retro.jpg',
+     'mortal kombat':'/static/games/mk.jpg
+     'generic':'/static/games/generic.jpg'
    };
    function bannerFor(title){
      if(!title) return GAME_IMAGES['generic'] || '/static/games/generic.jpg';
@@ -9510,22 +9532,26 @@ def events_overview_page():
             const cap = (ev.capacity||0)>0?ev.capacity:null;
             const reg = ev.registration_count||0;
             return `
-              <article class="card fade-in">
-                <div class="banner lazy-banner" data-src="${banner}"></div>
-                <div class="body">
-                  <span class="pill ok">Open</span>
-                  <div class="name">${escapeHTML(ev.title)}</div>
-                  <div class="sub">${escapeHTML(ev.game_title || 'Casual Session')}</div>
-                  <div class="meta">
-                    <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
-                    <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                    <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} attending</div>
-                    <div class="meta-item">${ICONS.fee} ${fee}</div>
-                  </div>
-                  ${ev.description ? `<p class="sub" style="color:var(--text-muted);font-weight:600;margin-bottom:16px">${escapeHTML(ev.description)}</p>` : ''}
-                  <button class="btn" onclick="window.open('/signup/event/${ev.id}','_blank')">Save My Spot</button>
-                </div>
-              </article>`;
+                <article class="card fade-in">
+                    <div class="banner lazy-banner" data-src="${banner}"></div>
+                    <div class="body">
+                        <div class="card-content">
+                        <span class="pill ${pillClass}">${pillText}</span>
+                        <div class="name">${escapeHTML(name)}</div>
+                        <div class="sub">${escapeHTML(sub||'')}</div>
+                        <div class="meta">
+                            <div class="meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+                            <div class="meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                            <div class="meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''} players</div>
+                            <div class="meta-item">${ICONS.fee} ${fee}</div>
+                        </div>
+                        ${description ? `<p style="color:var(--text-muted);margin:12px 0 20px;font-size:1rem;line-height:1.5">${escapeHTML(description)}</p>` : ''}
+                        </div>
+                        <button class="btn" onclick="window.open('/signup/event/${id}','_blank')" ${pillClass==='warn'?'disabled':''}>
+                        ${pillClass==='warn'?'Full':'Register Now'}
+                        </button>
+                    </div>
+                </article>`;
           }).join('');
           lazyMountBanners(); triggerCardAnimations();
         }else{

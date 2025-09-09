@@ -8971,7 +8971,7 @@ def events_overview_page():
     @keyframes panelSlide{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
 
     .section-head{text-align:center;margin-bottom:80px}
-    .section-title{font-size:clamp(3.5rem,8vw,6rem);font-weight:900;letter-spacing:-0.04em;margin-bottom:24px;background:var(--gradient-2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;position:relative;display:inline-block}
+    .section-title{font-size:clamp(3.5rem,8vw,6rem);font-weight:900;letter-spacing:-0.04em;margin-bottom:24px;background:var(--gradient-1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;position:relative;display:inline-block}
     .section-title::after{content:'';position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:120px;height:6px;border-radius:3px;background:var(--gradient-1);box-shadow:0 0 20px var(--glow)}
     .section-sub{color:var(--text-muted);max-width:700px;margin:0 auto;font-size:1.2rem;font-weight:400;letter-spacing:0.01em;line-height:1.6}
 

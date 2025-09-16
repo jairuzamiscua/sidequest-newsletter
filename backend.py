@@ -10,7 +10,7 @@ import re
 import html
 import json
 import traceback
-import psycopg2
+from psycopg2 import pool
 import base64
 import qrcode
 import io
@@ -34,7 +34,7 @@ from wtforms.validators import DataRequired, Email, Length, Optional, NumberRang
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 import atexit
-
+import threading
 
 # SINGLE APP CREATION - FIXED!
 app = Flask(__name__, static_folder="static")
@@ -142,9 +142,9 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 # =============================
 
 try:
-    connection_pool = psycopg2.pool.ThreadedConnectionPool(
+    connection_pool = pool.ThreadedConnectionPool(
         minconn=2,
-        maxconn=15,  # Leave headroom for Railway's ~22 connection limit
+        maxconn=15,
         dsn=DATABASE_URL
     )
     print("✅ Database connection pool initialized")

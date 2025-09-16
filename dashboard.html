@@ -4573,65 +4573,43 @@
     // Modified editEvent function
     async function editEvent(eventId) {
       window.isEditingEvent = true;
-      console.log('🔧 EDIT DEBUG: Starting edit for event ID:', eventId);
+      console.log('EDIT DEBUG: Setting currentEditingEventId to:', eventId);
 
       try {
         const response = await fetch(`${API_BASE}/api/events/${eventId}`);
         const data = await response.json();
 
         if (!data.success) {
-          alert('Failed to load event data: ' + (data.error || 'Unknown error'));
+          alert('Failed to load event data');
           return;
         }
 
         const event = data.event;
-        console.log('🔧 EDIT DEBUG: Received event data:', event);
-        
         currentEditingEventId = eventId;
-        console.log('🔧 EDIT DEBUG: Set currentEditingEventId to:', currentEditingEventId);
+        console.log('EDIT DEBUG: currentEditingEventId is now:', currentEditingEventId);
 
-        // 1) Switch to create view
+        // 1) Show create view (your switchEventView does not reset form state)
         switchEventView('create');
-        console.log('🔧 EDIT DEBUG: Switched to create view');
 
-        // 2) Wait for DOM to be ready, then set event type
-        setTimeout(() => {
-          const eventType = event.event_type || event.type || 'special';
-          console.log('🔧 EDIT DEBUG: Setting event type to:', eventType);
-          
-          const typeSel = document.getElementById('eventType');
-          if (typeSel) {
-            typeSel.value = eventType;
-            console.log('🔧 EDIT DEBUG: Event type select set successfully');
-          } else {
-            console.error('🔧 EDIT DEBUG: Event type select not found!');
-          }
+        // 2) Set event type select FIRST so the correct form section is visible
+        const typeSel = document.getElementById('eventType');
+        if (typeSel) typeSel.value = event.event_type || event.type || 'special';
 
-          // 3) Show the correct form section
-          toggleEventTypeForm();
-          console.log('🔧 EDIT DEBUG: Toggled event type form');
+        // 3) Show the correct section, defaults suppressed by isEditingEvent
+        toggleEventTypeForm();
 
-          // 4) Wait a bit more, then populate the form
-          setTimeout(() => {
-            console.log('🔧 EDIT DEBUG: About to fill form with data...');
-            fillFormWithEventData(event);
-            
-            // 5) Update UI to show we're editing
-            updateCreateFormForEdit(event.title || event.name || 'Event');
-            console.log('🔧 EDIT DEBUG: Updated form UI for editing');
+        // 4) Now populate values
+        fillFormWithEventData(event);
 
-            // 6) Close modal if open
-            closeEventModal();
-            console.log('🔧 EDIT DEBUG: Closed event modal');
-            
-            console.log('✅ EDIT DEBUG: Edit process completed successfully');
-          }, 200);
-          
-        }, 100);
+        // 5) Mark UI as editing
+        updateCreateFormForEdit(event.title);
+
+        // Only close a modal if that’s what you want (some setups keep it open)
+        closeEventModal();
 
       } catch (error) {
-        console.error('❌ EDIT DEBUG: Error in editEvent:', error);
-        alert('Failed to load event data: ' + error.message);
+        console.error('Error loading event for edit:', error);
+        alert('Failed to load event data');
         currentEditingEventId = null;
         window.isEditingEvent = false;
       }
@@ -4887,104 +4865,39 @@
 
     function fillFormWithEventData(event) {
       const type = (event.event_type || event.type || 'special').toLowerCase();
-      
-      // Helper function to safely set form values
-      function safeSetValue(elementId, value) {
-        const element = document.getElementById(elementId);
-        if (element && value !== undefined && value !== null) {
-          element.value = value;
-          console.log(`Set ${elementId} = ${value}`);
-        } else if (!element) {
-          console.warn(`Element not found: ${elementId}`);
-        }
-      }
-      
-      // Helper function to safely set radio button
-      function safeSetRadio(name, value) {
-        const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
-        if (radio) {
-          radio.checked = true;
-          console.log(`Set radio ${name} = ${value}`);
-        }
-      }
-      
-      // Helper function to convert datetime to local input format
-      function toLocalInputValue(dtLike) {
-        const d = new Date(dtLike);
-        if (isNaN(d.getTime())) return '';
-        const pad = n => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      }
+      const birthdayForm = document.getElementById('birthdayPartyForm');
+      const standardForm = document.getElementById('standardEventForm');
+      const form = type === 'birthday' ? birthdayForm : standardForm;
 
-      console.log('Filling form with event data:', event);
-      console.log('Event type determined as:', type);
-      
-      try {
-        if (type === 'birthday') {
-          // Birthday-specific fields
-          safeSetValue('birthdayPersonName', decodeEntities(event.birthday_person_name || event.child_name || ''));
-          safeSetValue('birthdayContactPhone', event.contact_phone || event.parent_phone || '');
-          safeSetValue('birthdayContactEmail', decodeEntities(event.contact_email || event.parent_email || ''));
-          safeSetValue('birthdayNotes', decodeEntities(event.special_notes || event.notes || event.description || ''));
-          
-          // Birthday datetime
-          const dt = event.date_time || event.start_time || event.startDate || event.start;
-          if (dt) {
-            safeSetValue('birthdayStartTime', toLocalInputValue(dt));
-          }
-          
-          // Birthday duration
-          if (event.duration_hours != null) {
-            safeSetValue('birthdayDuration', String(event.duration_hours));
-          }
-          
-          // Birthday package type
-          const packageType = event.package_type || 'console';
-          safeSetRadio('birthdayPackage', packageType);
-          
-          // Update pricing after setting values
-          setTimeout(() => {
-            if (typeof updateBirthdayPricing === 'function') {
-              updateBirthdayPricing();
-            }
-          }, 100);
-          
-        } else {
-          // Standard event fields
-          safeSetValue('eventTitle', decodeEntities(event.title || event.name || ''));
-          safeSetValue('gameTitle', decodeEntities(event.game_title || event.game || ''));
-          safeSetValue('eventDescription', decodeEntities(event.description || ''));
-          safeSetValue('eventRequirements', decodeEntities(event.requirements || ''));
-          safeSetValue('eventPrizes', event.prize_pool || '');
-          
-          // Entry fee
-          const entryFee = event.entry_fee ?? event.fee ?? event.price ?? 0;
-          safeSetValue('eventFee', entryFee.toString());
-          
-          // Capacity
-          const capacity = event.capacity ?? event.max_capacity ?? event.event_capacity ?? 0;
-          safeSetValue('eventCapacity', capacity.toString());
-          
-          // Status
-          safeSetValue('eventStatus', event.status || event.state || 'draft');
-          
-          // Start datetime
-          const startDt = event.date_time || event.start_time || event.startDate || event.start;
-          if (startDt) {
-            safeSetValue('eventDateTime', toLocalInputValue(startDt));
-          }
-          
-          // End datetime
-          const endDt = event.end_time || event.endDate || event.end;
-          if (endDt) {
-            safeSetValue('eventEndTime', toLocalInputValue(endDt));
-          }
-        }
-        
-        console.log('✅ Form population completed successfully');
-        
-      } catch (error) {
-        console.error('❌ Error filling form with event data:', error);
+      const dt = event.date_time || event.start_time || event.startDate || event.start;
+
+      // ---------- Common (decode text fields) ----------
+      setScoped(form, 'eventTitle', decodeEntities(event.title || event.name || ''));
+      setScoped(form, 'gameTitle',  decodeEntities(event.game_title || event.game || '')); // if this input exists
+      setScoped(form, 'entryFee', (event.entry_fee ?? event.fee ?? event.price ?? '').toString());
+      setScoped(form, 'eventStatus', event.status || event.state || 'upcoming');
+      setScoped(form, 'description', decodeEntities(event.description || event.special_notes || ''));
+
+      if (type === 'birthday') {
+        // ---------- Birthday-specific (decode text where relevant) ----------
+        setScoped(form, 'birthdayPersonName',  decodeEntities(event.birthday_person_name || event.child_name || ''));
+        setScoped(form, 'birthdayContactPhone', event.contact_phone || event.parent_phone || ''); // phone: raw is fine
+        setScoped(form, 'birthdayContactEmail', decodeEntities(event.contact_email || event.parent_email || ''));
+        if (dt) setScoped(form, 'birthdayStartTime', toLocalInputValue(dt));
+
+        setScoped(form, 'birthdayPackageType', event.package_type || 'console');
+        if (event.duration_hours != null) setScoped(form, 'birthdayDurationHours', String(event.duration_hours));
+
+        // Deposit fields (if you have these inputs)
+        if (event.deposit_amount != null) setScoped(form, 'birthdayDeposit', String(event.deposit_amount));
+
+        // Reflect the rule: capacity = 1 for birthdays (if you show a capacity input)
+        setScoped(form, 'capacity', '1');
+
+        // Recalculate pricing after values are set (your guard prevents defaulting while editing)
+        if (typeof updateBirthdayPricing === 'function') updateBirthdayPricing();
+      } else {
+        if (dt) setScoped(form, 'eventDateTime', toLocalInputValue(dt));
       }
     }
 

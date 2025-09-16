@@ -12,18 +12,16 @@ import json
 import traceback
 import psycopg2
 import psycopg2.extras
-from psycopg2.extras 
 from psycopg2 import pool
+from psycopg2.extras import RealDictCursor
 import base64
 import qrcode
 import io
-import base64
 from itsdangerous import URLSafeTimedSerializer
 from functools import wraps
 import time
 import secrets
 from urllib.parse import quote
-from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from collections import defaultdict
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string, make_response

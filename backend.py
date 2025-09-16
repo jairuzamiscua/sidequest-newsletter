@@ -565,8 +565,9 @@ def get_csrf_token():
             
             # Clean old cache entries (keep last 4 buckets = 2 hours)
             current_bucket = int(time.time() // 1800)
-            csrf_cache = {k: v for k, v in csrf_cache.items() 
-                         if int(k.split('_')[-1]) >= current_bucket - 4}
+            csrf_cache.clear()
+            csrf_cache.update({k: v for k, v in csrf_cache.items() 
+                  if int(k.split('_')[-1]) >= current_bucket - 4})
         
         return jsonify({
             "success": True,

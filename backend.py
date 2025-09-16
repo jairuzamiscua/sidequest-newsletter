@@ -4696,7 +4696,8 @@ def execute_query(query, params=None, fetch=True):
         conn = get_db_connection()
         if not conn:
             return None
-        cursor = conn.cursor()
+            
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(query, params)
         
         if fetch:
@@ -4715,63 +4716,40 @@ def execute_query(query, params=None, fetch=True):
         if cursor:
             cursor.close()
         if conn:
-            conn.close()
+            return_db_connection(conn)  # This is the key fix!
 
 def execute_query_one(query, params=None):
-    """Execute a query and return the first result - with connection pooling"""
+    """Execute a query and return the first result"""
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         if not conn:
-            log_error("Failed to get database connection")
             return None
             
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        
-        log_activity(f"Executing query: {query[:100]}..." if len(query) > 100 else query, "info")
-        log_activity(f"With params: {params}", "info")
-        
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(query, params)
         
-        # For INSERT/UPDATE/DELETE with RETURNING, we need to fetch the result
         if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')) and 'RETURNING' in query.upper():
             result = cursor.fetchone()
-            conn.commit()  # Important: commit the transaction
-            log_activity(f"Query executed successfully, returning: {result}", "success")
+            conn.commit()
             return dict(result) if result else None
-        
-        # For SELECT queries
         elif query.strip().upper().startswith('SELECT'):
             result = cursor.fetchone()
-            log_activity(f"Query executed successfully, returning: {result}", "success")
             return dict(result) if result else None
-        
-        # For other queries without RETURNING
         else:
             conn.commit()
-            log_activity(f"Query executed successfully, no return data", "success")
             return {"affected_rows": cursor.rowcount}
             
-    except psycopg2.Error as e:
-        log_error(f"Database error in execute_query_one: {e}")
-        log_error(f"Query was: {query}")
-        log_error(f"Params were: {params}")
-        if conn:
-            conn.rollback()
-        return None
-        
     except Exception as e:
-        log_error(f"Unexpected error in execute_query_one: {e}")
-        log_error(f"Full traceback: {traceback.format_exc()}")
+        log_error(f"Database error in execute_query_one: {e}")
         if conn:
             conn.rollback()
         return None
-        
     finally:
         if cursor:
             cursor.close()
-        return_db_connection(conn)  # Changed from conn.close() to use pool
+        return_db_connection(conn)  # Fix this too!
 
 # =============================
 # Event Management Routes

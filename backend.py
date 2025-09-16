@@ -3249,7 +3249,7 @@ def signup_page():
             justify-content: center;
             padding: 20px;
             position: relative;
-            overflow: hidden;
+            overflow-x: hidden;
         }
 
         /* Noise overlay */
@@ -3489,8 +3489,32 @@ def signup_page():
         }
 
         @media (max-width: 768px) {
-            .form-row { grid-template-columns: 1fr; }
-            .container { padding: 40px 30px; margin: 10px; }
+            body {
+                cursor: auto !important;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+                min-height: auto;
+                align-items: flex-start;
+                padding: 10px;
+            }
+            
+            .form-row { 
+                grid-template-columns: 1fr; 
+            }
+            
+            .container { 
+                padding: 40px 30px; 
+                margin: 10px auto;
+                width: 100%;
+                max-width: 100%;
+            }
+        }
+
+        @media (min-width: 769px) {
+            body {
+                cursor: none;
+            }
         }
     </style>
 </head>

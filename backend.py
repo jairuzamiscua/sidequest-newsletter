@@ -545,13 +545,11 @@ csrf_cache_lock = threading.Lock()
 
 @app.route('/api/csrf-token', methods=['GET'])
 def get_csrf_token():
-    """CSRF token with caching for concurrent users"""
     try:
         client_ip = get_remote_address()
-        cache_key = f"csrf_{client_ip}_{int(time.time() // 1800)}"  # 30-minute buckets
+        cache_key = f"csrf_{client_ip}_{int(time.time() // 1800)}"
         
         with csrf_cache_lock:
-            # Check cache first
             if cache_key in csrf_cache:
                 return jsonify({
                     "success": True,
@@ -559,22 +557,21 @@ def get_csrf_token():
                     "expires_in": 3600
                 })
             
-            # Generate new token
             token = generate_csrf()
             csrf_cache[cache_key] = token
             
-            # Clean old cache entries (keep last 4 buckets = 2 hours)
+            # FIX: Properly update the global cache
             current_bucket = int(time.time() // 1800)
-            csrf_cache.clear()
-            csrf_cache.update({k: v for k, v in csrf_cache.items() 
-                  if int(k.split('_')[-1]) >= current_bucket - 4})
+            keys_to_remove = [k for k in csrf_cache.keys() 
+                             if int(k.split('_')[-1]) < current_bucket - 4]
+            for k in keys_to_remove:
+                del csrf_cache[k]
         
         return jsonify({
             "success": True,
             "csrf_token": token,
             "expires_in": 3600
         })
-        
     except Exception as e:
         log_error(f"Error generating CSRF token: {e}")
         return jsonify({"success": False, "error": "Failed to generate token"}), 500
@@ -4690,7 +4687,6 @@ def get_db_connection():
         return None
 
 def execute_query(query, params=None, fetch=True):
-    """Execute a database query with error handling"""
     conn = None
     cursor = None
     try:
@@ -4717,7 +4713,42 @@ def execute_query(query, params=None, fetch=True):
         if cursor:
             cursor.close()
         if conn:
-            return_db_connection(conn)  # This is the key fix!
+            return_db_connection(conn)  # Return to pool, don't close
+
+def execute_query_one(query, params=None):
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return None
+            
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(query, params)
+        
+        if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')) and 'RETURNING' in query.upper():
+            result = cursor.fetchone()
+            conn.commit()
+            return dict(result) if result else None
+        elif query.strip().upper().startswith('SELECT'):
+            result = cursor.fetchone()
+            return dict(result) if result else None
+        else:
+            conn.commit()
+            return {"affected_rows": cursor.rowcount}
+            
+    except Exception as e:
+        log_error(f"Database error: {e}")
+        if conn:
+            conn.rollback()
+        return None
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            return_db_connection(conn)  # Return to pool, don't close
+
+
 
 def execute_query_one(query, params=None):
     """Execute a query and return the first result"""
@@ -9502,16 +9533,25 @@ def events_overview_page():
        animateCounter('#specialEventCount', 0);
      }
    }
-   function animateCounter(selector, target){
-     const el = document.querySelector(selector); if(!el) return;
-     const duration = 1500, steps = 40, increment = target / steps;
-     let current = 0, step = 0;
-     const timer = setInterval(() => {
-       step++; current += increment;
-       if(step >= steps) { el.textContent = target; clearInterval(timer); }
-       else { el.textContent = Math.floor(current); }
-     }, duration / steps);
-   }
+    function animateCounter(selector, target) {
+        const el = document.querySelector(selector);
+        if (!el) {
+            console.warn(`Stats element missing: ${selector}`);
+            return;
+        }
+        
+        const duration = 1500, steps = 40, increment = target / steps;
+        let current = 0, step = 0;
+        const timer = setInterval(() => {
+            step++; current += increment;
+            if (step >= steps) {
+                el.textContent = target;
+                clearInterval(timer);
+            } else {
+                el.textContent = Math.floor(current);
+            }
+        }, duration / steps);
+    }
 
    /* ---------------- Event Loaders (cached + abort) ---------------- */
    async function loadSpecialEvents(){

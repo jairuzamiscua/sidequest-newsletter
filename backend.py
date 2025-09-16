@@ -134,7 +134,6 @@ def get_brevo_api():
     cfg.api_key['api-key'] = BREVO_API_KEY
     return sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(cfg))
 
-
 # ---- Database configuration ----
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -142,14 +141,42 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 # Database Connection & Setup
 # =============================
 
+try:
+    connection_pool = psycopg2.pool.ThreadedConnectionPool(
+        minconn=2,
+        maxconn=15,  # Leave headroom for Railway's ~22 connection limit
+        dsn=DATABASE_URL
+    )
+    print("✅ Database connection pool initialized")
+except Exception as e:
+    print(f"❌ Connection pool failed: {e}")
+    connection_pool = None
+
 def get_db_connection():
-    """Get database connection"""
+    """Get connection from pool"""
+    if connection_pool:
+        try:
+            return connection_pool.getconn()
+        except Exception as e:
+            log_error(f"Connection pool exhausted: {e}")
+    
+    # Fallback to direct connection
     try:
         conn = psycopg2.connect(DATABASE_URL)
         return conn
     except Exception as e:
         print(f"Database connection error: {e}")
         return None
+
+def return_db_connection(conn):
+    """Return connection to pool"""
+    if conn and connection_pool:
+        try:
+            connection_pool.putconn(conn)
+        except Exception:
+            conn.close()
+    elif conn:
+        conn.close()
 
 # Replace your init_database() function with this updated version:
 
@@ -512,16 +539,41 @@ def csrf_form_required(form_class):
         return decorated_function
     return decorator
 
+# Add at module level
+csrf_cache = {}
+csrf_cache_lock = threading.Lock()
+
 @app.route('/api/csrf-token', methods=['GET'])
 def get_csrf_token():
-    """Generate and return CSRF token for API requests"""
+    """CSRF token with caching for concurrent users"""
     try:
-        token = generate_csrf()
+        client_ip = get_remote_address()
+        cache_key = f"csrf_{client_ip}_{int(time.time() // 1800)}"  # 30-minute buckets
+        
+        with csrf_cache_lock:
+            # Check cache first
+            if cache_key in csrf_cache:
+                return jsonify({
+                    "success": True,
+                    "csrf_token": csrf_cache[cache_key],
+                    "expires_in": 3600
+                })
+            
+            # Generate new token
+            token = generate_csrf()
+            csrf_cache[cache_key] = token
+            
+            # Clean old cache entries (keep last 4 buckets = 2 hours)
+            current_bucket = int(time.time() // 1800)
+            csrf_cache = {k: v for k, v in csrf_cache.items() 
+                         if int(k.split('_')[-1]) >= current_bucket - 4}
+        
         return jsonify({
             "success": True,
             "csrf_token": token,
-            "expires_in": 3600  # 1 hour
+            "expires_in": 3600
         })
+        
     except Exception as e:
         log_error(f"Error generating CSRF token: {e}")
         return jsonify({"success": False, "error": "Failed to generate token"}), 500
@@ -4666,7 +4718,7 @@ def execute_query(query, params=None, fetch=True):
             conn.close()
 
 def execute_query_one(query, params=None):
-    """Execute a query and return the first result"""
+    """Execute a query and return the first result - with connection pooling"""
     conn = None
     cursor = None
     try:
@@ -4719,8 +4771,7 @@ def execute_query_one(query, params=None):
     finally:
         if cursor:
             cursor.close()
-        if conn:
-            conn.close()
+        return_db_connection(conn)  # Changed from conn.close() to use pool
 
 # =============================
 # Event Management Routes

@@ -1879,7 +1879,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                                             30% member discount on any bubble tea
                                         </p>
                                         <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a; font-weight: bold;">
-                                            Valid until: October 25, 2024
+                                            Valid until: {expiry_date}
                                         </p>
                                     </td>
                                 </tr>
@@ -9890,6 +9890,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

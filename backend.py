@@ -1704,7 +1704,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                     <tr>
                         <td style="padding: 30px 30px 20px 30px;">
                             <h2 style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 24px; color: #333333; font-weight: normal;">
-                                Hi {name}!
+                                Hi {first_name}!
                             </h2>
                             <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 24px; color: #666666;">
                                 Thanks for joining the SideQuest Canterbury community! We're excited to welcome you to our gaming hub and can't wait to see you in store.
@@ -9890,6 +9890,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

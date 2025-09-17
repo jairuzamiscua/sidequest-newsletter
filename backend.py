@@ -1684,21 +1684,11 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Welcome to SideQuest Canterbury</title>
-    <!--[if mso]>
-    <noscript>
-        <xml>
-            <o:OfficeDocumentSettings>
-                <o:PixelsPerInch>96</o:PixelsPerInch>
-            </o:OfficeDocumentSettings>
-        </xml>
-    </noscript>
-    <![endif]-->
 </head>
 <body style="margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f4f4f4;">
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
         <tr>
             <td align="center" style="padding: 20px 10px;">
-                <!-- Main Container -->
                 <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                     
                     <!-- Header -->
@@ -1714,7 +1704,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                     <tr>
                         <td style="padding: 30px 30px 20px 30px;">
                             <h2 style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 24px; color: #333333; font-weight: normal;">
-                                {greeting}
+                                Hi Emma!
                             </h2>
                             <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 24px; color: #666666;">
                                 Thanks for joining the SideQuest Canterbury community! We're excited to welcome you to our gaming hub and can't wait to see you in store.
@@ -1722,6 +1712,50 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                             <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 24px; color: #666666;">
                                 Your account has been successfully created and you now have access to member benefits and event notifications.
                             </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- NEW: Discover Our Events Section -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #FFD700; font-weight: bold; text-align: center;">
+                                            Discover Our Events
+                                        </h3>
+                                        
+                                        <div style="display: table; width: 100%; table-layout: fixed;">
+                                            <div style="display: table-row;">
+                                                <div style="display: table-cell; background: #fff; padding: 15px; border-radius: 8px; text-align: center; width: 33.33%; vertical-align: top; margin-right: 7px;">
+                                                    <div style="font-size: 24px; margin-bottom: 8px;">🏆</div>
+                                                    <strong style="color: #FFD700; font-family: Arial, Helvetica, sans-serif;">Tournaments</strong>
+                                                    <p style="color: #666; font-size: 13px; margin: 5px 0 0 0; font-family: Arial, Helvetica, sans-serif; line-height: 1.3;">Competitive gaming with prizes</p>
+                                                </div>
+                                                
+                                                <div style="display: table-cell; background: #fff; padding: 15px; border-radius: 8px; text-align: center; width: 33.33%; vertical-align: top; margin: 0 7px;">
+                                                    <div style="font-size: 24px; margin-bottom: 8px;">🎮</div>
+                                                    <strong style="color: #FFD700; font-family: Arial, Helvetica, sans-serif;">Game Nights</strong>
+                                                    <p style="color: #666; font-size: 13px; margin: 5px 0 0 0; font-family: Arial, Helvetica, sans-serif; line-height: 1.3;">Casual sessions and fun</p>
+                                                </div>
+                                                
+                                                <div style="display: table-cell; background: #fff; padding: 15px; border-radius: 8px; text-align: center; width: 33.33%; vertical-align: top; margin-left: 7px;">
+                                                    <div style="font-size: 24px; margin-bottom: 8px;">✨</div>
+                                                    <strong style="color: #FFD700; font-family: Arial, Helvetica, sans-serif;">Special Events</strong>
+                                                    <p style="color: #666; font-size: 13px; margin: 5px 0 0 0; font-family: Arial, Helvetica, sans-serif; line-height: 1.3;">Exclusive community gatherings</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="text-align: center; margin-top: 20px;">
+                                            <a href="https://sidequest-newsletter-production.up.railway.app/events" 
+                                               style="display: inline-block; background: linear-gradient(135deg, #FFD700, #FFA500); color: #1a1a1a; padding: 15px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; font-family: Arial, Helvetica, sans-serif;">
+                                                View All Events
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
                         </td>
                     </tr>
                     
@@ -1845,7 +1879,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                                             30% member discount on any bubble tea
                                         </p>
                                         <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a; font-weight: bold;">
-                                            Valid until: {expiry_date}
+                                            Valid until: October 25, 2024
                                         </p>
                                     </td>
                                 </tr>
@@ -1861,7 +1895,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                                     <td align="center" style="background-color: #4CAF50; border-radius: 8px;">
                                         <a href="https://sidequesthub.com/home" style="display: inline-block; padding: 20px 30px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #ffffff; text-decoration: none; font-weight: bold;">
                                             Complete Your Account Setup<br/>
-                                            <span style="font-size: 14px;">Unlock 30 Minutes Free Gaming Time</span>
+                                            <span style="font-size: 14px;">Unlock 30 Minutes Free Gaming Time!</span>
                                         </a>
                                     </td>
                                 </tr>
@@ -1875,7 +1909,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                             <table border="0" cellpadding="0" cellspacing="0">
                                 <tr>
                                     <td align="center" style="background-color: #1a1a1a; border-radius: 8px;">
-                                        <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" style="display: inline-block; padding: 15px 25px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; text-decoration: none; font-weight: bold;">
+                                        <a href="#" style="display: inline-block; padding: 15px 25px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; text-decoration: none; font-weight: bold;">
                                             View Location & Hours
                                         </a>
                                     </td>
@@ -1908,13 +1942,13 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                     <!-- Footer -->
                     <tr>
                         <td style="padding: 30px 30px 40px 30px; background-color: #f8f8f8; border-radius: 0 0 8px 8px;">
-                            <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; text-align: center; font-weight: bold;">
-                                Welcome to the community. See you at SideQuest!
-                            </p>
-                            
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
                                     <td align="center">
+                                        <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; text-align: center; font-weight: bold;">
+                                            Welcome to the community. See you at SideQuest!
+                                        </p>
+                                        
                                         <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #666666; line-height: 20px;">
                                             <strong>SideQuest Canterbury Gaming Lounge</strong><br/>
                                             C10, The Riverside, 1 Sturry Rd<br/>
@@ -1931,7 +1965,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                                         
                                         <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #999999;">
                                             You received this account notification because you subscribed to community updates. 
-                                            <a href="{unsubscribe_url}" style="color: #4CAF50; text-decoration: none;">Manage preferences</a>
+                                            <a href="#" style="color: #4CAF50; text-decoration: none;">Manage preferences</a>
                                         </p>
                                     </td>
                                 </tr>
@@ -9856,6 +9890,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

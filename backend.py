@@ -1670,17 +1670,15 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         # Create unsubscribe URL
         unsubscribe_url = f"https://sidequest-newsletter-production.up.railway.app/unsubscribe?email={email}"
         
-        # Fetch upcoming events - FIXED QUERY
+        # Fetch upcoming events - WORKING VERSION
         upcoming_events = execute_query("""
             SELECT title, event_type, date_time, game_title, id, entry_fee
             FROM events 
-            WHERE date_time > CURRENT_DATE
-            AND status = 'published'
-            AND event_type IN ('tournament', 'game_night', 'games_night', 'special')
-            ORDER BY date_time ASC 
+            WHERE status = 'published'
+            ORDER BY date_time DESC
             LIMIT 3
         """)
-        
+                
         # Simple heading - always "Upcoming Events"
         events_heading = "🎮 Upcoming Events"
         print(f"  💡 Using heading: 'Upcoming Events' ({len(upcoming_events) if upcoming_events else 0} events found)")
@@ -9947,6 +9945,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

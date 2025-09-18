@@ -1674,8 +1674,9 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         upcoming_events = execute_query("""
             SELECT title, event_type, date_time, game_title, id, entry_fee
             FROM events 
-            WHERE status = 'published'
-            ORDER BY date_time DESC
+            WHERE date_time > (CURRENT_TIMESTAMP - INTERVAL '1 day')
+            AND status = 'published'
+            ORDER BY date_time ASC 
             LIMIT 3
         """)
                 
@@ -9945,6 +9946,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

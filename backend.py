@@ -1682,8 +1682,11 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         """)
         
         # Determine heading based on timing
-        events_heading = "🎮 This Week's Events"
-        if upcoming_events and len(upcoming_events) > 0:
+        # Determine heading based on timing
+        if not upcoming_events or len(upcoming_events) == 0:
+            # No events scheduled
+            events_heading = "🎮 Upcoming Events"
+        else:
             # Check if first event is within 7 days
             first_event_date = upcoming_events[0]['date_time']
             if isinstance(first_event_date, str):
@@ -1697,7 +1700,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 events_heading = "🎮 This Week's Events"
             else:
                 events_heading = "🎮 Events Starting Soon"
-        
+                
         # Build event list HTML
         event_list_html = ""
         if upcoming_events and len(upcoming_events) > 0:
@@ -9957,6 +9960,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

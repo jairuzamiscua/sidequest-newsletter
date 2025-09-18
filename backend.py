@@ -1909,8 +1909,10 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                             <table border="0" cellpadding="0" cellspacing="0">
                                 <tr>
                                     <td align="center" style="background-color: #1a1a1a; border-radius: 8px;">
-                                        <a href="#" style="display: inline-block; padding: 15px 25px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; text-decoration: none; font-weight: bold;">
-                                            View Location & Hours
+                                        <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2845996,1.0846664,17z/data=!3m1!4b1!4m6!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDkxNS4wIKXMDSoASAFQAw%3D%3D" 
+                                           target="_blank"
+                                           style="display: inline-block; padding: 15px 25px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; text-decoration: none; font-weight: bold;">
+                                            📍 View Location & Hours
                                         </a>
                                     </td>
                                 </tr>
@@ -9890,6 +9892,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

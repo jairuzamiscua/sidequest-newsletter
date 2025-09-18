@@ -1689,28 +1689,9 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         else:
             print("  ⚠️ No events found - check if events are published and have future dates")
         
-        # Determine heading based on timing
-        if not upcoming_events or len(upcoming_events) == 0:
-            # No events scheduled
-            events_heading = "🎮 Upcoming Events"
-            print("  💡 Using heading: 'Upcoming Events' (no events)")
-        else:
-            # Check if first event is within 7 days
-            first_event_date = upcoming_events[0]['date_time']
-            if isinstance(first_event_date, str):
-                first_event_date = datetime.fromisoformat(first_event_date.replace('Z', '+00:00'))
-            
-            days_until = (first_event_date - datetime.now()).days
-            
-            if days_until > 7:
-                events_heading = "🎮 Upcoming Events"
-                print(f"  💡 Using heading: 'Upcoming Events' ({days_until} days away)")
-            elif days_until > 0:
-                events_heading = "🎮 This Week's Events"
-                print(f"  💡 Using heading: 'This Week's Events' ({days_until} days away)")
-            else:
-                events_heading = "🎮 Events Starting Soon"
-                print(f"  💡 Using heading: 'Events Starting Soon' ({days_until} days away)")
+        # Simple heading - always "Upcoming Events"
+        events_heading = "🎮 Upcoming Events"
+        print(f"  💡 Using heading: 'Upcoming Events' ({len(upcoming_events) if upcoming_events else 0} events found)")
         
         # Build event list HTML
         event_list_html = ""
@@ -9975,6 +9956,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

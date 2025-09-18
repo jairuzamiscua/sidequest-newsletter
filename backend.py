@@ -1670,24 +1670,16 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         # Create unsubscribe URL
         unsubscribe_url = f"https://sidequest-newsletter-production.up.railway.app/unsubscribe?email={email}"
         
-        # Fetch upcoming events
+        # Fetch upcoming events - FIXED QUERY
         upcoming_events = execute_query("""
             SELECT title, event_type, date_time, game_title, id, entry_fee
             FROM events 
-            WHERE date_time BETWEEN CURRENT_TIMESTAMP AND CURRENT_TIMESTAMP + INTERVAL '60 days'
-            AND status IN ('published', 'draft')
+            WHERE date_time > CURRENT_DATE
+            AND status = 'published'
             AND event_type IN ('tournament', 'game_night', 'games_night', 'special')
             ORDER BY date_time ASC 
             LIMIT 3
         """)
-        
-        # DEBUG LOGGING
-        print(f"🔍 DEBUG: Found {len(upcoming_events) if upcoming_events else 0} events for welcome email")
-        if upcoming_events:
-            for e in upcoming_events:
-                print(f"  📅 {e['title']} on {e['date_time']} (type: {e['event_type']})")
-        else:
-            print("  ⚠️ No events found - check if events are published and have future dates")
         
         # Simple heading - always "Upcoming Events"
         events_heading = "🎮 Upcoming Events"
@@ -1709,6 +1701,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 emoji_map = {
                     'tournament': '🏆',
                     'game_night': '🎮',
+                    'games_night': '🎮',
                     'special': '✨'
                 }
                 emoji = emoji_map.get(event['event_type'], '🎯')
@@ -1734,7 +1727,6 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 """)
             
             event_list_html = ''.join(event_items)
-            print(f"  ✅ Built HTML for {len(event_items)} events")
         else:
             event_list_html = """
                 <div style="background: #fff; padding: 20px; border-radius: 8px; text-align: center;">
@@ -1743,7 +1735,6 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                     </p>
                 </div>
             """
-            print("  ℹ️ Using 'coming soon' message")
         
         # TRANSACTIONAL subject line (avoids promotions tab)
         if first_name:
@@ -1751,7 +1742,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         else:
             subject = "Welcome to SideQuest Canterbury - Account Details & Member Benefits"
         
-        # Create HTML email content - mobile-optimized with universal CSS
+        # Create HTML email content - REORDERED WITH PROMO AFTER EVENTS
         html_content = f"""
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -1808,6 +1799,30 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                                                 View All Events
                                             </a>
                                         </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Member Benefit - MOVED UP HERE -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #FFD700; border-radius: 8px;">
+                                <tr>
+                                    <td align="center">
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 22px; color: #1a1a1a; font-weight: bold;">
+                                            Welcome Member Benefit
+                                        </h3>
+                                        <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; font-weight: bold;">
+                                            Present this email on your first visit to receive:
+                                        </p>
+                                        <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 20px; color: #1a1a1a; font-weight: bold;">
+                                            30% member discount on any bubble tea
+                                        </p>
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a; font-weight: bold;">
+                                            Valid until: {expiry_date}
+                                        </p>
                                     </td>
                                 </tr>
                             </table>
@@ -1918,30 +1933,6 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                         </td>
                     </tr>
                     
-                    <!-- Member Benefit -->
-                    <tr>
-                        <td style="padding: 20px 30px;">
-                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #FFD700; border-radius: 8px;">
-                                <tr>
-                                    <td align="center">
-                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 22px; color: #1a1a1a; font-weight: bold;">
-                                            Welcome Member Benefit
-                                        </h3>
-                                        <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; font-weight: bold;">
-                                            Present this email on your first visit to receive:
-                                        </p>
-                                        <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 20px; color: #1a1a1a; font-weight: bold;">
-                                            30% member discount on any bubble tea
-                                        </p>
-                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a; font-weight: bold;">
-                                            Valid until: {expiry_date}
-                                        </p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
                     <!-- CTA Button -->
                     <tr>
                         <td align="center" style="padding: 30px 30px 20px 30px;">
@@ -2037,7 +2028,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
 </html>
         """
         
-        # Plain text version
+        # Plain text version continues unchanged...
         text_content = f"""
 WELCOME TO SIDEQUEST
 
@@ -2051,6 +2042,10 @@ Your account has been successfully created and you now have access to member ben
 {chr(10).join([f"• {e['title']} - {e['date_time'].strftime('%A, %b %d at %I:%M %p')}" for e in (upcoming_events or [])]) if upcoming_events else "New events coming soon!"}
 
 View all events: https://sidequest-newsletter-production.up.railway.app/events
+
+WELCOME MEMBER BENEFIT:
+Present this email on your first visit to receive a 30% member discount on any bubble tea.
+Valid until: {expiry_date}
 
 HERE'S WHAT WE HAVE TO OFFER:
 
@@ -2067,10 +2062,6 @@ COMMUNITY EVENTS YOU'LL BE NOTIFIED ABOUT:
 - Tournament Events: Competitive gaming across FPS, FIFA, and board games
 - Community Nights: Social gaming sessions and special events
 - Member Events: Exclusive member-only gatherings and previews
-
-WELCOME MEMBER BENEFIT:
-Present this email on your first visit to receive a 30% member discount on any bubble tea.
-Valid until: {expiry_date}
 
 COMPLETE YOUR ACCOUNT:
 Visit https://sidequesthub.com/home to unlock 30 minutes of free gaming time.
@@ -9956,6 +9947,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

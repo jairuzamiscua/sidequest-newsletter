@@ -2259,21 +2259,9 @@ def send_special_event_confirmation(email, event_data, confirmation_code, player
         
         send_email = sib_api_v3_sdk.SendSmtpEmail(
             sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
-            reply_to={"name": "SideQuest Support", "email": SENDER_EMAIL},
             to=[{"email": email, "name": player_name}],
             subject=subject,
-            html_content=html_content,
-            headers={
-                "X-Mailer": "SideQuest Canterbury Event System",
-                "Importance": "high",
-                "X-Priority": "1",
-                "X-Entity-Ref-ID": f"event-confirmation-{event_id}-{confirmation_code}",
-                "List-Unsubscribe": f"<{BASE_URL}/cancel?code={confirmation_code}>",
-                "X-Auto-Response-Suppress": "OOF",
-                "Auto-Submitted": "auto-generated",
-                "Precedence": "bulk"
-            },
-            tags=["event_confirmation", "transactional"]
+            html_content=html_content
         )
         
         api_instance.send_transac_email(send_email)
@@ -2428,21 +2416,9 @@ def send_games_night_confirmation(email, event_data, confirmation_code, player_n
         
         send_email = sib_api_v3_sdk.SendSmtpEmail(
             sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
-            reply_to={"name": "SideQuest Support", "email": SENDER_EMAIL},
             to=[{"email": email, "name": player_name}],
             subject=subject,
-            html_content=html_content,
-            headers={
-                "X-Mailer": "SideQuest Canterbury Event System",
-                "Importance": "high",
-                "X-Priority": "1",
-                "X-Entity-Ref-ID": f"event-confirmation-{event_id}-{confirmation_code}",
-                "List-Unsubscribe": f"<{BASE_URL}/cancel?code={confirmation_code}>",
-                "X-Auto-Response-Suppress": "OOF",
-                "Auto-Submitted": "auto-generated",
-                "Precedence": "bulk"
-            },
-            tags=["event_confirmation", "transactional"]
+            html_content=html_content
         )
         
         api_instance.send_transac_email(send_email)

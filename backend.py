@@ -1681,11 +1681,19 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             LIMIT 3
         """)
         
-        # Determine heading based on timing
+        # DEBUG LOGGING
+        print(f"🔍 DEBUG: Found {len(upcoming_events) if upcoming_events else 0} events for welcome email")
+        if upcoming_events:
+            for e in upcoming_events:
+                print(f"  📅 {e['title']} on {e['date_time']} (type: {e['event_type']})")
+        else:
+            print("  ⚠️ No events found - check if events are published and have future dates")
+        
         # Determine heading based on timing
         if not upcoming_events or len(upcoming_events) == 0:
             # No events scheduled
             events_heading = "🎮 Upcoming Events"
+            print("  💡 Using heading: 'Upcoming Events' (no events)")
         else:
             # Check if first event is within 7 days
             first_event_date = upcoming_events[0]['date_time']
@@ -1696,11 +1704,14 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
             
             if days_until > 7:
                 events_heading = "🎮 Upcoming Events"
+                print(f"  💡 Using heading: 'Upcoming Events' ({days_until} days away)")
             elif days_until > 0:
                 events_heading = "🎮 This Week's Events"
+                print(f"  💡 Using heading: 'This Week's Events' ({days_until} days away)")
             else:
                 events_heading = "🎮 Events Starting Soon"
-                
+                print(f"  💡 Using heading: 'Events Starting Soon' ({days_until} days away)")
+        
         # Build event list HTML
         event_list_html = ""
         if upcoming_events and len(upcoming_events) > 0:
@@ -1742,6 +1753,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                 """)
             
             event_list_html = ''.join(event_items)
+            print(f"  ✅ Built HTML for {len(event_items)} events")
         else:
             event_list_html = """
                 <div style="background: #fff; padding: 20px; border-radius: 8px; text-align: center;">
@@ -1750,6 +1762,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                     </p>
                 </div>
             """
+            print("  ℹ️ Using 'coming soon' message")
         
         # TRANSACTIONAL subject line (avoids promotions tab)
         if first_name:
@@ -2126,6 +2139,8 @@ Manage preferences: {unsubscribe_url}
         
         # Send the email
         response = api_instance.send_transac_email(send_email)
+        
+        print(f"✅ Welcome email sent successfully to {email}")
         
         return {
             "success": True, 
@@ -9960,6 +9975,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 

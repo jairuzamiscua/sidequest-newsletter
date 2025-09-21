@@ -1670,79 +1670,13 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
         # Create unsubscribe URL
         unsubscribe_url = f"https://sidequest-newsletter-production.up.railway.app/unsubscribe?email={email}"
         
-        # Fetch upcoming events - WORKING VERSION
-        upcoming_events = execute_query("""
-            SELECT title, event_type, date_time, game_title, id, entry_fee
-            FROM events 
-            WHERE date_time BETWEEN CURRENT_TIMESTAMP AND CURRENT_TIMESTAMP + INTERVAL '60 days'
-            AND status IN ('published', 'draft')
-            AND event_type IN ('tournament', 'game_night', 'games_night', 'special')
-            ORDER BY date_time ASC 
-            LIMIT 3
-        """)
-                
-        # Simple heading - always "Upcoming Events"
-        events_heading = "🎮 Upcoming Events"
-        print(f"  💡 Using heading: 'Upcoming Events' ({len(upcoming_events) if upcoming_events else 0} events found)")
-        
-        # Build event list HTML
-        event_list_html = ""
-        if upcoming_events and len(upcoming_events) > 0:
-            event_items = []
-            for event in upcoming_events:
-                event_dt = event['date_time']
-                if isinstance(event_dt, str):
-                    event_dt = datetime.fromisoformat(event_dt.replace('Z', '+00:00'))
-                
-                event_date = event_dt.strftime('%A, %b %d')
-                event_time = event_dt.strftime('%I:%M %p')
-                
-                # Event type emoji
-                emoji_map = {
-                    'tournament': '🏆',
-                    'game_night': '🎮',
-                    'games_night': '🎮',
-                    'special': '✨'
-                }
-                emoji = emoji_map.get(event['event_type'], '🎯')
-                
-                fee_text = f"£{event['entry_fee']}" if event.get('entry_fee', 0) > 0 else "FREE"
-                
-                event_items.append(f"""
-                    <div style="background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #FFD700;">
-                        <div style="display: table; width: 100%;">
-                            <div style="display: table-cell; vertical-align: top; width: 30px;">
-                                <span style="font-size: 20px;">{emoji}</span>
-                            </div>
-                            <div style="display: table-cell; vertical-align: top;">
-                                <strong style="color: #1a1a1a; font-family: Arial, Helvetica, sans-serif; font-size: 14px;">
-                                    {event['title']}
-                                </strong>
-                                <p style="color: #666; font-size: 13px; margin: 5px 0 0 0; font-family: Arial, Helvetica, sans-serif;">
-                                    📅 {event_date} at {event_time} • 💰 {fee_text}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                """)
-            
-            event_list_html = ''.join(event_items)
-        else:
-            event_list_html = """
-                <div style="background: #fff; padding: 20px; border-radius: 8px; text-align: center;">
-                    <p style="color: #666; font-family: Arial, Helvetica, sans-serif; margin: 0;">
-                        New events coming soon! Check our events page for updates.
-                    </p>
-                </div>
-            """
-        
         # TRANSACTIONAL subject line (avoids promotions tab)
         if first_name:
             subject = f"Welcome to SideQuest Canterbury, {first_name} - Account Details & Member Benefits"
         else:
             subject = "Welcome to SideQuest Canterbury - Account Details & Member Benefits"
         
-        # Create HTML email content - REORDERED WITH PROMO AFTER EVENTS
+        # Create HTML email content - mobile-optimized with universal CSS
         html_content = f"""
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -1750,11 +1684,21 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Welcome to SideQuest Canterbury</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
 </head>
 <body style="margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f4f4f4;">
     <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
         <tr>
             <td align="center" style="padding: 20px 10px;">
+                <!-- Main Container -->
                 <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                     
                     <!-- Header -->
@@ -1778,54 +1722,6 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                             <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 24px; color: #666666;">
                                 Your account has been successfully created and you now have access to member benefits and event notifications.
                             </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Dynamic Events Section -->
-                    <tr>
-                        <td style="padding: 20px 30px;">
-                            <table border="0" cellpadding="20" cellspacing="0" width="100%" style="background-color: #f8f8f8; border-radius: 8px;">
-                                <tr>
-                                    <td>
-                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 18px; color: #FFD700; font-weight: bold; text-align: center;">
-                                            {events_heading}
-                                        </h3>
-                                        
-                                        {event_list_html}
-                                        
-                                        <div style="text-align: center; margin-top: 20px;">
-                                            <a href="https://sidequest-newsletter-production.up.railway.app/events" 
-                                               style="display: inline-block; background: linear-gradient(135deg, #FFD700, #FFA500); color: #1a1a1a; padding: 15px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; font-family: Arial, Helvetica, sans-serif;">
-                                                View All Events
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Member Benefit - MOVED UP HERE -->
-                    <tr>
-                        <td style="padding: 20px 30px;">
-                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #FFD700; border-radius: 8px;">
-                                <tr>
-                                    <td align="center">
-                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 22px; color: #1a1a1a; font-weight: bold;">
-                                            Welcome Member Benefit
-                                        </h3>
-                                        <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; font-weight: bold;">
-                                            Present this email on your first visit to receive:
-                                        </p>
-                                        <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 20px; color: #1a1a1a; font-weight: bold;">
-                                            30% member discount on any bubble tea
-                                        </p>
-                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a; font-weight: bold;">
-                                            Valid until: {expiry_date}
-                                        </p>
-                                    </td>
-                                </tr>
-                            </table>
                         </td>
                     </tr>
                     
@@ -1933,6 +1829,30 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                         </td>
                     </tr>
                     
+                    <!-- Member Benefit -->
+                    <tr>
+                        <td style="padding: 20px 30px;">
+                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #FFD700; border-radius: 8px;">
+                                <tr>
+                                    <td align="center">
+                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 22px; color: #1a1a1a; font-weight: bold;">
+                                            Welcome Member Benefit
+                                        </h3>
+                                        <p style="margin: 0 0 10px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; font-weight: bold;">
+                                            Present this email on your first visit to receive:
+                                        </p>
+                                        <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 20px; color: #1a1a1a; font-weight: bold;">
+                                            30% member discount on any bubble tea
+                                        </p>
+                                        <p style="margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #1a1a1a; font-weight: bold;">
+                                            Valid until: {expiry_date}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
                     <!-- CTA Button -->
                     <tr>
                         <td align="center" style="padding: 30px 30px 20px 30px;">
@@ -1941,7 +1861,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                                     <td align="center" style="background-color: #4CAF50; border-radius: 8px;">
                                         <a href="https://sidequesthub.com/home" style="display: inline-block; padding: 20px 30px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #ffffff; text-decoration: none; font-weight: bold;">
                                             Complete Your Account Setup<br/>
-                                            <span style="font-size: 14px;">Unlock 30 Minutes Free Gaming Time!</span>
+                                            <span style="font-size: 14px;">Unlock 30 Minutes Free Gaming Time</span>
                                         </a>
                                     </td>
                                 </tr>
@@ -1955,10 +1875,8 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                             <table border="0" cellpadding="0" cellspacing="0">
                                 <tr>
                                     <td align="center" style="background-color: #1a1a1a; border-radius: 8px;">
-                                        <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2845996,1.0846664,17z/data=!3m1!4b1!4m6!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDkxNS4wIKXMDSoASAFQAw%3D%3D" 
-                                           target="_blank"
-                                           style="display: inline-block; padding: 15px 25px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; text-decoration: none; font-weight: bold;">
-                                            📍 View Location & Hours
+                                        <a href="https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2846796,1.0872896,21z/data=!4m15!1m8!3m7!1s0x47deca4c09507c33:0xb2a02aee5030dd48!2sthe+Riverside,+1+Sturry+Rd,+Canterbury+CT1+1BU!3b1!8m2!3d51.2849197!4d1.0879336!16s%2Fg%2F11b8txmdmd!3m5!1s0x47decb26857e3c09:0x63d22a836904507c!8m2!3d51.2845996!4d1.0872413!16s%2Fg%2F11l2p4jsx_?entry=ttu&g_ep=EgoyMDI1MDgyNS4wIKXMDSoASAFQAw%3D%3D" style="display: inline-block; padding: 15px 25px; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #FFD700; text-decoration: none; font-weight: bold;">
+                                            View Location & Hours
                                         </a>
                                     </td>
                                 </tr>
@@ -1990,13 +1908,13 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
                     <!-- Footer -->
                     <tr>
                         <td style="padding: 30px 30px 40px 30px; background-color: #f8f8f8; border-radius: 0 0 8px 8px;">
+                            <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; text-align: center; font-weight: bold;">
+                                Welcome to the community. See you at SideQuest!
+                            </p>
+                            
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
                                     <td align="center">
-                                        <p style="margin: 0 0 20px 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px; color: #1a1a1a; text-align: center; font-weight: bold;">
-                                            Welcome to the community. See you at SideQuest!
-                                        </p>
-                                        
                                         <p style="margin: 0 0 15px 0; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #666666; line-height: 20px;">
                                             <strong>SideQuest Canterbury Gaming Lounge</strong><br/>
                                             C10, The Riverside, 1 Sturry Rd<br/>
@@ -2028,7 +1946,7 @@ def send_welcome_email(email, first_name=None, last_name=None, gaming_handle=Non
 </html>
         """
         
-        # Plain text version continues unchanged...
+        # Plain text version
         text_content = f"""
 WELCOME TO SIDEQUEST
 
@@ -2037,15 +1955,6 @@ WELCOME TO SIDEQUEST
 Thanks for joining the SideQuest Canterbury community! We're excited to welcome you to our gaming hub and can't wait to see you in store.
 
 Your account has been successfully created and you now have access to member benefits and event notifications.
-
-{events_heading.replace('🎮 ', '').upper()}:
-{chr(10).join([f"• {e['title']} - {e['date_time'].strftime('%A, %b %d at %I:%M %p')}" for e in (upcoming_events or [])]) if upcoming_events else "New events coming soon!"}
-
-View all events: https://sidequest-newsletter-production.up.railway.app/events
-
-WELCOME MEMBER BENEFIT:
-Present this email on your first visit to receive a 30% member discount on any bubble tea.
-Valid until: {expiry_date}
 
 HERE'S WHAT WE HAVE TO OFFER:
 
@@ -2062,6 +1971,10 @@ COMMUNITY EVENTS YOU'LL BE NOTIFIED ABOUT:
 - Tournament Events: Competitive gaming across FPS, FIFA, and board games
 - Community Nights: Social gaming sessions and special events
 - Member Events: Exclusive member-only gatherings and previews
+
+WELCOME MEMBER BENEFIT:
+Present this email on your first visit to receive a 30% member discount on any bubble tea.
+Valid until: {expiry_date}
 
 COMPLETE YOUR ACCOUNT:
 Visit https://sidequesthub.com/home to unlock 30 minutes of free gaming time.
@@ -2080,8 +1993,6 @@ Email: marketing@sidequestcanterbury.com
 Opening Hours:
 Sunday: 12-9pm • Monday: 2-9pm • Tuesday-Thursday: Closed
 Friday: 2-9pm • Saturday: 12-9pm
-
-Find us: https://www.google.com/maps/place/Sidequest+Esport+Hub/@51.2845996,1.0846664,17z
 
 Manage preferences: {unsubscribe_url}
         """
@@ -2112,8 +2023,6 @@ Manage preferences: {unsubscribe_url}
         # Send the email
         response = api_instance.send_transac_email(send_email)
         
-        print(f"✅ Welcome email sent successfully to {email}")
-        
         return {
             "success": True, 
             "message": "Welcome email sent successfully",
@@ -2123,311 +2032,6 @@ Manage preferences: {unsubscribe_url}
     except Exception as e:
         log_error(f"Error sending welcome email: {str(e)}")
         return {"success": False, "error": f"Error sending welcome email: {str(e)}"}
-
-def send_special_event_confirmation(email, event_data, confirmation_code, player_name):
-    """Send confirmation email for special events"""
-    if not api_instance:
-        log_error("Brevo API not initialized")
-        return False
-        
-    try:
-        # Format event details
-        event_start = datetime.fromisoformat(event_data['date_time']) if isinstance(event_data['date_time'], str) else event_data['date_time']
-        event_date = event_start.strftime('%A, %B %d, %Y')
-        event_time = event_start.strftime('%I:%M %p')
-        
-        subject = f"Special Event Confirmation - {event_data['title']}"
-        
-        BASE_URL = "https://sidequest-newsletter-production.up.railway.app"
-        
-        html_content = f"""
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Special Event Confirmation</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
-        <tr>
-            <td align="center" style="padding: 20px 10px;">
-                <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px;">
-                    
-                    <!-- Header -->
-                    <tr>
-                        <td align="center" style="padding: 40px 30px 30px 30px; background-color: #8B5FBF; border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0; font-family: Arial, sans-serif; font-size: 28px; font-weight: bold; color: #ffffff;">
-                                ✨ Special Event Confirmed
-                            </h1>
-                        </td>
-                    </tr>
-                    
-                    <!-- Event Details -->
-                    <tr>
-                        <td style="padding: 30px;">
-                            <h2 style="margin: 0 0 20px 0; font-family: Arial, sans-serif; font-size: 24px; color: #333333;">
-                                Hey {player_name}!
-                            </h2>
-                            
-                            <p style="margin: 0 0 20px 0; font-family: Arial, sans-serif; font-size: 16px; color: #666666;">
-                                You're confirmed for our special event! Here are your details:
-                            </p>
-                            
-                            <div style="background: #f8f8f8; padding: 25px; border-radius: 12px; border-left: 4px solid #8B5FBF; margin-bottom: 25px;">
-                                <h3 style="margin: 0 0 15px 0; font-family: Arial, sans-serif; font-size: 20px; color: #8B5FBF;">
-                                    {event_data['title']}
-                                </h3>
-                                
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                    <tr>
-                                        <td style="padding: 4px 0;">
-                                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 15px; color: #333333;">
-                                                <strong>Date:</strong> {event_date}
-                                            </p>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 4px 0;">
-                                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 15px; color: #333333;">
-                                                <strong>Time:</strong> {event_time}
-                                            </p>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 4px 0;">
-                                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 15px; color: #333333;">
-                                                <strong>Location:</strong> SideQuest Gaming Cafe, Canterbury
-                                            </p>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 4px 0;">
-                                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 15px; color: #333333;">
-                                                <strong>Entry:</strong> {'£' + str(event_data["entry_fee"]) if event_data.get('entry_fee', 0) > 0 else 'FREE'}
-                                            </p>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                            
-                            <!-- Confirmation Code -->
-                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #8B5FBF; border-radius: 8px; margin-bottom: 25px;">
-                                <tr>
-                                    <td align="center">
-                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, sans-serif; font-size: 18px; color: #ffffff;">
-                                            Your Confirmation Code
-                                        </h3>
-                                        <div style="font-family: monospace; font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #ffffff; margin: 10px 0;">
-                                            {confirmation_code}
-                                        </div>
-                                        <p style="margin: 10px 0 0 0; font-family: Arial, sans-serif; font-size: 14px; color: #ffffff;">
-                                            Present this code at the desk when you arrive
-                                        </p>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            {f'<div style="background: #e8f5e8; padding: 20px; border-radius: 12px; margin-bottom: 25px;"><p style="margin: 0; font-family: Arial, sans-serif; color: #333;">{event_data["description"]}</p></div>' if event_data.get('description') else ''}
-                            
-                            <!-- Cancellation Link -->
-                            <div style="background: #f8f8f8; padding: 20px; border-radius: 12px; margin-top: 25px;">
-                                <p style="margin: 0 0 15px 0; font-family: Arial, sans-serif; font-size: 14px; color: #666;">
-                                    Need to cancel? <a href="{BASE_URL}/cancel?code={confirmation_code}" style="color: #8B5FBF;">Click here</a>
-                                </p>
-                            </div>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
-                    <tr>
-                        <td style="padding: 30px; background-color: #f8f8f8; border-radius: 0 0 8px 8px;">
-                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 14px; color: #666666; text-align: center;">
-                                SideQuest Canterbury Gaming Cafe<br/>
-                                C10, The Riverside, 1 Sturry Rd, Canterbury CT1 1BU<br/>
-                                01227 915058 • marketing@sidequestcanterbury.com
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
-        """
-        
-        send_email = sib_api_v3_sdk.SendSmtpEmail(
-            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
-            to=[{"email": email, "name": player_name}],
-            subject=subject,
-            html_content=html_content
-        )
-        
-        api_instance.send_transac_email(send_email)
-        log_activity(f"Special event confirmation sent to {email} for {event_data['title']}", "success")
-        return True
-        
-    except Exception as e:
-        log_error(f"Failed to send special event confirmation: {e}")
-        return False
-
-
-def send_games_night_confirmation(email, event_data, confirmation_code, player_name):
-    """Send confirmation email for games nights"""
-    if not api_instance:
-        log_error("Brevo API not initialized")
-        return False
-        
-    try:
-        # Format event details
-        event_start = datetime.fromisoformat(event_data['date_time']) if isinstance(event_data['date_time'], str) else event_data['date_time']
-        event_date = event_start.strftime('%A, %B %d, %Y')
-        event_time = event_start.strftime('%I:%M %p')
-        
-        subject = f"Games Night Confirmed - {event_data['title']}"
-        
-        BASE_URL = "https://sidequest-newsletter-production.up.railway.app"
-        
-        html_content = f"""
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Games Night Confirmation</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
-        <tr>
-            <td align="center" style="padding: 20px 10px;">
-                <table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px;">
-                    
-                    <!-- Header -->
-                    <tr>
-                        <td align="center" style="padding: 40px 30px 30px 30px; background-color: #4ECDC4; border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0; font-family: Arial, sans-serif; font-size: 28px; font-weight: bold; color: #ffffff;">
-                                🎮 Games Night Confirmed
-                            </h1>
-                        </td>
-                    </tr>
-                    
-                    <!-- Event Details -->
-                    <tr>
-                        <td style="padding: 30px;">
-                            <h2 style="margin: 0 0 20px 0; font-family: Arial, sans-serif; font-size: 24px; color: #333333;">
-                                Hey {player_name}!
-                            </h2>
-                            
-                            <p style="margin: 0 0 20px 0; font-family: Arial, sans-serif; font-size: 16px; color: #666666;">
-                                You're all set for games night! Here are your details:
-                            </p>
-                            
-                            <div style="background: #f8f8f8; padding: 25px; border-radius: 12px; border-left: 4px solid #4ECDC4; margin-bottom: 25px;">
-                                <h3 style="margin: 0 0 15px 0; font-family: Arial, sans-serif; font-size: 20px; color: #4ECDC4;">
-                                    {event_data['title']}
-                                </h3>
-                                
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                    <tr>
-                                        <td style="padding: 4px 0;">
-                                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 15px; color: #333333;">
-                                                <strong>Date:</strong> {event_date}
-                                            </p>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 4px 0;">
-                                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 15px; color: #333333;">
-                                                <strong>Time:</strong> {event_time}
-                                            </p>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 4px 0;">
-                                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 15px; color: #333333;">
-                                                <strong>Location:</strong> SideQuest Gaming Cafe, Canterbury
-                                            </p>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 4px 0;">
-                                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 15px; color: #333333;">
-                                                <strong>Entry:</strong> {'£' + str(event_data["entry_fee"]) if event_data.get('entry_fee', 0) > 0 else 'FREE'}
-                                            </p>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                            
-                            <!-- Confirmation Code -->
-                            <table border="0" cellpadding="25" cellspacing="0" width="100%" style="background-color: #4ECDC4; border-radius: 8px; margin-bottom: 25px;">
-                                <tr>
-                                    <td align="center">
-                                        <h3 style="margin: 0 0 15px 0; font-family: Arial, sans-serif; font-size: 18px; color: #ffffff;">
-                                            Your Confirmation Code
-                                        </h3>
-                                        <div style="font-family: monospace; font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #ffffff; margin: 10px 0;">
-                                            {confirmation_code}
-                                        </div>
-                                        <p style="margin: 10px 0 0 0; font-family: Arial, sans-serif; font-size: 14px; color: #ffffff;">
-                                            Present this code at the desk when you arrive
-                                        </p>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <div style="background: #e8f5e8; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
-                                <p style="margin: 0; font-family: Arial, sans-serif; color: #333;">
-                                    <strong>What to Expect:</strong><br/>
-                                    • Casual gaming atmosphere<br/>
-                                    • Meet other gamers<br/>
-                                    • Play what you want, when you want<br/>
-                                    • All skill levels welcome
-                                </p>
-                            </div>
-                            
-                            <!-- Cancellation Link -->
-                            <div style="background: #f8f8f8; padding: 20px; border-radius: 12px; margin-top: 25px;">
-                                <p style="margin: 0 0 15px 0; font-family: Arial, sans-serif; font-size: 14px; color: #666;">
-                                    Need to cancel? <a href="{BASE_URL}/cancel?code={confirmation_code}" style="color: #4ECDC4;">Click here</a>
-                                </p>
-                            </div>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
-                    <tr>
-                        <td style="padding: 30px; background-color: #f8f8f8; border-radius: 0 0 8px 8px;">
-                            <p style="margin: 0; font-family: Arial, sans-serif; font-size: 14px; color: #666666; text-align: center;">
-                                SideQuest Canterbury Gaming Cafe<br/>
-                                C10, The Riverside, 1 Sturry Rd, Canterbury CT1 1BU<br/>
-                                01227 915058 • marketing@sidequestcanterbury.com
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
-        """
-        
-        send_email = sib_api_v3_sdk.SendSmtpEmail(
-            sender={"name": SENDER_NAME, "email": SENDER_EMAIL},
-            to=[{"email": email, "name": player_name}],
-            subject=subject,
-            html_content=html_content
-        )
-        
-        api_instance.send_transac_email(send_email)
-        log_activity(f"Games night confirmation sent to {email} for {event_data['title']}", "success")
-        return True
-        
-    except Exception as e:
-        log_error(f"Failed to send games night confirmation: {e}")
-        return False
 
 def schedule_event_reminder_emails(event_id, event_date_time):
     """Schedule automated reminder emails for an event"""
@@ -6876,7 +6480,7 @@ def get_public_event(event_id):
 @app.route('/api/events/<int:event_id>/register-public', methods=['POST'])
 @limiter.limit("3 per hour")
 def register_public_with_confirmation(event_id):
-    """Public registration with event-type-specific confirmation email"""
+    """Public registration with tournament confirmation email"""
     try:
         data = request.json or {}
         
@@ -6946,13 +6550,6 @@ def register_public_with_confirmation(event_id):
               ("WAITING LIST" if is_waiting_list else None)))
 
         reg = cursor.fetchone()
-        
-        if not reg:
-            conn.rollback()
-            cursor.close()
-            conn.close()
-            return jsonify({"success": False, "error": "Registration failed"}), 500
-            
         conn.commit()
 
         # Handle newsletter subscription
@@ -6973,34 +6570,15 @@ def register_public_with_confirmation(event_id):
         cursor.close()
         conn.close()
 
-        # Send appropriate confirmation email based on event type
+        # Send confirmation email for tournaments
         confirmation_email_sent = False
-        event_type = event_dict.get('event_type', '').lower()
-        
-        if event_type == 'tournament':
+        if event_dict.get('event_type') == 'tournament':
             confirmation_email_sent = send_simple_tournament_confirmation(
                 email=email,
                 event_data=event_dict,
                 confirmation_code=confirmation_code,
                 player_name=player_name
             )
-        elif event_type == 'special':
-            confirmation_email_sent = send_special_event_confirmation(
-                email=email,
-                event_data=event_dict,
-                confirmation_code=confirmation_code,
-                player_name=player_name
-            )
-        elif event_type in ['game_night', 'games_night']:
-            confirmation_email_sent = send_games_night_confirmation(
-                email=email,
-                event_data=event_dict,
-                confirmation_code=confirmation_code,
-                player_name=player_name
-            )
-        else:
-            # Fallback for any other event types
-            log_activity(f"No specific confirmation email for event type: {event_type}", "warning")
 
         # Prepare response
         response_data = {
@@ -7010,8 +6588,8 @@ def register_public_with_confirmation(event_id):
             "confirmation_email_sent": confirmation_email_sent
         }
 
-        # Add Discord info for tournaments only
-        if event_type == 'tournament':
+        # Add Discord info for tournaments
+        if event_dict.get('event_type') == 'tournament':
             response_data.update({
                 "show_discord": True,
                 "discord_invite": "https://discord.gg/CuwQM7Zwuk"
@@ -7020,15 +6598,8 @@ def register_public_with_confirmation(event_id):
         return jsonify(response_data)
 
     except Exception as e:
-        if 'conn' in locals():
-            conn.rollback()
         log_error(f"Error in public registration: {str(e)}")
         return jsonify({"success": False, "error": "Registration failed"}), 500
-    finally:
-        if 'cursor' in locals() and cursor:
-            cursor.close()
-        if 'conn' in locals() and conn:
-            conn.close()
 
 @app.route('/api/test-tournament-email', methods=['POST'])
 @csrf_required
@@ -9883,6 +9454,7 @@ def events_overview_page():
      'valorant':'/static/games/valorant.jpg',
      'horror':'/static/games/horror.jpg',
      'cs2':'/static/games/cs2.jpg',
+     'warhammer':'/static/games/warhammer.jpg',
      'counter-strike 2':'/static/games/cs2.jpg',
      'league of legends':'/static/games/lol.jpg',
      'dota 2':'/static/games/dota2.jpg',
@@ -10285,25 +9857,6 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

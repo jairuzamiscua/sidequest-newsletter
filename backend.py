@@ -8856,7 +8856,7 @@ def birthday_booking_page():
         
 @app.route('/events', methods=['GET'])
 def events_overview_page():
-    """Public events overview page – tournaments, birthdays, and a public calendar"""
+    """Public events overview page – calendar first with improved UX"""
     events_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8888,7 +8888,6 @@ def events_overview_page():
       --gradient-1:linear-gradient(135deg, var(--primary) 0%, var(--accent) 50%, var(--secondary) 100%);
       --gradient-2:linear-gradient(225deg, var(--tertiary) 0%, var(--secondary) 100%);
       --noise:url('data:image/svg+xml,%3Csvg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.02"/%3E%3C/svg%3E');
-      /* thermal effect */
       --heat-opacity:.12;
     }
     
@@ -8902,7 +8901,6 @@ def events_overview_page():
             var(--noise);
         background-size:20px 20px, auto;
     }
-    /* thermal “bloom” over the dotted grid */
     body::after{
       content:'';
       position:fixed; inset:0; z-index:1; pointer-events:none;
@@ -8914,7 +8912,6 @@ def events_overview_page():
       mix-blend-mode:screen; opacity:.35; transition:opacity .2s ease;
     }
 
-    /* Simple reveal animation - 2 seconds max */
     .reveal-overlay{position:fixed;inset:0;background:var(--dark);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 0.8s ease,visibility 0.8s ease}
     .reveal-overlay.hide{opacity:0;visibility:hidden}
     .reveal-logo{width:400px;height:auto;opacity:0;transform:scale(0.9);animation:logoReveal 1.2s ease-out forwards}
@@ -8933,7 +8930,6 @@ def events_overview_page():
     .reveal-element{opacity:0;transform:translateY(80px) rotateX(10deg);transition:all 1.2s cubic-bezier(0.77,0,0.175,1)}
     .reveal-element.animate{opacity:1;transform:translateY(0) rotateX(0)}
 
-    /* Hero section */
     .hero{
       min-height:100vh;display:flex;align-items:center;justify-content:center;
       position:relative;overflow:hidden;
@@ -8973,7 +8969,6 @@ def events_overview_page():
 
     .hero-content{position:relative;z-index:10;text-align:center;padding:0 32px;max-width:1400px}
     
-    /* ↓ Softer headline + copy change */
     .title{
       font-size:clamp(4rem,15vw,12rem);
       font-weight:900;
@@ -9009,7 +9004,6 @@ def events_overview_page():
     @keyframes scrollFloat{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(12px)}}
     @keyframes scrollLine{0%{height:40px;opacity:1}50%{height:20px;opacity:0.6}100%{height:40px;opacity:1}}
 
-    /* Trust strip */
     .trust-strip{position:relative;z-index:9;background:
         linear-gradient(180deg,var(--glass),rgba(255,255,255,.01)),
         linear-gradient(90deg,rgba(255,215,0,.06) 0%,rgba(255,107,53,.04) 25%,rgba(139,95,191,.04) 50%,rgba(0,212,255,.04) 75%,rgba(255,215,0,.06) 100%);
@@ -9026,7 +9020,6 @@ def events_overview_page():
 
     .wrap{max-width:1600px;margin:0 auto;padding:120px 32px}
 
-    /* Tabs – yellow/black/orange */
     .tabs{
       display:flex;justify-content:center;gap:8px;margin-bottom:120px;
       position:relative;flex-wrap:wrap;padding:8px;
@@ -9061,6 +9054,20 @@ def events_overview_page():
     .section-title::after{content:'';position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:120px;height:6px;border-radius:3px;background:var(--gradient-1);box-shadow:0 0 20px var(--glow)}
     .section-sub{color:var(--text-muted);max-width:700px;margin:0 auto;font-size:1.2rem;font-weight:400;letter-spacing:0.01em;line-height:1.6}
 
+    /* New Calendar Controls */
+    .calendar-controls{margin-bottom:60px;display:flex;gap:20px;justify-content:center;align-items:center;flex-wrap:wrap}
+    .view-toggle{display:flex;gap:8px;background:var(--dark-3);border:1px solid var(--border);border-radius:50px;padding:6px;backdrop-filter:blur(10px)}
+    .toggle-btn{padding:12px 24px;border:none;background:transparent;color:var(--text-muted);border-radius:50px;cursor:pointer;transition:all 0.3s ease;font-weight:600;font-size:0.9rem}
+    .toggle-btn.active{background:var(--gradient-1);color:var(--dark)}
+    .filter-buttons{display:flex;gap:12px;flex-wrap:wrap}
+    .filter-btn{padding:12px 24px;border:1px solid var(--border);background:var(--dark-3);color:var(--text-muted);border-radius:25px;cursor:pointer;transition:all 0.3s ease;font-weight:600;font-size:0.9rem;backdrop-filter:blur(10px)}
+    .filter-btn.active,.filter-btn:hover{background:var(--gradient-1);color:var(--dark);border-color:transparent}
+
+    /* Time Period Headers */
+    .time-period{margin:60px 0 40px 0}
+    .period-title{font-size:2rem;font-weight:800;color:var(--primary);margin-bottom:10px;text-align:center}
+    .period-subtitle{color:var(--text-muted);text-align:center;margin-bottom:40px}
+
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));align-items:stretch;gap:40px}
     .card{background:var(--dark-3);border:1px solid var(--border);border-radius:32px;overflow:hidden;transition:all 0.6s cubic-bezier(0.77,0,0.175,1);position:relative;backdrop-filter:blur(15px);display:flex;flex-direction:column;height:100%;transform:translateY(20px);opacity:0}
     .card.visible{transform:translateY(0);opacity:1}
@@ -9091,6 +9098,14 @@ def events_overview_page():
     .btn:hover::before{left:100%}
     .btn:active{transform:translateY(-2px) scale(1.01)}
     .btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+
+    /* Compact view styles */
+    .compact-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+    .compact-card{background:var(--dark-3);border:1px solid var(--border);border-radius:16px;padding:24px;transition:all 0.3s ease;cursor:pointer}
+    .compact-card:hover{transform:translateY(-4px);border-color:rgba(255,215,0,.5);box-shadow:0 12px 24px rgba(0,0,0,.3)}
+    .compact-title{font-size:1.2rem;font-weight:700;margin-bottom:8px;color:var(--text)}
+    .compact-meta{display:flex;gap:16px;flex-wrap:wrap;font-size:0.85rem;color:var(--text-muted)}
+    .compact-meta span{display:flex;align-items:center;gap:6px}
 
     .cal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:40px}
     .cal-item{background:var(--dark-3);border:1px solid var(--border);border-radius:32px;overflow:hidden;transition:all 0.6s cubic-bezier(0.77,0,0.175,1);position:relative}
@@ -9134,9 +9149,11 @@ def events_overview_page():
     @media (max-width:1024px){
       .grid,.cal-grid{grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:32px}
       .quick{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:32px}
+      .compact-grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
     }
     @media (max-width:768px){
       .grid,.cal-grid,.quick{grid-template-columns:1fr;gap:24px}
+      .compact-grid{grid-template-columns:1fr}
       .stats{gap:20px;flex-wrap:wrap}
       .stat{min-width:140px;padding:32px 24px}
       .stat .num{font-size:2.5rem}
@@ -9159,6 +9176,8 @@ def events_overview_page():
       .chip{padding:12px 20px;font-size:0.9rem;gap:10px}
       .trust-strip{padding:20px 0}
       .trust-items{gap:20px}
+      .calendar-controls{flex-direction:column;gap:20px}
+      .filter-buttons{justify-content:center}
     }
     @media (max-width:480px){
       .hero{min-height:90vh}
@@ -9173,6 +9192,7 @@ def events_overview_page():
       .stats{margin-top:60px}
       .stat{padding:24px 20px;min-width:120px}
       .stat .num{font-size:2rem}
+      .compact-card{padding:20px}
     }
 
     @media (prefers-reduced-motion: reduce){
@@ -9210,12 +9230,12 @@ def events_overview_page():
        </div>
      </div>
      <div class="hero-content">
-       <h1 class="title reveal-element">PLAY YOUR WAY</h1>
-       <p class="subtitle reveal-element">Elite tournaments, relaxed game nights, unforgettable birthdays & special events — all in one sleek hub.</p>
+       <h1 class="title reveal-element">DISCOVER EVENTS</h1>
+       <p class="subtitle reveal-element">Browse all upcoming events, compete in elite tournaments, join relaxed game nights & book unforgettable birthday experiences.</p>
        <div class="stats reveal-element" role="group" aria-label="Live counters">
          <div class="stat">
            <div class="num" id="upcomingCount">0</div>
-           <div class="lbl">Public Events</div>
+           <div class="lbl">All Events</div>
          </div>
          <div class="stat">
            <div class="num" id="tournamentCount">0</div>
@@ -9268,15 +9288,75 @@ def events_overview_page():
    <main class="wrap reveal-element">
      <!-- Tabs -->
      <div class="tabs reveal-element" role="tablist" aria-label="Events navigation">
-       <button class="tab" role="tab" aria-selected="true" id="tab-tournaments" aria-controls="panel-tournaments"><span>Tournaments</span></button>
+       <button class="tab" role="tab" aria-selected="true" id="tab-calendar" aria-controls="panel-calendar"><span>All Events</span></button>
+       <button class="tab" role="tab" aria-selected="false" id="tab-tournaments" aria-controls="panel-tournaments"><span>Tournaments</span></button>
        <button class="tab" role="tab" aria-selected="false" id="tab-games" aria-controls="panel-games"><span>Games Nights</span></button>
        <button class="tab" role="tab" aria-selected="false" id="tab-special" aria-controls="panel-special"><span>Special Events</span></button>
        <button class="tab" role="tab" aria-selected="false" id="tab-birthdays" aria-controls="panel-birthdays"><span>Birthday Parties</span></button>
-       <button class="tab" role="tab" aria-selected="false" id="tab-calendar" aria-controls="panel-calendar"><span>Calendar</span></button>
      </div>
 
+     <!-- Calendar (now first and active) -->
+     <section id="panel-calendar" class="panel active" role="tabpanel" aria-labelledby="tab-calendar">
+       <div class="section-head fade-in">
+         <h2 class="section-title">All Events Calendar</h2>
+         <p class="section-sub">Complete overview of tournaments, game nights & special events. Birthday parties are private bookings.</p>
+       </div>
+       
+       <!-- Calendar Controls -->
+       <div class="calendar-controls fade-in">
+         <div class="view-toggle">
+           <button class="toggle-btn active" data-view="detailed">Detailed View</button>
+           <button class="toggle-btn" data-view="compact">Compact View</button>
+         </div>
+         <div class="filter-buttons">
+           <button class="filter-btn active" data-filter="all">All Events</button>
+           <button class="filter-btn" data-filter="tournament">Tournaments</button>
+           <button class="filter-btn" data-filter="games_night">Games Nights</button>
+           <button class="filter-btn" data-filter="special">Special Events</button>
+         </div>
+       </div>
+
+       <!-- This Week Section -->
+       <div id="this-week-section" style="display:none;">
+         <div class="time-period">
+           <div class="period-title">This Week</div>
+           <div class="period-subtitle">Events happening in the next 7 days</div>
+         </div>
+         <div id="this-week-grid" class="cal-grid"></div>
+       </div>
+
+       <!-- Upcoming Section -->
+       <div id="upcoming-section">
+         <div class="time-period">
+           <div class="period-title">Coming Up</div>
+           <div class="period-subtitle">All scheduled events</div>
+         </div>
+         <div id="cal-grid" class="cal-grid">
+           <div class="loading"><div class="spin"></div>Loading calendar…</div>
+         </div>
+       </div>
+
+       <div class="quick">
+         <div class="q-card fade-in" onclick="location.href='/signup'">
+           <div class="q-title">Join Our Community</div>
+           <div class="q-text">Get notified about new tournaments and game nights.</div>
+           <button class="q-btn">Subscribe to Updates</button>
+         </div>
+         <div class="q-card fade-in" onclick="window.open('https://discord.gg/CuwQM7Zwuk','_blank')">
+           <div class="q-title">Tournament Discord</div>
+           <div class="q-text">Connect with players, teams, and admins in real time.</div>
+           <button class="q-btn">Open Discord</button>
+         </div>
+         <div class="q-card fade-in" onclick="location.href='tel:012279915058'">
+           <div class="q-title">Need Help?</div>
+           <div class="q-text">Questions about events or bookings? We're here for you.</div>
+           <button class="q-btn">01227 915058</button>
+         </div>
+       </div>
+     </section>
+
      <!-- Tournaments -->
-     <section id="panel-tournaments" class="panel active" role="tabpanel" aria-labelledby="tab-tournaments">
+     <section id="panel-tournaments" class="panel" role="tabpanel" aria-labelledby="tab-tournaments">
        <div class="section-head fade-in">
          <h2 class="section-title">Tournament Arena</h2>
          <p class="section-sub">Compete in polished, high-stakes brackets. Real prizes. Pro vibes.</p>
@@ -9344,39 +9424,15 @@ def events_overview_page():
          </article>
        </div>
      </section>
-
-     <!-- Calendar -->
-     <section id="panel-calendar" class="panel" role="tabpanel" aria-labelledby="tab-calendar">
-       <div class="section-head fade-in">
-         <h2 class="section-title">Public Event Calendar</h2>
-         <p class="section-sub">Upcoming tournaments, game nights & special events. Birthdays hidden for privacy.</p>
-       </div>
-       <div id="cal-grid" class="cal-grid">
-         <div class="loading"><div class="spin"></div>Loading calendar…</div>
-       </div>
-
-       <div class="quick">
-         <div class="q-card fade-in" onclick="location.href='/signup'">
-           <div class="q-title">Join Our Community</div>
-           <div class="q-text">Get notified about new tournaments and game nights.</div>
-           <button class="q-btn">Subscribe to Updates</button>
-         </div>
-         <div class="q-card fade-in" onclick="window.open('https://discord.gg/CuwQM7Zwuk','_blank')">
-           <div class="q-title">Tournament Discord</div>
-           <div class="q-text">Connect with players, teams, and admins in real time.</div>
-           <button class="q-btn">Open Discord</button>
-         </div>
-         <div class="q-card fade-in" onclick="location.href='tel:012279915058'">
-           <div class="q-title">Need Help?</div>
-           <div class="q-text">Questions about events or bookings? We're here for you.</div>
-           <button class="q-btn">01227 915058</button>
-         </div>
-       </div>
-     </section>
    </main>
  </div>
 
  <script>
+   /* Global variables */
+   let currentView = 'detailed';
+   let currentFilter = 'all';
+   let allEvents = [];
+
    /* ---------------- Perf helpers (minimal) ---------------- */
    const supportsPassive = (()=>{let p=false;try{window.addEventListener('t',null,Object.defineProperty({},'passive',{get(){p=true;}}));}catch(_){}
      return p;})();
@@ -9422,8 +9478,8 @@ def events_overview_page():
        },300);
        /* start polling once visible */
        bootPolling();
-       /* initial load for first tab */
-       loadTournaments();
+       /* initial load for calendar (now first tab) */
+       loadCalendar();
      },2200);
    }
    addEvt('click',()=>{ if(!revealComplete) skipReveal(); });
@@ -9438,7 +9494,7 @@ def events_overview_page():
      document.querySelectorAll('.reveal-element,.stat').forEach(el=>el.classList.add('animate'));
      loadStats();
      bootPolling();
-     loadTournaments();
+     loadCalendar(); // Changed from loadTournaments
    }
 
    /* ---------------- Icons (inline SVG) ---------------- */
@@ -9454,7 +9510,6 @@ def events_overview_page():
      'valorant':'/static/games/valorant.jpg',
      'horror':'/static/games/horror.jpg',
      'cs2':'/static/games/cs2.jpg',
-     'warhammer':'/static/games/warhammer.jpg',
      'counter-strike 2':'/static/games/cs2.jpg',
      'league of legends':'/static/games/lol.jpg',
      'dota 2':'/static/games/dota2.jpg',
@@ -9487,11 +9542,11 @@ def events_overview_page():
    /* ---------------- Enhanced Tabs ---------------- */
    const tabButtons = Array.from(document.querySelectorAll('.tab'));
    const panels = {
+     calendar: document.getElementById('panel-calendar'),
      tournaments: document.getElementById('panel-tournaments'),
      games: document.getElementById('panel-games'),
      special: document.getElementById('panel-special'),
-     birthdays: document.getElementById('panel-birthdays'),
-     calendar: document.getElementById('panel-calendar')
+     birthdays: document.getElementById('panel-birthdays')
    };
    tabButtons.forEach(btn=>{
      btn.addEventListener('click', ()=>activateTab(btn));
@@ -9508,11 +9563,34 @@ def events_overview_page():
      btn.setAttribute('aria-selected','true');
      const id = btn.id.replace('tab-','');
      panels[id].classList.add('active');
+     if(id==='calendar')    loadCalendar();
      if(id==='tournaments') loadTournaments();
-     if(id==='games')      loadGamesNights();
-     if(id==='special')    loadSpecialEvents();
-     if(id==='calendar')   loadCalendar();
+     if(id==='games')       loadGamesNights();
+     if(id==='special')     loadSpecialEvents();
    }
+
+   /* ---------------- Calendar Controls ---------------- */
+   document.addEventListener('DOMContentLoaded', ()=>{
+     // View toggle
+     document.querySelectorAll('.toggle-btn').forEach(btn => {
+       btn.addEventListener('click', () => {
+         document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+         btn.classList.add('active');
+         currentView = btn.dataset.view;
+         renderCalendarEvents();
+       });
+     });
+
+     // Filter buttons
+     document.querySelectorAll('.filter-btn').forEach(btn => {
+       btn.addEventListener('click', () => {
+         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+         btn.classList.add('active');
+         currentFilter = btn.dataset.filter;
+         renderCalendarEvents();
+       });
+     });
+   });
 
    /* ---------------- Stats ---------------- */
    async function loadStats(){
@@ -9554,6 +9632,138 @@ def events_overview_page():
             }
         }, duration / steps);
     }
+
+   /* ---------------- Enhanced Calendar Loader ---------------- */
+   async function loadCalendar(){
+     abortInFlight();
+     const grid = document.getElementById('cal-grid');
+     grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading calendar…</div>';
+     try{
+       const j = await cachedJson('/api/events?upcoming=true');
+       if(j.success && j.events.length){
+         allEvents = j.events.filter(e=>e.event_type!=='birthday').sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
+         renderCalendarEvents();
+       }else{
+         grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.');
+       }
+     }catch(e){
+       grid.innerHTML = networkError('Could not load calendar. Please refresh.');
+     }
+   }
+
+   function renderCalendarEvents(){
+     const now = new Date();
+     const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+     
+     // Filter events
+     let filteredEvents = allEvents;
+     if(currentFilter !== 'all'){
+       filteredEvents = allEvents.filter(e => e.event_type === currentFilter);
+     }
+
+     // Split into this week and upcoming
+     const thisWeek = filteredEvents.filter(e => {
+       const eventDate = new Date(e.date_time);
+       return eventDate >= now && eventDate <= weekFromNow;
+     });
+     const upcoming = filteredEvents.filter(e => {
+       const eventDate = new Date(e.date_time);
+       return eventDate > weekFromNow;
+     });
+
+     // Render this week section
+     const thisWeekSection = document.getElementById('this-week-section');
+     const thisWeekGrid = document.getElementById('this-week-grid');
+     
+     if(thisWeek.length > 0) {
+       thisWeekSection.style.display = 'block';
+       thisWeekGrid.innerHTML = thisWeek.map(ev => renderEventCard(ev)).join('');
+     } else {
+       thisWeekSection.style.display = 'none';
+     }
+
+     // Render upcoming section
+     const calGrid = document.getElementById('cal-grid');
+     if(upcoming.length > 0) {
+       calGrid.innerHTML = upcoming.map(ev => renderEventCard(ev)).join('');
+     } else if(thisWeek.length === 0) {
+       calGrid.innerHTML = emptyState('No upcoming events','Check back soon for new tournaments, game nights & special events.');
+     } else {
+       calGrid.innerHTML = emptyState('No more events','All upcoming events are shown in "This Week" above.');
+     }
+
+     lazyMountBanners();
+   }
+
+   function renderEventCard(ev) {
+     if(currentView === 'compact') {
+       return renderCompactCard(ev);
+     } else {
+       return renderDetailedCard(ev);
+     }
+   }
+
+   function renderCompactCard(ev) {
+     const dt = new Date(ev.date_time);
+     const fee = ev.entry_fee > 0 ? ('£' + ev.entry_fee) : 'FREE';
+     const cap = (ev.capacity || 0) > 0 ? ev.capacity : null;
+     const reg = ev.registration_count || 0;
+     const spots = cap ? Math.max(cap - reg, 0) : null;
+     
+     return `
+       <div class="compact-card" onclick="window.open('/signup/event/${ev.id}', '_blank')">
+         <div class="compact-title">${escapeHTML(ev.title)}</div>
+         <div class="compact-meta">
+           <span>${ICONS.date} ${dt.toLocaleDateString('en-GB')}</span>
+           <span>${ICONS.time} ${dt.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}</span>
+           <span>${ICONS.users} ${reg}${cap ? `/${cap}` : ''}</span>
+           <span>${ICONS.fee} ${fee}</span>
+           ${spots !== null && spots <= 3 && spots > 0 ? `<span style="color:var(--accent)">⚠ ${spots} spots left</span>` : ''}
+           ${spots === 0 ? '<span style="color:var(--accent)">❌ Full</span>' : ''}
+         </div>
+       </div>
+     `;
+   }
+
+   function renderDetailedCard(ev) {
+     const dt = new Date(ev.date_time);
+     const m = dt.toLocaleDateString('en-GB', {month: 'short'});
+     const d = dt.toLocaleDateString('en-GB', {day: '2-digit'});
+     const banner = bannerFor(ev.game_title || ev.title || 'generic');
+     const fee = ev.entry_fee > 0 ? ('£' + ev.entry_fee) : 'FREE';
+     const cap = (ev.capacity || 0) > 0 ? ev.capacity : null;
+     const reg = ev.registration_count || 0;
+     const typ = ev.event_type === 'tournament' ? 'Tournament' : 
+                 (ev.event_type === 'games_night' ? 'Games Night' : 
+                 (ev.event_type === 'special' ? 'Special Event' : 'Event'));
+     const typClass = ev.event_type === 'tournament' ? 'tournament' : 
+                      (ev.event_type === 'games_night' ? 'games_night' : 
+                      (ev.event_type === 'special' ? 'special' : 'tournament'));
+     
+     return `
+       <article class="cal-item">
+         <div class="cal-banner lazy-banner" data-src="${banner}">
+           <div class="cal-date-overlay">
+             <span class="month">${m}</span>
+             <span class="day">${d}</span>
+           </div>
+         </div>
+         <div class="cal-body">
+           <span class="cal-type-pill ${typClass}">${escapeHTML(typ)}</span>
+           <div class="cal-title">${escapeHTML(ev.title)}</div>
+           <div class="cal-subtitle">${escapeHTML(ev.game_title || 'Event')}</div>
+           <div class="cal-meta">
+             <div class="cal-meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
+             <div class="cal-meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}</div>
+             <div class="cal-meta-item">${ICONS.users} ${reg}${cap ? `/${cap}` : ''}</div>
+             <div class="cal-meta-item">${ICONS.fee} ${fee}</div>
+           </div>
+           ${ev.description ? `<div class="cal-description">${escapeHTML(ev.description)}</div>` : ''}
+           <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
+         </div>
+       </article>
+     `;
+   }
 
    /* ---------------- Event Loaders (cached + abort) ---------------- */
    async function loadSpecialEvents(){
@@ -9657,56 +9867,6 @@ def events_overview_page():
       }
     }
 
-    async function loadCalendar(){
-      abortInFlight();
-      const grid = document.getElementById('cal-grid');
-      grid.innerHTML = '<div class="loading"><div class="spin"></div>Loading calendar…</div>';
-      try{
-        const j = await cachedJson('/api/events?upcoming=true');
-        if(j.success && j.events.length){
-          const items = j.events.filter(e=>e.event_type!=='birthday').sort((a,b)=>new Date(a.date_time)-new Date(b.date_time));
-          if(!items.length){ grid.innerHTML = emptyState('No upcoming public events','New events will appear here soon.'); return; }
-          grid.innerHTML = items.map(ev=>{
-            const dt=new Date(ev.date_time);
-            const m=dt.toLocaleDateString('en-GB',{month:'short'}), d=dt.toLocaleDateString('en-GB',{day:'2-digit'});
-            const banner=bannerFor(ev.game_title||ev.title||'generic');
-            const fee = ev.entry_fee>0?('£'+ev.entry_fee):'FREE';
-            const cap = (ev.capacity||0)>0?ev.capacity:null;
-            const reg = ev.registration_count||0;
-            const typ = ev.event_type==='tournament' ? 'Tournament' : (ev.event_type==='games_night' ? 'Games Night' : (ev.event_type==='special' ? 'Special Event' : 'Event'));
-            const typClass = ev.event_type==='tournament' ? 'tournament' : (ev.event_type==='games_night' ? 'games_night' : (ev.event_type==='special' ? 'special' : 'tournament'));
-            return `
-              <article class="cal-item">
-                <div class="cal-banner lazy-banner" data-src="${banner}">
-                  <div class="cal-date-overlay">
-                    <span class="month">${m}</span>
-                    <span class="day">${d}</span>
-                  </div>
-                </div>
-                <div class="cal-body">
-                  <span class="cal-type-pill ${typClass}">${escapeHTML(typ)}</span>
-                  <div class="cal-title">${escapeHTML(ev.title)}</div>
-                  <div class="cal-subtitle">${escapeHTML(ev.game_title || 'Event')}</div>
-                  <div class="cal-meta">
-                    <div class="cal-meta-item">${ICONS.date} ${dt.toLocaleDateString('en-GB')}</div>
-                    <div class="cal-meta-item">${ICONS.time} ${dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
-                    <div class="cal-meta-item">${ICONS.users} ${reg}${cap?`/${cap}`:''}</div>
-                    <div class="cal-meta-item">${ICONS.fee} ${fee}</div>
-                  </div>
-                  ${ev.description ? `<div class="cal-description">${escapeHTML(ev.description)}</div>` : ''}
-                  <a href="/signup/event/${ev.id}" class="cal-btn">View Details</a>
-                </div>
-              </article>`;
-          }).join('');
-          lazyMountBanners();
-        }else{
-          grid.innerHTML = emptyState('No upcoming public events','Check back soon for new tournaments, game nights & special events.');
-        }
-      }catch(e){
-        grid.innerHTML = networkError('Could not load calendar. Please refresh.');
-      }
-    }
-
     /* ---------------- Utility Functions ---------------- */
     function escapeHTML(s){ return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
     function emptyState(title,subtitle){ return `<div class="loading"><h3 style="color:var(--primary);margin-bottom:16px;font-weight:800;font-size:1.5rem">${title}</h3><p style="font-weight:500;font-size:1rem">${subtitle}</p></div>`; }
@@ -9763,10 +9923,10 @@ def events_overview_page():
     function bootPolling(){
       window.__evtPoll = setInterval(()=>{ 
         const active = document.querySelector('.panel.active');
+        if(active && active.id === 'panel-calendar')    loadCalendar();
         if(active && active.id === 'panel-tournaments') loadTournaments();
         if(active && active.id === 'panel-special')     loadSpecialEvents();
         if(active && active.id === 'panel-games')       loadGamesNights();
-        if(active && active.id === 'panel-calendar')    loadCalendar();
       }, 180000);
       window.__statPoll = setInterval(loadStats, 90000);
     }
@@ -9857,7 +10017,6 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
-
 
 
 

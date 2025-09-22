@@ -9510,6 +9510,7 @@ def events_overview_page():
      'valorant':'/static/games/valorant.jpg',
      'horror':'/static/games/horror.jpg',
      'cs2':'/static/games/cs2.jpg',
+     'warhammer':'/static/games/warhammer.jpg',
      'counter-strike 2':'/static/games/cs2.jpg',
      'league of legends':'/static/games/lol.jpg',
      'dota 2':'/static/games/dota2.jpg',

@@ -9479,6 +9479,7 @@ def events_overview_page():
      'valorant':'/static/games/valorant.jpg',
      'horror':'/static/games/horror.jpg',
      'cs2':'/static/games/cs2.jpg',
+     'smash bros':'/static/games/smashbros.jpg',
      'warhammer':'/static/games/warhammer.jpg',
      'counter-strike 2':'/static/games/cs2.jpg',
      'league of legends':'/static/games/lol.jpg',
@@ -9844,6 +9845,7 @@ if __name__ == '__main__':
         log_activity(f"Critical startup error: {str(e)}", "danger")
     finally:
         print("🔄 Server shutdown complete")
+
 
 
 
